@@ -1,30 +1,23 @@
-# Álfastafl 0.1.0-dev2 — Préversion de développement
+# Álfastafl — 0.1.0-dev3 (préversion)
 
-**Prototype technique — ne pas confondre avec une version stable.**
+## Nouveau : mises à jour de l'application Ubuntu
 
-## Changements depuis dev1
-- QR code joueur à gauche et spectateur à droite, liens au centre.
-- Affichage responsive de la zone d'invitation.
-- QR codes stables malgré les actualisations périodiques du plateau.
+- Menu natif **Mises à jour** avec canaux **Stable** et **DEV**.
+- Vérification non bloquante des Releases GitHub au démarrage (désactivable).
+- Téléchargement de la nouvelle version après accord de l'utilisateur.
+- Vérification des empreintes **SHA-256**, des métadonnées du paquet Debian et des versions.
+- Installation après seconde confirmation avec authentification Linux via `pkexec` et APT.
+- Les erreurs réseau ne bloquent pas le jeu ; possibilité de poursuivre hors ligne.
+- Préférences enregistrées dans le répertoire XDG de configuration.
 
-## Fonctionnalités actuellement testables
-- Trois variantes de tafl, règles principales et plateau 11×11.
-- Hôte Ubuntu avec interface intégrée et accès invité depuis un navigateur LAN.
-- Demandes d'accès joueur/spectateur validées par l'hôte.
-- Plusieurs parties, sauvegardes `.alfastafl`, reprise et premières fonctions de tournoi.
+## Maintenu depuis 0.1.0-dev2
 
-## Limitations connues
-Le jeu n'intègre pas encore la véritable 3D, les cinématiques de combat,
-les minuteries, la régie, la découverte mDNS, ni la gestion automatisée d'UFW.
-Les règles complexes des variantes doivent encore être auditées. HTTP local
-non chiffré : **ne pas exposer le serveur sur Internet**. Les invitations
-sont destinées uniquement à un réseau local de confiance.
+- QR joueur à gauche et QR spectateur à droite, sans rafraîchissement des images QR.
+- Plateau 11×11 de démonstration, trois variantes en cours de vérification, serveur LAN et invitations.
+- Sauvegardes automatiques `.alfastafl` et premiers outils de tournoi.
 
-## Installation Ubuntu
-Télécharger `alfastafl_0.1.0_dev2_all.deb`, puis :
+## Limites
 
-```sh
-sudo apt install ./alfastafl_0.1.0_dev2_all.deb
-```
+Il s'agit toujours d'une **version de développement**, sans véritable rendu 3D, cinématiques de combat, régie complète, minuterie ni gestion UFW automatique. Le contrôle des mises à jour concerne **l'application Ubuntu** ; les navigateurs invités reçoivent déjà les pages du serveur et n'installent aucun paquet.
 
-Code source et licence : GNU GPL-3.0, fichiers disponibles dans cette publication.
+La mise à jour de la version dev2 vers dev3 nécessite une installation manuelle **une seule fois**, puisque dev2 ne contient pas de vérificateur de mises à jour.
