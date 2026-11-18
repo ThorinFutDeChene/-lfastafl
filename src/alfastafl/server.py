@@ -3,6 +3,7 @@ import json, threading, secrets, os, tempfile, pathlib, time, socket, io
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
+from .timecontrol import normalize_settings, new_clock, charge, switch_turn
 
 PORT=8766
 
@@ -11,7 +12,11 @@ def data_directory():
     return pathlib.Path(base)/'alfastafl'/'parties'
 
 class Store:
-    def __init__(self, root=None):
+    def __init__(self, root=None, clock_source=None, wall_clock=None):
+        self.monotonic = clock_source or time.monotonic
+        self.wall_clock = wall_clock or time.time
+        self._anchors = {}
+        self._checkpoints = {}
         self.path=pathlib.Path(root) if root is not None else data_directory()
         self.path.mkdir(parents=True,exist_ok=True)
         self.lock=threading.RLock()
@@ -25,7 +30,21 @@ class Store:
             try:
                 d=json.loads(f.read_text('utf-8'))
                 g=Game.from_dict(d)
-                if g.status=='active':g.status='paused';g.reason='host_restarted'
+                g.settings=normalize_settings(g.settings)
+                if g.clock is None:
+                    g.clock=new_clock(g.settings)
+                if g.status=='active':
+                    g.status='paused'
+                    g.reason='host_restarted'
+                    g.clock['started']=False
+                elif g.status=='paused' and g.reason in ('repetition_review','draw_proposal'):
+                    g.suspended_context={'reason':g.reason}
+                    g.reason='host_restarted'
+                    g.clock['started']=False
+                if g.reason in ('disconnected', 'awaiting_substitute'):
+                    g.reason='host_restarted'
+                    g.clock['started']=False
+                g.disconnect=None
                 self.games[g.id]=g
             except (ValueError,TypeError,KeyError):continue
     def save(self,g):
@@ -36,22 +55,222 @@ class Store:
             with os.fdopen(fd,'w',encoding='utf-8') as f:
                 f.write(payload);f.flush();os.fsync(f.fileno())
             os.replace(tmp,self.path/(g.id+'.alfastafl'))
+            # Make the directory entry durable as well as the serialized content.
+            try:
+                directory_fd=os.open(self.path,os.O_DIRECTORY|os.O_RDONLY)
+                try:os.fsync(directory_fd)
+                finally:os.close(directory_fd)
+            except (OSError,AttributeError):pass
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
     def create(self,mode='fetlar',settings=None):
-        g=Game(mode=mode,settings=settings or {})
+        config=normalize_settings(settings)
+        g=Game(mode=mode,settings=config,clock=new_clock(config))
         with self.lock:
             self.games[g.id]=g;self.save(g)
             self.invites[g.id]={'player':secrets.token_urlsafe(24),'spectator':secrets.token_urlsafe(24)}
         return g
+    def _seats(self, gid):
+        return {s['camp']:s for s in self.sessions.values()
+                if s['game']==gid and s['role']=='player' and s['active']}
+
+    def _ready(self, gid, now):
+        seats=self._seats(gid)
+        grace=self.games[gid].settings['disconnect_grace_seconds']
+        return all(camp in seats and seats[camp].get('seen') and
+                   now-seats[camp]['last_seen'] <= grace and
+                   seats[camp].get('connected',True)
+                   for camp in ('elf','dwarf'))
+
+    def _start_if_ready(self, g, now):
+        if g.status=='active' and not g.clock['started'] and self._ready(g.id,now):
+            g.clock['started']=True
+            self._anchors[g.id]=now
+            self._checkpoints[g.id]=now
+            self.save(g)
+
+    def _advance(self,g, now):
+        if g.status!='active' or not g.clock['started']:
+            self._anchors.pop(g.id,None)
+            return
+        last=self._anchors.get(g.id)
+        self._anchors[g.id]=now
+        if last is None:
+            return
+        if charge(g.clock,g.turn,max(0.0,now-last)):
+            loser=g.turn
+            g.status,g.winner,g.reason='finished',other(loser),'time_expired'
+            g.draw_offer=None
+            g.events.append({'type':'time_expired','loser':loser,'winner':g.winner,
+                             'at':self.wall_clock()})
+            self._anchors.pop(g.id,None)
+            self.save(g)
+        elif now-self._checkpoints.get(g.id,now)>=5.0:
+            # Bounded data loss on an unexpected host crash.
+            self.save(g)
+            self._checkpoints[g.id]=now
+
+    def _tick_locked(self, now=None):
+        now=self.monotonic() if now is None else now
+        for g in list(self.games.values()):
+            if g.status=='active':
+                if not g.clock['started']:
+                    self._start_if_ready(g,now)
+                if not g.clock['started']:
+                    continue
+                seats=self._seats(g.id)
+                grace=g.settings['disconnect_grace_seconds']
+                missing=[camp for camp in ('elf','dwarf')
+                         if camp not in seats or not seats[camp].get('seen') or
+                         now-seats[camp]['last_seen'] > grace]
+                if missing:
+                    cutoffs=[seats[c]['last_seen']+grace for c in missing
+                             if c in seats and seats[c].get('seen')]
+                    cutoff=min(cutoffs) if cutoffs else now
+                    # A delayed watchdog cannot consume time *after* the grace deadline.
+                    self._advance(g,min(now,cutoff))
+                    if g.status=='active':
+                        for camp in missing:
+                            if camp in seats:seats[camp]['connected']=False
+                        g.status,g.reason='paused','disconnected'
+                        g.events.append({'type':'disconnected','missing':list(missing),
+                                         'at':self.wall_clock()})
+                        g.disconnect={'missing':missing,'since':self.wall_clock(),
+                                      'deadline':self.wall_clock()+g.settings['reconnect_timeout_seconds'],
+                                      'action_required':False}
+                        self._anchors.pop(g.id,None)
+                        self.save(g)
+                else:
+                    self._advance(g,now)
+            elif g.status=='paused' and g.reason=='disconnected' and g.disconnect:
+                if (not g.disconnect.get('action_required') and
+                    self.wall_clock()>=g.disconnect['deadline']):
+                    g.disconnect['action_required']=True
+                    self.save(g)
+
+    def tick(self):
+        with self.lock:
+            self._tick_locked()
+
+    def touch(self,gid,sid):
+        """Heartbeat from an authenticated player; spectator polling never blocks a game."""
+        with self.lock:
+            now=self.monotonic()
+            self._tick_locked(now)
+            s=self.sessions.get(sid)
+            if not s or s['game']!=gid or not s['active']:
+                return None
+            if s['role']=='player':
+                s['seen']=True
+                s['last_seen']=now
+                s['connected']=True
+                g=self.games[gid]
+                if (g.status=='paused' and g.reason in ('disconnected','awaiting_substitute')
+                    and g.disconnect and not g.disconnect.get('action_required')
+                    and self._ready(gid,now)):
+                    g.status,g.reason='active',None
+                    g.events.append({'type':'reconnected','at':self.wall_clock()})
+                    g.disconnect=None
+                    g.clock['started']=True
+                    self._anchors[gid]=now
+                    self._checkpoints[gid]=now
+                    self.save(g)
+                else:
+                    self._start_if_ready(g,now)
+            return s
+
+    def pause(self,gid):
+        """Host saves and leaves. Old authorizations and invite URLs are revoked."""
+        with self.lock:
+            self._tick_locked()
+            g=self.games[gid]
+            if g.status=='finished':raise ValueError('Finished game cannot be suspended')
+            if g.status=='paused' and g.reason=='saved_by_host':return g
+            g.suspended_context=({'reason':g.reason} if g.status=='paused'
+                                  and g.reason in ('repetition_review','draw_proposal')
+                                  else None)
+            g.status,g.reason='paused','saved_by_host'
+            g.disconnect=None
+            g.clock['started']=False
+            self._anchors.pop(gid,None)
+            for session in self.sessions.values():
+                if session['game']==gid:session['active']=False
+            for pending in self.pending.values():
+                if pending['game']==gid and pending['status']=='waiting':
+                    pending['status']='rejected'
+            self.invites.pop(gid,None)
+            self.save(g)
+            return g
+
     def resume(self,gid):
+        """Host explicitly restores an unfinished game, with fresh QR invitations."""
         with self.lock:
             g=self.games[gid]
-            if g.status=='finished' or g.reason in ('repetition_review', 'draw_proposal'):
+            if g.status!='paused' or g.reason in ('repetition_review','draw_proposal',
+                                                  'disconnected','awaiting_substitute'):
                 raise ValueError('Game cannot be resumed without adjudication')
-            g.status='active';g.reason=None;self.save(g)
-            self.invites.setdefault(gid,{'player':secrets.token_urlsafe(24),'spectator':secrets.token_urlsafe(24)})
+            if g.reason=='disconnected' and g.disconnect and not g.disconnect.get('action_required'):
+                raise ValueError('Wait for the players to reconnect')
+            g.status='paused' if g.suspended_context else 'active'
+            g.reason=g.suspended_context['reason'] if g.suspended_context else None
+            g.suspended_context=None
+            g.disconnect=None
+            g.clock['started']=False
+            self._anchors.pop(gid,None)
+            for session in self.sessions.values():
+                if session['game']==gid:session['active']=False
+            for pending in self.pending.values():
+                if pending['game']==gid and pending['status']=='waiting':
+                    pending['status']='rejected'
+            self.invites[gid]={'player':secrets.token_urlsafe(24),
+                               'spectator':secrets.token_urlsafe(24)}
+            self.save(g)
             return g
+
+    def disconnect_decision(self,gid,action,camp=None):
+        """After the reconnect deadline, only the host can decide a player's fate."""
+        with self.lock:
+            self._tick_locked()
+            g=self.games[gid]
+            if action=='save':return self.pause(gid).as_dict()
+            if (g.status!='paused' or g.reason!='disconnected' or
+                not g.disconnect or not g.disconnect.get('action_required')):
+                raise ValueError('No expired disconnection requiring arbitration')
+            missing=g.disconnect['missing']
+            if action=='forfeit':
+                if camp is None and len(missing)==1:camp=missing[0]
+                if camp not in missing:raise ValueError('Choose a disconnected player')
+                g.status,g.winner,g.reason='finished',other(camp),'disconnect_forfeit'
+                g.events.append({'type':'disconnect_forfeit','loser':camp,
+                                 'winner':g.winner,'at':self.wall_clock()})
+                g.disconnect=None
+            elif action=='substitute':
+                g.status,g.reason='paused','awaiting_substitute'
+                g.disconnect['action_required']=False
+                g.disconnect['replacement_camps']=list(missing)
+                for old in self.sessions.values():
+                    if old['game']==gid and old['role']=='player' and old['camp'] in missing:
+                        old['active']=False
+                # Substitute requests still require explicit host approval.
+            else:
+                raise ValueError('Unknown host decision')
+            self.save(g)
+            return g.as_dict()
+
+    def shutdown(self):
+        """Persist the current clocks; host closure cannot silently burn time."""
+        with self.lock:
+            self._tick_locked()
+            for g in self.games.values():
+                if g.status=='active' or (g.status=='paused' and
+                     g.reason in ('repetition_review','draw_proposal')):
+                    if g.status=='paused':
+                        g.suspended_context={'reason':g.reason}
+                    g.status,g.reason='paused','host_closed'
+                    g.clock['started']=False
+                    self._anchors.pop(g.id,None)
+                    self.save(g)
+
     def request(self,gid,token,name):
         with self.lock:
             invites=self.invites.get(gid,{})
@@ -68,11 +287,22 @@ class Store:
             gid=req['game']
             if req['role']=='player':
                 if team_name not in ('elf','dwarf'):raise ValueError('Select a camp')
-                used={s['camp'] for s in self.sessions.values() if s['game']==gid and s['role']=='player' and s['active']}
-                if team_name in used:raise ValueError('Camp already occupied')
+                existing=[s for s in self.sessions.values() if s['game']==gid and
+                          s['role']=='player' and s['camp']==team_name and s['active']]
+                g=self.games[gid]
+                replacements=(g.disconnect or {}).get('replacement_camps',[])
+                if existing and not (g.reason=='awaiting_substitute' and team_name in replacements):
+                    raise ValueError('Camp already occupied')
+                if g.reason=='awaiting_substitute' and team_name in replacements:
+                    for s in existing:s['active']=False
+                    g.disconnect['replacement_camps'].remove(team_name)
+                g.players[team_name]=req['name']
+                self.save(g)
             else:team_name=None
             sid=secrets.token_urlsafe(30)
-            self.sessions[sid]={'game':gid,'role':req['role'],'camp':team_name,'name':req['name'],'active':True}
+            self.sessions[sid]={'game':gid,'role':req['role'],'camp':team_name,'name':req['name'],
+                                'active':True,'seen':False,'connected':True,
+                                'last_seen':self.monotonic()}
             req.update(status='approved',session=sid)
             return sid
     def player(self, gid, sid):
@@ -84,12 +314,16 @@ class Store:
     def legal_for(self, gid, sid, square):
         with self.lock:
             side = self.player(gid, sid)
+            self._tick_locked()
             game = self.games[gid]
+            if game.clock['mode']!='unlimited' and not game.clock['started']:
+                return []
             return game.legal(square) if game.turn == side else []
 
     def offer_draw(self, gid, sid):
         with self.lock:
             side = self.player(gid, sid)
+            self._tick_locked()
             game = self.games[gid]
             if game.status != 'active':
                 raise ValueError('No active game')
@@ -100,6 +334,7 @@ class Store:
     def respond_draw(self, gid, sid, accept):
         with self.lock:
             side = self.player(gid, sid)
+            self._tick_locked()
             game = self.games[gid]
             if game.status != 'active' or game.draw_offer != other(side):
                 raise ValueError('No opposing draw offer')
@@ -114,6 +349,7 @@ class Store:
     def resign(self, gid, sid):
         with self.lock:
             side = self.player(gid, sid)
+            self._tick_locked()
             game = self.games[gid]
             if game.status != 'active':
                 raise ValueError('No active game')
@@ -125,6 +361,7 @@ class Store:
     def repetition_vote(self, gid, sid, outcome):
         with self.lock:
             side = self.player(gid, sid)
+            self._tick_locked()
             game = self.games[gid]
             if game.status != 'paused' or game.reason not in ('repetition_review', 'draw_proposal'):
                 raise ValueError('No review in progress')
@@ -136,6 +373,11 @@ class Store:
             if outcome == 'disagree':
                 game.undo_repetition()
                 self.repetition_votes.pop(gid, None)
+                if game.status=='active':
+                    switch_turn(game.clock)
+                    self._start_if_ready(game,self.monotonic())
+                    if game.clock['started']:
+                        self._anchors[gid]=self.monotonic()
                 self.save(game)
                 return {'result': 'undo', 'votes': {}}
             if len(votes) == 2:
@@ -148,6 +390,11 @@ class Store:
                     return {'result': 'agreed', 'votes': {}}
                 game.undo_repetition()
                 self.repetition_votes.pop(gid, None)
+                if game.status=='active':
+                    switch_turn(game.clock)
+                    self._start_if_ready(game,self.monotonic())
+                    if game.clock['started']:
+                        self._anchors[gid]=self.monotonic()
                 self.save(game)
                 return {'result': 'undo', 'votes': {}}
             return {'result': 'waiting', 'votes': dict(votes)}
@@ -155,12 +402,24 @@ class Store:
     def move(self,gid,sid,start,end):
         with self.lock:
             camp=self.player(gid,sid)
+            self._tick_locked()
             g=self.games[gid]
             if camp!=g.turn:raise PermissionError('Not your turn')
-            event=g.move(start,end);self.save(g);return event
+            if g.clock['mode']!='unlimited' and not g.clock['started']:
+                raise ValueError('Waiting for both players before starting the clock')
+            event=g.move(start,end)
+            switch_turn(g.clock)
+            event['clock']={'remaining':dict(g.clock['remaining']),
+                            'turn_remaining':g.clock['turn_remaining']}
+            if g.status=='active':
+                self._anchors[gid]=self.monotonic()
+            else:
+                self._anchors.pop(gid,None)
+            self.save(g)
+            return event
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version='AlfastaflDEV/0.1'
+    server_version='AlfastaflDEV/0.3'
     def send(self,body,status=200):
         raw=json.dumps(body,ensure_ascii=False).encode('utf-8')
         self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
@@ -200,7 +459,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'address':self.server.lan_address,'port':self.server.server_address[1]})
                 if u.path=='/api/games':
-                    return self.send({'games':[{'id':g.id,'mode':g.mode,'turn':g.turn,'status':g.status,'moves':len(g.history)} for g in st.games.values()] if self.admin() else []})
+                    st._tick_locked()
+                    return self.send({'games':[{'id':g.id,'mode':g.mode,'turn':g.turn,
+                           'status':g.status,'reason':g.reason,'moves':len(g.history),
+                           'players':g.players,'clock':g.clock} for g in st.games.values()]
+                           if self.admin() else []})
                 if u.path=='/api/pending':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'pending':[dict(id=k,**v) for k,v in st.pending.items() if v['status']=='waiting']})
@@ -210,10 +473,12 @@ class AppHandler(BaseHTTPRequestHandler):
                     gid=q.get('game',[''])[0];g=st.games.get(gid)
                     if not g:return self.send({'error':'Unknown game'},404)
                     sid=q.get('session',[''])[0]
-                    auth=st.sessions.get(sid)
+                    auth=st.touch(gid,sid)
+                    g=st.games[gid]
                     if not self.admin() and (not auth or auth['game']!=gid or not auth['active']):return self.send({'error':'Unauthorized'},403)
                     return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None,
-                                      'review_votes':st.repetition_votes.get(gid,{})})
+                                      'review_votes':st.repetition_votes.get(gid,{}),
+                                      'server_now':st.wall_clock()})
                 if u.path=='/api/legal':
                     gid=q.get('game',[''])[0];sid=q.get('session',[''])[0]
                     try:
@@ -230,7 +495,7 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             d=self.read_json();st=self.server.store;u=urlparse(self.path)
-            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
+            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/create':
                 g=st.create(d.get('mode','fetlar'),d.get('settings'))
                 return self.send({'game':g.id,'invites':st.invites[g.id]})
@@ -245,10 +510,9 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path=='/api/resign':return self.send({'game':st.resign(d['game'],d['session'])})
             if u.path=='/api/repetition/vote':return self.send(st.repetition_vote(d['game'],d['session'],d['outcome']))
             if u.path=='/api/resume':return self.send({'game':st.resume(d['game']).id})
-            if u.path=='/api/pause':
-                with st.lock:
-                    g=st.games[d['game']];g.status='paused';g.reason='saved_by_host';st.save(g)
-                return self.send({'ok':True})
+            if u.path=='/api/pause':return self.send({'game':st.pause(d['game']).as_dict()})
+            if u.path=='/api/disconnect/decide':
+                return self.send({'game':st.disconnect_decision(d['game'],d['action'],d.get('camp'))})
             if u.path=='/api/tournament/create':
                 from .tournament import Tournament
                 t=Tournament(d['name'],d['format'],d['players'],int(d.get('rounds',3)))
@@ -268,8 +532,14 @@ class AppHandler(BaseHTTPRequestHandler):
         except (KeyError,ValueError,PermissionError,IndexError,TypeError) as e:return self.send({'error':str(e)},403 if isinstance(e,PermissionError) else 400)
     def log_message(self,*args):pass
 
+class GameServer(ThreadingHTTPServer):
+    def service_actions(self):
+        super().service_actions()
+        self.store.tick()
+
+
 def run(host='127.0.0.1',port=PORT,store=None):
-    httpd=ThreadingHTTPServer((host,port),AppHandler)
+    httpd=GameServer((host,port),AppHandler)
     httpd.store=store or Store()
     httpd.lan_address='127.0.0.1'
     try:
@@ -285,5 +555,5 @@ def main():
     print(f'Álfastafl DEV: http://127.0.0.1:{srv.server_address[1]}',flush=True)
     try:srv.serve_forever()
     except KeyboardInterrupt:pass
-    finally:srv.server_close()
+    finally:srv.store.shutdown();srv.server_close()
 if __name__=='__main__':main()

@@ -9,7 +9,7 @@
 <body>
 <main>
   <header>
-    <h1>ᚨ Álfastafl <small>DEV 0.2</small></h1>
+    <h1>ᚨ Álfastafl <small>DEV 0.3</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -21,7 +21,26 @@
         <option value="copenhagen">Compétition · Copenhague</option>
       </select>
     </label>
+    <div class="game-setup">
+      <label>Chronomètre
+        <select id="time-mode">
+          <option value="unlimited">Sans limite de temps</option>
+          <option value="move">Temps par déplacement</option>
+          <option value="total">Temps total par joueur</option>
+        </select>
+      </label>
+      <label id="time-limit-label" hidden>Durée (secondes)
+        <input id="time-seconds" type="number" min="1" max="86400" step="1" value="60">
+      </label>
+      <label>Reconnexion (minutes)
+        <input id="reconnect-minutes" type="number" min="1" max="60" step="1" value="5">
+      </label>
+    </div>
     <button id="create" type="button">Créer une partie</button>
+    <div class="saved-games">
+      <h3>Parties hébergées et sauvegardées</h3>
+      <div id="game-list">Aucune partie à afficher.</div>
+    </div>
     <div id="invitations" class="invitations" hidden>
       <figure class="invite-qr invite-qr-player">
         <figcaption>QR JOUEUR</figcaption>
@@ -55,6 +74,26 @@
   </section>
   <section id="game">
     <div class="row"><h2>Plateau</h2><span id="state">Aucune partie sélectionnée</span></div>
+    <div id="clocks" class="clock-panel" aria-live="off">
+      <div class="clock-box"><span>Elfes</span><strong id="clock-elf">—</strong></div>
+      <div class="clock-mode-box"><span id="clock-mode-label">Sans chronomètre</span>
+      <small id="clock-status">En attente</small></div>
+      <div class="clock-box"><span>Nains</span><strong id="clock-dwarf">—</strong></div>
+    </div>
+    <div id="connection-state" class="game-alert" hidden></div>
+    <div id="host-game-controls" class="game-alert" hidden>
+      <strong>Gestion de la partie (hôte uniquement)</strong>
+      <p id="host-game-info"></p>
+      <button id="save-leave" type="button">Sauvegarder et quitter cette partie</button>
+      <button id="resume-game" type="button" hidden>Reprendre la partie sauvegardée</button>
+      <div id="disconnect-actions" hidden>
+        <p>Délai de reconnexion expiré. L'hôte doit décider de la suite.</p>
+        <label>Joueur concerné<select id="forfeit-camp"></select></label>
+        <button id="forfeit" type="button">Déclarer forfait</button>
+        <button id="substitute" type="button">Autoriser un remplaçant</button>
+        <button id="save-disconnected" type="button">Sauvegarder pour plus tard</button>
+      </div>
+    </div>
     <div id="board" aria-label="Plateau 11 par 11"></div>
     <p id="msg" role="status"></p>
     <div id="player-controls" hidden>

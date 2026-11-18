@@ -54,7 +54,7 @@ def main():
 
     lan.toggled.connect(toggle)
     win.updates = UpdateController(win, bar)
-    app.aboutToQuit.connect(lambda: (server[0].shutdown(), server[0].server_close()))
+    app.aboutToQuit.connect(lambda: (store.shutdown(), server[0].shutdown(), server[0].server_close()))
     show_main_window(win)
     sys.exit(app.exec())
 

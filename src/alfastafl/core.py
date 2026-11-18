@@ -88,6 +88,11 @@ class Game:
     settings: dict = field(default_factory=dict)
     forbidden: Optional[dict] = None
     draw_offer: Optional[str] = None
+    clock: Optional[dict] = None
+    disconnect: Optional[dict] = None
+    players: dict = field(default_factory=dict)
+    events: list = field(default_factory=list)
+    suspended_context: Optional[dict] = None
 
     def __post_init__(self):
         if self.mode not in MODES:
@@ -391,14 +396,17 @@ class Game:
         self.status, self.reason = 'finished', 'repetition_agreed'
 
     def as_dict(self):
-        return {'version': 2, 'id': self.id, 'mode': self.mode, 'board': self.board,
+        return {'version': 3, 'id': self.id, 'mode': self.mode, 'board': self.board,
                 'turn': self.turn, 'history': self.history, 'status': self.status,
                 'winner': self.winner, 'reason': self.reason, 'positions': self.positions,
                 'settings': self.settings, 'forbidden': self.forbidden,
-                'draw_offer': self.draw_offer}
+                'draw_offer': self.draw_offer, 'clock': self.clock,
+                'disconnect': self.disconnect, 'players': self.players, 'events': self.events,
+                'suspended_context': self.suspended_context}
 
     @classmethod
     def from_dict(cls, data):
         return cls(**{key: data[key] for key in ('id', 'mode', 'board', 'turn', 'history',
                     'status', 'winner', 'reason', 'positions', 'settings', 'forbidden',
-                    'draw_offer') if key in data})
+                    'draw_offer', 'clock', 'disconnect', 'players', 'events',
+                    'suspended_context') if key in data})

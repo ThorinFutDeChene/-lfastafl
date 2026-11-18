@@ -26,3 +26,25 @@
 .game-alert[hidden],#player-controls[hidden],#repetition-options[hidden]{display:none}
 .game-alert button,#player-controls button{margin:4px}
 .square:focus-visible{outline:3px solid #fff;z-index:2}
+
+/* Time controls and host continuity operations (DEV 0.3). */
+.game-setup{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.game-setup label{flex-wrap:wrap}
+.game-setup input{width:100px}
+.game-setup [hidden],#time-limit-label[hidden],#disconnect-actions[hidden],
+#host-game-controls[hidden],#connection-state[hidden],#resume-game[hidden]{display:none!important}
+.saved-games{border-top:1px solid #4e6254;margin-top:20px;padding-top:8px}
+.saved-games h3{margin:8px 0}
+#game-list{display:flex;gap:8px;flex-wrap:wrap}
+#game-list button{font-size:.88rem;padding:8px 10px;text-align:left}
+#game-list .active-game{outline:2px solid #efdb8e}
+.clock-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,1fr) minmax(0,1fr);gap:12px;align-items:center;margin:14px auto;max-width:770px;text-align:center}
+.clock-box{border:1px solid #756a4b;background:#16251e;padding:12px;border-radius:10px}
+.clock-box span,.clock-mode-box span{display:block;font-size:.9rem;color:#dfc68f}
+.clock-box strong{font-variant-numeric:tabular-nums;font-size:clamp(1.25rem,3.4vw,2.2rem);letter-spacing:.04em}
+.clock-box.current{border:2px solid #ffdc7a;box-shadow:0 0 12px #e2bd6460}
+.clock-box.critical{color:#fca9a1}
+.clock-mode-box small{display:block;margin-top:8px;color:#bcbfb2}
+#disconnect-actions{padding-top:10px;border-top:1px solid #756a4b}
+#connection-state{max-width:770px;margin:12px auto}
+@media(max-width:500px){.clock-panel{gap:6px;grid-template-columns:minmax(0,1fr) minmax(96px,.7fr) minmax(0,1fr)}.clock-box{padding:8px 3px}.clock-mode-box{font-size:.75rem}.clock-box span{font-size:.8rem}}

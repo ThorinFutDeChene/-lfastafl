@@ -3,8 +3,13 @@ const $=id=>document.getElementById(id);
 const q=new URLSearchParams(location.search);
 const isHost=['127.0.0.1','localhost','::1'].includes(location.hostname);
 let gameId=q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
-let session=q.get('session')||sessionStorage.getItem('alfastafl.session')||'';
+// Retain an approved device session across browser restarts for reconnection.
+function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+id)||'';}catch(_){return '';}}
+function rememberDevice(id,token){try{localStorage.setItem('alfastafl.device.'+id,token);}catch(_){} }
+function clearDevice(id){try{localStorage.removeItem('alfastafl.device.'+id);}catch(_){} }
+let session=q.get('session')||deviceSession(gameId)||sessionStorage.getItem('alfastafl.session')||'';
 let selected=null,legalDestinations=[],game=null,requestId='',you=null,reviewVotes={};
+let clockReceivedAt=0,serverTimeReceivedAt=0;let gameListUpdatedAt=0;
 if(!isHost)$('host').hidden=true;
 async function api(path,data){
  const opts=data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{};
@@ -14,8 +19,94 @@ async function api(path,data){
  return result;
 }
 function say(s){$('msg').textContent=s;}
+function fmtTime(value){
+ if(value===null||value===undefined)return '∞';
+ const n=Math.max(0,Math.ceil(value));
+ return `${Math.floor(n/3600)?String(Math.floor(n/3600))+':':''}${String(Math.floor(n/60)%60).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
+}
+function renderClocks(){
+ if(!game||!game.clock)return;
+ const c=game.clock;
+ const decrease=(game.status==='active'&&c.started)?Math.max(0,(performance.now()-clockReceivedAt)/1000):0;
+ const active=game.turn;
+ for(const camp of ['elf','dwarf']){
+  let remaining=null;
+  if(c.mode==='total')remaining=Math.max(0,c.remaining[camp]-(active===camp?decrease:0));
+  if(c.mode==='move')remaining=active===camp?Math.max(0,c.turn_remaining-decrease):c.seconds;
+  const box=$('clock-'+camp);box.textContent=fmtTime(remaining);
+  box.parentElement.classList.toggle('current',camp===active&&c.started&&game.status==='active');
+  box.parentElement.classList.toggle('critical',remaining!==null&&remaining<=10);
+ }
+ $('clock-mode-label').textContent=c.mode==='unlimited'?'Sans chronomètre':
+  c.mode==='move'?`Par coup : ${fmtTime(c.seconds)}`:`Total : ${fmtTime(c.seconds)} par joueur`;
+ $('clock-status').textContent=game.status==='finished'?'Partie terminée':
+  game.status==='paused'?'Horloges suspendues':
+  !c.started?'En attente des deux joueurs':'Horloge active';
+}
+function showTimeOption(){
+ const mode=$('time-mode').value;
+ $('time-limit-label').hidden=mode==='unlimited';
+ $('time-seconds').value=mode==='total'?'600':'60';
+}
+$('time-mode').onchange=showTimeOption;
+showTimeOption();
+async function listGames(force=false){
+ if(!isHost||(!force&&Date.now()-gameListUpdatedAt<5000))return;
+ try{
+  const data=await api('games');gameListUpdatedAt=Date.now();
+  $('game-list').replaceChildren();
+  if(!data.games.length){$('game-list').textContent='Aucune partie enregistrée.';return;}
+  for(const g of data.games){
+   const button=document.createElement('button');button.type='button';
+   button.classList.toggle('active-game',g.id===gameId);
+   button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
+   button.title='Sélectionner cette partie';
+   button.onclick=async()=>{
+    gameId=g.id;session='';selected=null;legalDestinations=[];
+    sessionStorage.setItem('alfastafl.game',gameId);
+    await load();await listGames(true);
+   };
+   $('game-list').append(button);
+  }
+ }catch(error){say(error.message);}
+}
+function renderHostControls(){
+ const controls=$('host-game-controls');controls.hidden=!(isHost&&game);
+ if(controls.hidden)return;
+ const review=['repetition_review','draw_proposal'].includes(game.reason);
+ $('host-game-info').textContent=`Partie ${game.id.slice(0,8)} • ${game.status} • ${game.reason||'aucun incident'}`;
+ $('save-leave').hidden=game.status==='finished'||game.reason==='saved_by_host';
+ $('resume-game').hidden=game.status!=='paused'||review||game.reason==='disconnected'||game.reason==='awaiting_substitute';
+ const incident=game.status==='paused'&&game.reason==='disconnected'&&game.disconnect&&game.disconnect.action_required;
+ $('disconnect-actions').hidden=!incident;
+ if(incident){
+  const select=$('forfeit-camp');const previous=select.value;select.replaceChildren();
+  for(const camp of game.disconnect.missing){
+   const opt=document.createElement('option');opt.value=camp;
+   opt.textContent=camp==='elf'?'Elfes':'Nains';select.append(opt);
+  }
+  if([...select.options].some(o=>o.value===previous))select.value=previous;
+ }
+}
+function renderConnection(){
+ const bar=$('connection-state');
+ const info=game?.disconnect;
+ bar.hidden=!info;
+ if(!info)return;
+ const camps=info.missing.map(c=>c==='elf'?'Elfes':'Nains').join(', ');
+ if(game.reason==='awaiting_substitute'){
+  bar.textContent=`En attente d'un remplaçant autorisé pour : ${camps}. Les horloges restent arrêtées.`;
+ }else{
+  const serverNow=serverTimeReceivedAt+(performance.now()-clockReceivedAt)/1000;
+  const remaining=Math.max(0,Math.ceil(info.deadline-serverNow));
+  bar.textContent=`Connexion perdue : ${camps}. Horloges suspendues. `+
+   (info.action_required?'Délai expiré : décision de l’hôte requise.':`Délai restant : ${fmtTime(remaining)}.`);
+ }
+}
+
 function available(r,c){return legalDestinations.some(m=>m[0]===r&&m[1]===c);}
-function myTurn(){return Boolean(game&&you&&you.role==='player'&&you.camp===game.turn&&game.status==='active');}
+function myTurn(){return Boolean(game&&you&&you.role==='player'&&you.camp===game.turn&&game.status==='active'&&
+ (game.clock?.mode==='unlimited'||game.clock?.started));}
 function render(){
  if(!game)return;
  $('state').textContent=game.mode+' · '+game.status+' · tour '+game.turn+
@@ -35,6 +126,7 @@ function render(){
   square.setAttribute('aria-label',`Case ${String.fromCharCode(65+c)}${11-r} ${piece}`);
   square.onclick=()=>clickSquare(r,c);board.append(square);
  }
+ renderClocks();renderConnection();renderHostControls();
  $('moves').replaceChildren();
  for(const move of game.history){
   const item=document.createElement('li');
@@ -61,6 +153,7 @@ async function load(){
  try{
   const state=await api('state?game='+encodeURIComponent(gameId)+'&session='+encodeURIComponent(session));
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};
+  clockReceivedAt=performance.now();serverTimeReceivedAt=state.server_now||Date.now()/1000;
   if(!myTurn()){selected=null;legalDestinations=[];}
   render();
   if(state.invites&&isHost){
@@ -70,14 +163,22 @@ async function load(){
    $('link-player').href=origin+'/?game='+encodeURIComponent(gameId)+'&invite='+encodeURIComponent(state.invites.player);
    $('link-spectator').href=origin+'/?game='+encodeURIComponent(gameId)+'&invite='+encodeURIComponent(state.invites.spectator);
    // Keep QR images steady during periodic polling; reloading interrupts camera scans.
-   if(panel.dataset.game!==gameId){
-    $('qr-player').src='/api/qr?game='+encodeURIComponent(gameId)+'&role=player';
-    $('qr-spectator').src='/api/qr?game='+encodeURIComponent(gameId)+'&role=spectator';
-    panel.dataset.game=gameId;
+   const qrSignature=gameId+state.invites.player+state.invites.spectator;
+   if(panel.dataset.signature!==qrSignature){
+    $('qr-player').src='/api/qr?game='+encodeURIComponent(gameId)+'&role=player&v='+Date.now();
+    $('qr-spectator').src='/api/qr?game='+encodeURIComponent(gameId)+'&role=spectator&v='+Date.now();
+    panel.dataset.signature=qrSignature;
    }
    panel.hidden=false;
+  }else if(isHost){$('invitations').hidden=true;}
+ }catch(error){
+  if(session&&error.message==='Unauthorized'){
+   clearDevice(gameId);
+   session='';
+   sessionStorage.removeItem('alfastafl.session');
   }
- }catch(error){say(error.message);}
+  say(error.message);
+ }
 }
 async function clickSquare(r,c){
  if(!game||!myTurn())return;
@@ -100,9 +201,20 @@ async function clickSquare(r,c){
  }
 }
 $('create').onclick=async()=>{
- try{const created=await api('create',{mode:$('mode').value});
+ try{
+  const timeMode=$('time-mode').value;
+  const seconds=timeMode==='unlimited'?0:Number($('time-seconds').value);
+  const reconnect=Number($('reconnect-minutes').value)*60;
+  if((timeMode!=='unlimited'&&(!Number.isInteger(seconds)||seconds<1||seconds>86400))||
+      !Number.isInteger(reconnect)||reconnect<60||reconnect>3600){throw Error('Durée ou délai de reconnexion invalide.');}
+  const created=await api('create',{mode:$('mode').value,settings:{
+   time_control:{mode:timeMode,seconds},reconnect_timeout_seconds:reconnect
+  }});
   gameId=created.game;session='';selected=null;legalDestinations=[];
-  await load();}catch(error){say(error.message);}
+  sessionStorage.setItem('alfastafl.game',gameId);
+  await load();await listGames(true);
+ }catch(error){say(error.message);}
+
 };
 $('request').onclick=async()=>{
  try{gameId=$('gid').value;requestId=(await api('join',{
@@ -134,6 +246,21 @@ for(const button of $('repetition-options').querySelectorAll('button')){
   }catch(error){say(error.message);}
  };
 }
+async function hostAction(path,body,confirmation){
+ if(confirmation&&!confirm(confirmation))return;
+ try{await api(path,body);say('Opération enregistrée.');await load();await listGames(true);}
+ catch(error){say(error.message);}
+}
+$('save-leave').onclick=()=>hostAction('pause',{game:gameId},
+ 'Sauvegarder et fermer cette partie ? Les invitations existantes seront révoquées.');
+$('resume-game').onclick=()=>hostAction('resume',{game:gameId});
+$('save-disconnected').onclick=()=>hostAction('disconnect/decide',
+ {game:gameId,action:'save'});
+$('substitute').onclick=()=>hostAction('disconnect/decide',
+ {game:gameId,action:'substitute'},'Autoriser un remplaçant ? Les anciennes sessions concernées seront révoquées.');
+$('forfeit').onclick=()=>hostAction('disconnect/decide',
+ {game:gameId,action:'forfeit',camp:$('forfeit-camp').value},
+ 'Confirmer le forfait du joueur désigné ? La partie sera définitivement terminée.');
 async function pending(){
  if(!isHost)return;
  try{
@@ -157,12 +284,16 @@ async function tick(){
    const reply=await api('request?id='+encodeURIComponent(requestId));
    if(reply.status==='approved'){
     session=reply.session;sessionStorage.setItem('alfastafl.session',session);
+    rememberDevice(gameId,session);
     sessionStorage.setItem('alfastafl.game',gameId);
     $('joinmsg').textContent='Connexion autorisee';await load();
    }else if(reply.status==='rejected'){$('joinmsg').textContent='Demande refusee';requestId='';}
   }catch(error){}
  }
  await pending();if(gameId&&(session||isHost))await load();
+ await listGames();
 }
 if(q.has('invite')){$('gid').value=q.get('game')||'';$('invite').value=q.get('invite')||'';}
-setInterval(tick,1800);tick();
+setInterval(tick,1800);
+setInterval(()=>{renderClocks();renderConnection();},250);
+tick();

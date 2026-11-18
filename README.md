@@ -1,6 +1,46 @@
-# Álfastafl — DEV 0.2.0-dev1
+# Álfastafl — DEV 0.3.0-dev1
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.3.0-dev1 : temps et continuité des parties
+
+Trois réglages **avant création** de la partie : sans limite, temps configurable
+par déplacement (réinitialisé à chaque coup légal), ou temps total indépendant
+par joueur. Les deux compteurs ne démarrent que lorsque les deux joueurs
+approuvés ont contacté le serveur. Les décisions de temps (notamment la
+**défaite immédiate au temps**) appartiennent au serveur Python : l'affichage
+navigateur n'est qu'une estimation rafraîchie régulièrement. L'application
+Ubuntu hôte poursuit la surveillance même sans requête de navigateur.
+
+**Déconnexions :** le serveur surveille le contact périodique des sessions
+joueurs, et non la présence des spectateurs. Le délai de grâce par défaut est
+15 secondes ; si un joueur ne répond plus, les deux horloges sont suspendues.
+Le délai de reconnexion par défaut est **5 minutes**, modifiable de 1 à 60
+minutes depuis la fenêtre « Héberger ». Reconnexion de la même session avant
+l'échéance : reprise automatique ; après l'échéance : **décision obligatoire
+de l'hôte**, sans forfait automatique. Choix possibles : déclarer forfait,
+autoriser un remplaçant après approbation, ou sauvegarder pour plus tard.
+Le navigateur conserve, sur l'appareil autorisé, un jeton de session pour
+retrouver la partie après fermeture/rechargement du navigateur. Ne pas partager
+ce jeton ni utiliser cette option sur un appareil public.
+
+**Reprise :** « Sauvegarder et quitter » met les compteurs en pause, révoque
+les invitations et les sessions précédentes, et conserve la partie au format
+`.alfastafl`. La liste des parties depuis l'ordinateur hôte permet de les
+retrouver, puis de les reprendre avec **de nouveaux QR codes** et de nouvelles
+autorisations de joueurs. Une interruption de l'application Ubuntu suspend les
+parties à la réouverture ; les temps sont consignés après chaque coup,
+à chaque pause, et périodiquement toutes les cinq secondes pour limiter les
+pertes de temps de jeu lors d'un arrêt brutal. La sauvegarde garde également
+l'arbitrage des répétitions historiques en attente : il ne peut être contourné
+par la reprise.
+
+**Limites DEV :** la détection de présence repose encore sur le rafraîchissement
+HTTP du navigateur (les navigateurs mobiles peuvent ralentir les requêtes en
+arrière-plan). Les cinématiques n'existent pas encore : leur future suspension
+du chronomètre devra être ajoutée lorsque les animations seront intégrées.
+Le protocole LAN reste du HTTP non chiffré et le pare-feu UFW n'est pas encore
+automatisé. Usage exclusivement sur un réseau local de confiance.
 
 ## DEV 0.2.0-dev1: audit des regles (premiere passe)
 
@@ -33,7 +73,7 @@ Il s'agit d'un **prototype technique jouable**, pas d'une version stable complè
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 
-**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), traitement complet des répétitions, timer et suspension réseau, authentification renforcée, détecteur Avahi, ouverture/fermeture UFW automatique avec privilèges, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
+**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, gestion UFW automatique et protocole LAN renforcé, détecteur Avahi, ouverture/fermeture UFW automatique avec privilèges, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
 
 ## Tests sur Ubuntu (sans installer)
 
