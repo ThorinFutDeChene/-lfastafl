@@ -3,6 +3,11 @@ import threading
 from .server import run, Store, PORT
 
 
+def show_main_window(window):
+    """Start maximized while preserving native desktop panels and window controls."""
+    window.showMaximized()
+
+
 def main():
     try:
         from PyQt6.QtWidgets import QApplication, QMainWindow, QToolBar, QMessageBox
@@ -50,7 +55,7 @@ def main():
     lan.toggled.connect(toggle)
     win.updates = UpdateController(win, bar)
     app.aboutToQuit.connect(lambda: (server[0].shutdown(), server[0].server_close()))
-    win.show()
+    show_main_window(win)
     sys.exit(app.exec())
 
 

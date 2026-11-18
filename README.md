@@ -1,8 +1,12 @@
-# Álfastafl — DEV 0.1.0-dev2
+# Álfastafl — DEV 0.1.0-dev4
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
 
-## Correction interface DEV 0.1.0-dev2
+## Interface Ubuntu et QR codes
+
+Depuis **0.1.0-dev4**, la fenêtre Ubuntu démarre **maximisée**, sans mode plein écran. Les panneaux du bureau, la barre de titre et les commandes de fenêtre restent accessibles.
+
+### Correction interface DEV 0.1.0-dev2
 
 Les deux QR codes d’invitation sont maintenant séparés : joueur à gauche, informations au centre, spectateur à droite. Sur les petits écrans, ils restent côte à côte sous les informations. Les QR codes ne sont plus rechargés à chaque rafraîchissement de l’état réseau, ce qui évite les interruptions pendant la lecture au smartphone.
 
@@ -12,7 +16,7 @@ Il s'agit d'un **prototype technique jouable**, pas d'une version stable complè
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 
-**Non terminé** : audit exhaustif des subtilités historiques et des règles de Copenhague (murs de boucliers, forteresse de sortie, encerclement), traitement complet des répétitions, timer et suspension réseau, authentification renforcée, détecteur Avahi, ouverture/fermeture UFW automatique avec privilèges, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface, publication GitHub automatisée et mises à jour DEV/stables. La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
+**Non terminé** : audit exhaustif des subtilités historiques et des règles de Copenhague (murs de boucliers, forteresse de sortie, encerclement), traitement complet des répétitions, timer et suspension réseau, authentification renforcée, détecteur Avahi, ouverture/fermeture UFW automatique avec privilèges, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
 
 ## Tests sur Ubuntu (sans installer)
 
