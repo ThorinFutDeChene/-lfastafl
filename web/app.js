@@ -159,11 +159,12 @@ async function load(){
   if(state.invites&&isHost){
    const addr=await api('address');const origin='http://'+addr.address+':'+addr.port;
    const panel=$('invitations');
+   if(!addr.lan_enabled){panel.hidden=true;return;}
    $('hostmsg').textContent=`Identifiant : ${gameId}`;
    $('link-player').href=origin+'/?game='+encodeURIComponent(gameId)+'&invite='+encodeURIComponent(state.invites.player);
    $('link-spectator').href=origin+'/?game='+encodeURIComponent(gameId)+'&invite='+encodeURIComponent(state.invites.spectator);
    // Keep QR images steady during periodic polling; reloading interrupts camera scans.
-   const qrSignature=gameId+state.invites.player+state.invites.spectator;
+   const qrSignature=gameId+origin+state.invites.player+state.invites.spectator;
    if(panel.dataset.signature!==qrSignature){
     $('qr-player').src='/api/qr?game='+encodeURIComponent(gameId)+'&role=player&v='+Date.now();
     $('qr-spectator').src='/api/qr?game='+encodeURIComponent(gameId)+'&role=spectator&v='+Date.now();
@@ -279,6 +280,10 @@ async function pending(){
  }catch(error){}
 }
 async function tick(){
+ if(isHost){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
+  `Serveur réseau actif : http://${n.address}:${n.port}/`:
+  'Mode local. Autorisation et ouverture du réseau en cours (ou refusées).';
+ }catch(error){$('lan-status').textContent='Etat du réseau indisponible.';}}
  if(requestId&&!session){
   try{
    const reply=await api('request?id='+encodeURIComponent(requestId));

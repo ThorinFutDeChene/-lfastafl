@@ -1,6 +1,16 @@
-# Álfastafl — DEV 0.3.0-dev1
+# Álfastafl — DEV 0.3.0-dev2
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.3.0-dev2 : réseau LAN et pare-feu automatiques
+
+**Démarrage normal sur Ubuntu :** Álfastafl lance immédiatement le serveur d’administration sur `127.0.0.1:8766`, puis détecte automatiquement une interface Wi-Fi/Ethernet privée. Il demande l’authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
+
+**Fermeture normale :** Álfastafl ferme le serveur LAN et retire automatiquement **sa propre règle UFW**, identifiée par un commentaire unique. Les règles existantes des autres programmes (par exemple Enyalië sur 8765) ne sont jamais supprimées. Un processus privilégié garde le canal ouvert : si le programme s’arrête brutalement, la fermeture de ce canal déclenche le nettoyage. Après une coupure électrique ou un arrêt forcé du service privilégié, les anciennes règles marquées Álfastafl sont nettoyées au prochain lancement autorisé.
+
+**Échec d'autorisation :** si polkit refuse, que le Wi-Fi n’est pas disponible ou qu'UFW ne confirme pas l’ouverture, aucune exposition réseau n’est lancée ; le plateau reste disponible en local. L’accès peut être réessayé dans la barre d’outils. La désactivation manuelle du LAN retire également la règle. Il faut qu’**UFW et iproute2** soient installés, ainsi qu’un agent polkit fonctionnel sur le bureau Ubuntu.
+
+**Limites de sécurité :** les liaisons restent en HTTP non chiffré ; utilisation exclusive sur un réseau local de confiance. L’ouverture ne concerne que le réseau privé détecté, sans redirection NAT vers Internet. Si une règle UFW équivalente existait déjà **avant** Álfastafl, elle appartient à l’administrateur et sera conservée. Si l'adresse IP change pendant la partie, il peut être nécessaire de désactiver puis réactiver le LAN.
 
 ## DEV 0.3.0-dev1 : temps et continuité des parties
 
@@ -39,8 +49,7 @@ par la reprise.
 HTTP du navigateur (les navigateurs mobiles peuvent ralentir les requêtes en
 arrière-plan). Les cinématiques n'existent pas encore : leur future suspension
 du chronomètre devra être ajoutée lorsque les animations seront intégrées.
-Le protocole LAN reste du HTTP non chiffré et le pare-feu UFW n'est pas encore
-automatisé. Usage exclusivement sur un réseau local de confiance.
+Le protocole LAN reste du HTTP non chiffré. Usage exclusivement sur un réseau local de confiance.
 
 ## DEV 0.2.0-dev1: audit des regles (premiere passe)
 
@@ -73,7 +82,7 @@ Il s'agit d'un **prototype technique jouable**, pas d'une version stable complè
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 
-**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, gestion UFW automatique et protocole LAN renforcé, détecteur Avahi, ouverture/fermeture UFW automatique avec privilèges, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
+**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
 
 ## Tests sur Ubuntu (sans installer)
 
@@ -83,11 +92,11 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 PYTHONPATH=src python3 -m alfastafl --host 127.0.0.1 --port 8766
 ```
 
-Dans Firefox local : `http://127.0.0.1:8766/`. Pour un accès LAN en test, lancer explicitement `--host 0.0.0.0` depuis un **réseau local de confiance** et vérifier les règles du pare-feu manuellement ; la gestion UFW automatique reste à développer. Le protocole HTTP n'est **pas chiffré**, il ne convient pas à une exposition Internet.
+Dans Firefox local : `http://127.0.0.1:8766/`. Pour un accès LAN en test, lancer explicitement `--host 0.0.0.0` depuis un **réseau local de confiance** pour des tests CLI uniquement ; cette commande directe ne gère pas le pare-feu. L'application graphique gère automatiquement UFW. Le protocole HTTP n'est **pas chiffré**, il ne convient pas à une exposition Internet.
 
 ## Installation `.deb`
 
-Le paquet construit installe les sources dans `/opt/alfastafl/`, le lanceur natif PyQt6 dans `/usr/bin/alfastafl`, et un raccourci `.desktop`. Dépendances : `python3`, `python3-pyqt6`, `python3-pyqt6.qtwebengine`, `python3-qrcode`, `python3-pil`.
+Le paquet construit installe les sources dans `/opt/alfastafl/`, le lanceur natif PyQt6 dans `/usr/bin/alfastafl`, et un raccourci `.desktop`. Dépendances : `python3`, `python3-pyqt6`, `python3-pyqt6.qtwebengine`, `python3-qrcode`, `python3-pil`, `iproute2`, `ufw`, `pkexec`.
 
 ## Données
 

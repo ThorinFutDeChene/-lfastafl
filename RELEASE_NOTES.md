@@ -1,29 +1,25 @@
-# Álfastafl — 0.3.0-dev1 (DEV)
+# Álfastafl — 0.3.0-dev2 (DEV)
 
-## Nouvelle priorité critique : chronomètres et continuité
+## Correction critique : serveur LAN et UFW automatiques
 
-- Trois modes T3 : illimité, délai par coup, temps total indépendant pour chaque joueur.
-- Défaite immédiate au temps, prononcée par le serveur et conservée dans l'historique d'événements.
-- Affichage des horloges sur Ubuntu et navigateurs, avec temps serveur de référence.
-- Détection d'absence des joueurs (grâce par défaut de 15 s), pause des deux horloges.
-- Reconnexion avant échéance : reprise des horloges ; délai par défaut de 5 minutes configurable.
-- À l'expiration : décision **non automatique** de l'hôte (forfait, remplaçant ou sauvegarde).
-- Sauvegarde/reprise manuelle, parties listées, nouvelles invitations et révocation des anciennes sessions.
-- Reprise des durées sans débit pendant la fermeture du programme ; écritures atomiques et points de contrôle réguliers.
-- Conservation de l'arbitrage en attente en cas de sauvegarde pendant une répétition historique.
-- Persistance du jeton de session sur l'appareil du joueur pour permettre une reconnexion après réouverture du navigateur.
-- Compatibilité de lecture avec les sauvegardes `.alfastafl` des versions antérieures.
+- Le jeu ouvre automatiquement son serveur réseau privé après démarrage du bureau Ubuntu.
+- Autorisation Linux demandée par **polkit** ; aucune commande UFW à saisir par l’utilisateur.
+- Le port TCP **8766** est autorisé seulement pour l’interface physique Wi-Fi/Ethernet détectée, sur son sous-réseau privé ; aucun port n’est ouvert sur Internet.
+- Deux serveurs sur la même machine : administration et affichage local sur `127.0.0.1:8766`, invités sur l’adresse LAN du Lenovo. Pas d’écoute générale sur `0.0.0.0` dans l’application graphique.
+- Les QR codes et invitations s’affichent uniquement quand l’accès LAN est réellement opérationnel ; l’adresse IP provient de l’interface choisie, pas d’un itinéraire VPN.
+- À la fermeture et à la désactivation du LAN, **seule la règle créée par Álfastafl** est supprimée ; les règles UFW d’Enyalië ou des autres services sont préservées.
+- Un helper privilégié surveille la fermeture du processus par un canal privé ; nettoyage de la règle même après arrêt anormal du jeu, quand le helper est encore actif.
+- Après une panne électrique ou un arrêt forcé du helper lui-même, nettoyage des règles Álfastafl périmées au lancement suivant.
+- Si l’autorisation est refusée, le programme reste utilisable sur son serveur local.
 
-## Vérifications et limites
+## Vérifications et réserves
 
-Les tests automatisés vérifient les horloges avec temps simulé, la présence des joueurs,
-les endpoints HTTP, l'expiration, la reprise et la conservation des sauvegardes.
-Le rendu de l'interface a été contrôlé dans Chromium à partir d'un état simulé ;
-l'application Qt et les connexions de vrais smartphones doivent encore être validées sous Ubuntu MATE.
+- Tests automatisés de détection IPv4, isolation VPN, validation de la portée, cycle de vie des règles et non-interférence avec les autres applications.
+- Pas de modification globale d’UFW, pas d’élévation permanente des droits du jeu.
+- Les tests ne remplacent pas un essai réel avec **UFW actif et polkit sous Ubuntu MATE**.
+- Le transport réseau est encore du HTTP non chiffré, à réserver à un LAN de confiance.
+- Les cinématiques 3D et les fonctions de régie ne sont pas encore présentes.
 
-Le réseau LAN reste en HTTP non chiffré, sans commande automatique d'UFW ni découverte Avahi.
-La détection est basée sur des requêtes périodiques du navigateur, qui peuvent être
-ralenties sur les appareils mobiles en veille. La 3D, les effets sonores,
-les cinématiques et les règles de forteresse atypiques restent incomplets.
-Les cinématiques futures devront suspendre les horloges ; ce mécanisme n'est pas
-encore testable car le moteur d'animations n'existe pas.
+## Fonctions déjà présentes (dev1)
+
+Chronomètres T3, suspension/reconnexion, sauvegardes et reprises, règles de Tafl de base et arbitrages, mises à jour DEV et QR joueurs/spectateurs séparés.

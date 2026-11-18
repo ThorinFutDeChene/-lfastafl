@@ -444,6 +444,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 import qrcode
                 gid=q.get('game',[''])[0];role=q.get('role',[''])[0]
                 if not self.admin() or role not in ('player','spectator'):return self.send({'error':'Forbidden'},403)
+                if not self.server.lan_enabled:return self.send({'error':'Le réseau local est désactivé'},503)
                 st=self.server.store
                 if gid not in st.invites:return self.send({'error':'Unknown game'},404)
                 ip=self.server.lan_address
@@ -457,7 +458,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 st=self.server.store
                 if u.path=='/api/address':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
-                    return self.send({'address':self.server.lan_address,'port':self.server.server_address[1]})
+                    return self.send({'address':self.server.lan_address,'port':self.server.server_address[1],
+                                      'lan_enabled':self.server.lan_enabled})
                 if u.path=='/api/games':
                     st._tick_locked()
                     return self.send({'games':[{'id':g.id,'mode':g.mode,'turn':g.turn,
@@ -541,6 +543,7 @@ class GameServer(ThreadingHTTPServer):
 def run(host='127.0.0.1',port=PORT,store=None):
     httpd=GameServer((host,port),AppHandler)
     httpd.store=store or Store()
+    httpd.lan_enabled=host not in ('127.0.0.1', 'localhost', '::1')
     httpd.lan_address='127.0.0.1'
     try:
         sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)

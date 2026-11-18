@@ -25,7 +25,7 @@ Section: games
 Priority: optional
 Architecture: all
 Maintainer: Alfastafl Contributors <contact@thorinux.fr>
-Depends: python3, python3-pyqt6, python3-pyqt6.qtwebengine, python3-qrcode, python3-pil, pkexec | policykit-1
+Depends: python3, python3-pyqt6, python3-pyqt6.qtwebengine, python3-qrcode, python3-pil, iproute2, ufw, pkexec | policykit-1
 Description: Alfastafl Viking-fantasy tafl network game (development preview)
  Experimental LAN tafl software, not yet feature-complete.
 CTRL

@@ -35,7 +35,7 @@ class InvitationLayoutTests(unittest.TestCase):
     def test_qr_images_not_reloaded_on_each_network_poll(self):
         js=(ROOT/'web/app.js').read_text()
         self.assertIn('if(panel.dataset.signature!==qrSignature)',js)
-        self.assertIn('gameId+state.invites.player+state.invites.spectator',js)
+        self.assertIn('gameId+origin+state.invites.player+state.invites.spectator',js)
         self.assertNotIn("$('qrcodes')",js)
 
 if __name__=='__main__':
