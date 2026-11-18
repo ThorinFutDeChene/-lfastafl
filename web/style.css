@@ -22,3 +22,7 @@
   .invite-qr figcaption{font-size:.87rem;letter-spacing:0}
   .invite-qr img{width:min(100%,132px)}
 }
+.game-alert{padding:12px;border:1px solid #be9967;border-radius:9px;margin:12px 0;background:#14231c}
+.game-alert[hidden],#player-controls[hidden],#repetition-options[hidden]{display:none}
+.game-alert button,#player-controls button{margin:4px}
+.square:focus-visible{outline:3px solid #fff;z-index:2}

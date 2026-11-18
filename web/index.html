@@ -9,7 +9,7 @@
 <body>
 <main>
   <header>
-    <h1>ᚨ Álfastafl <small>DEV 0.1</small></h1>
+    <h1>ᚨ Álfastafl <small>DEV 0.2</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -57,6 +57,25 @@
     <div class="row"><h2>Plateau</h2><span id="state">Aucune partie sélectionnée</span></div>
     <div id="board" aria-label="Plateau 11 par 11"></div>
     <p id="msg" role="status"></p>
+    <div id="player-controls" hidden>
+      <button id="draw-offer" type="button">Proposer une partie nulle</button>
+      <button id="resign" type="button">Abandonner</button>
+    </div>
+    <div id="draw-response" class="game-alert" hidden>
+      <p>Votre adversaire propose une partie nulle.</p>
+      <button id="draw-accept" type="button">Accepter</button>
+      <button id="draw-decline" type="button">Refuser</button>
+    </div>
+    <div id="repetition-review" class="game-alert" hidden>
+      <h3>Arbitrage des repetitions</h3>
+      <p id="repetition-info"></p>
+      <div id="repetition-options">
+        <button type="button" data-vote="elf">Victoire des elfes</button>
+        <button type="button" data-vote="dwarf">Victoire des nains</button>
+        <button type="button" data-vote="draw">Partie nulle</button>
+        <button type="button" data-vote="disagree">Desaccord : annuler le coup</button>
+      </div>
+    </div>
     <h3>Historique des coups</h3>
     <ol id="moves"></ol>
   </section>

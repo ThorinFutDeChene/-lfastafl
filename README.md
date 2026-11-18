@@ -1,6 +1,23 @@
-# Álfastafl — DEV 0.1.0-dev4
+# Álfastafl — DEV 0.2.0-dev1
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.2.0-dev1: audit des regles (premiere passe)
+
+Les trois modes sont maintenant distincts pour les conditions de victoire,
+les captures, les repetitions et les blocages. Le mur de boucliers de
+Copenhague est gere par les flancs; l'encerclement, la detection prudente de
+deux formes de forteresse et le vote d'arbitrage des repetitions historiques
+sont presents. Les coups affiches comme accessibles dans le navigateur sont
+maintenant demandes au serveur et non plus estimes visuellement.
+
+Les joueurs autorises peuvent egalement proposer/accepter une partie nulle,
+ou abandonner. Le serveur garde l'autorite sur ces decisions. Sauvegardes et
+publications DEV/stables sont conservees.
+
+**Etat :** ce travail critique est un **premier jalon**, non une certification
+exhaustive. Voir [RULES.md](RULES.md) pour les references et les cas encore
+incomplets, notamment les forteresses de sortie atypiques.
 
 ## Interface Ubuntu et QR codes
 
@@ -16,7 +33,7 @@ Il s'agit d'un **prototype technique jouable**, pas d'une version stable complè
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 
-**Non terminé** : audit exhaustif des subtilités historiques et des règles de Copenhague (murs de boucliers, forteresse de sortie, encerclement), traitement complet des répétitions, timer et suspension réseau, authentification renforcée, détecteur Avahi, ouverture/fermeture UFW automatique avec privilèges, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
+**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), traitement complet des répétitions, timer et suspension réseau, authentification renforcée, détecteur Avahi, ouverture/fermeture UFW automatique avec privilèges, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
 
 ## Tests sur Ubuntu (sans installer)
 

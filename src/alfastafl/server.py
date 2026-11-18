@@ -2,7 +2,7 @@
 import json, threading, secrets, os, tempfile, pathlib, time, socket, io
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-from .core import Game, team
+from .core import Game, team, other
 
 PORT=8766
 
@@ -20,6 +20,7 @@ class Store:
         self.pending={}
         self.sessions={}
         self.tournaments={}
+        self.repetition_votes={}
         for f in self.path.glob('*.alfastafl'):
             try:
                 d=json.loads(f.read_text('utf-8'))
@@ -45,7 +46,10 @@ class Store:
         return g
     def resume(self,gid):
         with self.lock:
-            g=self.games[gid];g.status='active';g.reason=None;self.save(g)
+            g=self.games[gid]
+            if g.status=='finished' or g.reason in ('repetition_review', 'draw_proposal'):
+                raise ValueError('Game cannot be resumed without adjudication')
+            g.status='active';g.reason=None;self.save(g)
             self.invites.setdefault(gid,{'player':secrets.token_urlsafe(24),'spectator':secrets.token_urlsafe(24)})
             return g
     def request(self,gid,token,name):
@@ -71,12 +75,88 @@ class Store:
             self.sessions[sid]={'game':gid,'role':req['role'],'camp':team_name,'name':req['name'],'active':True}
             req.update(status='approved',session=sid)
             return sid
+    def player(self, gid, sid):
+        session = self.sessions.get(sid)
+        if not session or session['game'] != gid or not session['active'] or session['role'] != 'player':
+            raise PermissionError('Only an authorized player may act')
+        return session['camp']
+
+    def legal_for(self, gid, sid, square):
+        with self.lock:
+            side = self.player(gid, sid)
+            game = self.games[gid]
+            return game.legal(square) if game.turn == side else []
+
+    def offer_draw(self, gid, sid):
+        with self.lock:
+            side = self.player(gid, sid)
+            game = self.games[gid]
+            if game.status != 'active':
+                raise ValueError('No active game')
+            game.draw_offer = side
+            self.save(game)
+            return side
+
+    def respond_draw(self, gid, sid, accept):
+        with self.lock:
+            side = self.player(gid, sid)
+            game = self.games[gid]
+            if game.status != 'active' or game.draw_offer != other(side):
+                raise ValueError('No opposing draw offer')
+            if type(accept) is not bool:
+                raise ValueError('Invalid draw response')
+            game.draw_offer = None
+            if accept:
+                game.status, game.winner, game.reason = 'finished', None, 'draw_agreed'
+            self.save(game)
+            return game.as_dict()
+
+    def resign(self, gid, sid):
+        with self.lock:
+            side = self.player(gid, sid)
+            game = self.games[gid]
+            if game.status != 'active':
+                raise ValueError('No active game')
+            game.status, game.winner, game.reason = 'finished', other(side), 'resignation'
+            game.draw_offer = None
+            self.save(game)
+            return game.as_dict()
+
+    def repetition_vote(self, gid, sid, outcome):
+        with self.lock:
+            side = self.player(gid, sid)
+            game = self.games[gid]
+            if game.status != 'paused' or game.reason not in ('repetition_review', 'draw_proposal'):
+                raise ValueError('No review in progress')
+            valid = ('draw',) if game.reason == 'draw_proposal' else ('elf', 'dwarf', 'draw', 'disagree')
+            if outcome not in valid:
+                raise ValueError('Invalid review decision')
+            votes = self.repetition_votes.setdefault(gid, {})
+            votes[side] = outcome
+            if outcome == 'disagree':
+                game.undo_repetition()
+                self.repetition_votes.pop(gid, None)
+                self.save(game)
+                return {'result': 'undo', 'votes': {}}
+            if len(votes) == 2:
+                if votes.get('elf') == votes.get('dwarf'):
+                    game.resolve_repetition(outcome) if game.reason == 'repetition_review' else None
+                    if game.reason == 'draw_proposal':
+                        game.status, game.winner, game.reason = 'finished', None, 'draw_agreed'
+                    self.repetition_votes.pop(gid, None)
+                    self.save(game)
+                    return {'result': 'agreed', 'votes': {}}
+                game.undo_repetition()
+                self.repetition_votes.pop(gid, None)
+                self.save(game)
+                return {'result': 'undo', 'votes': {}}
+            return {'result': 'waiting', 'votes': dict(votes)}
+
     def move(self,gid,sid,start,end):
         with self.lock:
-            s=self.sessions.get(sid)
-            if s is None or s['game']!=gid or not s['active'] or s['role']!='player':raise PermissionError('Not a player')
+            camp=self.player(gid,sid)
             g=self.games[gid]
-            if s['camp']!=g.turn:raise PermissionError('Not your turn')
+            if camp!=g.turn:raise PermissionError('Not your turn')
             event=g.move(start,end);self.save(g);return event
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -132,12 +212,21 @@ class AppHandler(BaseHTTPRequestHandler):
                     sid=q.get('session',[''])[0]
                     auth=st.sessions.get(sid)
                     if not self.admin() and (not auth or auth['game']!=gid or not auth['active']):return self.send({'error':'Unauthorized'},403)
-                    return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None})
+                    return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None,
+                                      'review_votes':st.repetition_votes.get(gid,{})})
+                if u.path=='/api/legal':
+                    gid=q.get('game',[''])[0];sid=q.get('session',[''])[0]
+                    try:
+                        r=int(q.get('row',['-1'])[0]);c=int(q.get('col',['-1'])[0])
+                    except (ValueError,TypeError):raise ValueError('Invalid square')
+                    return self.send({'moves':st.legal_for(gid,sid,[r,c])})
                 if u.path=='/api/tournaments':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'tournaments':list(st.tournaments.values())})
             return self.static(u.path)
-        except Exception as e:return self.send({'error':str(e)},400)
+        except PermissionError as e:return self.send({'error':str(e)},403)
+        except (ValueError,TypeError,KeyError,IndexError) as e:return self.send({'error':str(e)},400)
+        except Exception:return self.send({'error':'Internal server error'},500)
     def do_POST(self):
         try:
             d=self.read_json();st=self.server.store;u=urlparse(self.path)
@@ -151,6 +240,10 @@ class AppHandler(BaseHTTPRequestHandler):
                 with st.lock:st.pending[d['request']]['status']='rejected'
                 return self.send({'ok':True})
             if u.path=='/api/move':return self.send({'event':st.move(d['game'],d['session'],d['from'],d['to'])})
+            if u.path=='/api/draw/offer':return self.send({'offered_by':st.offer_draw(d['game'],d['session'])})
+            if u.path=='/api/draw/respond':return self.send({'game':st.respond_draw(d['game'],d['session'],d['accept'])})
+            if u.path=='/api/resign':return self.send({'game':st.resign(d['game'],d['session'])})
+            if u.path=='/api/repetition/vote':return self.send(st.repetition_vote(d['game'],d['session'],d['outcome']))
             if u.path=='/api/resume':return self.send({'game':st.resume(d['game']).id})
             if u.path=='/api/pause':
                 with st.lock:
@@ -172,7 +265,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     st.tournaments[t.id]=t.as_dict()
                 return self.send({'matches':matches})
             return self.send({'error':'Unknown endpoint'},404)
-        except (KeyError,ValueError,PermissionError,IndexError) as e:return self.send({'error':str(e)},403 if isinstance(e,PermissionError) else 400)
+        except (KeyError,ValueError,PermissionError,IndexError,TypeError) as e:return self.send({'error':str(e)},403 if isinstance(e,PermissionError) else 400)
     def log_message(self,*args):pass
 
 def run(host='127.0.0.1',port=PORT,store=None):

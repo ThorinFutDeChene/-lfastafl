@@ -45,7 +45,7 @@ jobs:
         run: |
           tar --exclude='__pycache__' --exclude='dist' --exclude='.git' \
             -czf "dist/alfastafl_${{ steps.version.outputs.file }}_sources.tar.gz" \
-            README.md RELEASE_NOTES.md LICENSE VERSION src web tests packaging .github
+            README.md RULES.md RELEASE_NOTES.md LICENSE VERSION src web tests packaging .github
           cd dist
           sha256sum "alfastafl_${{ steps.version.outputs.file }}_all.deb" \
             "alfastafl_${{ steps.version.outputs.file }}_sources.tar.gz" > SHA256SUMS.txt

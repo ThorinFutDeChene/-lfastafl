@@ -16,6 +16,7 @@ find "$BUILD" -type d -name __pycache__ -exec rm -rf {} +
 cp "$ROOT"/web/* "$BUILD/opt/alfastafl/web/"
 cp "$ROOT/VERSION" "$BUILD/opt/alfastafl/VERSION"
 cp "$ROOT/README.md" "$BUILD/usr/share/doc/alfastafl/README.md"
+cp "$ROOT/RULES.md" "$BUILD/usr/share/doc/alfastafl/RULES.md"
 cp "$ROOT/LICENSE" "$BUILD/usr/share/doc/alfastafl/copyright"
 cat > "$BUILD/DEBIAN/control" <<CTRL
 Package: alfastafl
