@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Álfastafl DEV</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>ᚨ Álfastafl <small>DEV 0.1</small></h1>
+    <p>Le tafl viking-fantasy • réseau local</p>
+  </header>
+  <section id="host">
+    <h2>Héberger</h2>
+    <label>Règles
+      <select id="mode">
+        <option value="historical">Historique · Tawlbwrdd</option>
+        <option value="fetlar" selected>Classique · Fetlar</option>
+        <option value="copenhagen">Compétition · Copenhague</option>
+      </select>
+    </label>
+    <button id="create" type="button">Créer une partie</button>
+    <div id="invitations" class="invitations" hidden>
+      <figure class="invite-qr invite-qr-player">
+        <figcaption>QR JOUEUR</figcaption>
+        <img id="qr-player" width="160" height="160" alt="QR code pour demander à jouer">
+        <p>Participer à la partie</p>
+      </figure>
+      <div class="invite-info">
+        <strong>Partie créée</strong>
+        <p class="invite-id" id="hostmsg"></p>
+        <p>Choisissez le QR code correspondant à votre rôle.</p>
+        <nav class="invite-links" aria-label="Liens d'invitation">
+          <a id="link-player" target="_blank" rel="noopener noreferrer">Lien joueur</a>
+          <a id="link-spectator" target="_blank" rel="noopener noreferrer">Lien spectateur</a>
+        </nav>
+      </div>
+      <figure class="invite-qr invite-qr-spectator">
+        <figcaption>QR SPECTATEUR</figcaption>
+        <img id="qr-spectator" width="160" height="160" alt="QR code pour demander à observer la partie">
+        <p>Regarder sans jouer</p>
+      </figure>
+    </div>
+    <div id="pending"></div>
+  </section>
+  <section id="join">
+    <h2>Rejoindre</h2>
+    <label>Nom <input id="name" maxlength="60" value="Invité"></label>
+    <label>Code d'invitation <input id="invite" placeholder="Code reçu de l'hôte"></label>
+    <label>Identifiant de partie <input id="gid" placeholder="Identifiant reçu"></label>
+    <button id="request" type="button">Demander l'accès</button>
+    <p id="joinmsg"></p>
+  </section>
+  <section id="game">
+    <div class="row"><h2>Plateau</h2><span id="state">Aucune partie sélectionnée</span></div>
+    <div id="board" aria-label="Plateau 11 par 11"></div>
+    <p id="msg" role="status"></p>
+    <h3>Historique des coups</h3>
+    <ol id="moves"></ol>
+  </section>
+  <footer>Prototype technique. Cinématiques et rendu 3D non intégrés dans cette version.</footer>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+name: Build and publish Álfastafl DEV
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alfastafl-dev-release
+  cancel-in-progress: false
+
+jobs:
+  publish-dev:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout public source
+        uses: actions/checkout@v4
+      - name: Run unit and integration tests
+        run: PYTHONPATH=src python3 -m unittest discover -s tests -v
+      - name: Build Debian package
+        run: |
+          mkdir -p dist
+          sh packaging/build-deb.sh dist/alfastafl_0.1.0_dev2_all.deb
+          dpkg-deb --info dist/alfastafl_0.1.0_dev2_all.deb
+      - name: Bundle sources and checksums
+        run: |
+          mkdir -p dist
+          tar --exclude='.git' --exclude='__pycache__' --exclude='dist' \
+            -czf dist/alfastafl_0.1.0_dev2_sources.tar.gz \
+            README.md LICENSE src web tests packaging .github
+          cd dist
+          sha256sum alfastafl_0.1.0_dev2_all.deb alfastafl_0.1.0_dev2_sources.tar.gz > SHA256SUMS.txt
+      - name: Publish prerelease (DEV only)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0-dev2
+          target_commitish: dev
+          prerelease: true
+          make_latest: false
+          name: 'Álfastafl 0.1.0-dev2 (DEV)'
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist/alfastafl_0.1.0_dev2_all.deb
+            dist/alfastafl_0.1.0_dev2_sources.tar.gz
+            dist/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
