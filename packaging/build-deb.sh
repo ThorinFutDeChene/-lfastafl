@@ -2,9 +2,18 @@
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 VERSION=$(cat "$ROOT/VERSION")
-if ! printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+~dev[0-9]+$'; then
-    echo 'Refus de construire: VERSION doit être une préversion DEV Debian valide' >&2
+if ! printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(~dev[0-9]+)?$'; then
+    echo 'Refus de construire: VERSION doit être une version Debian Álfastafl valide' >&2
     exit 1
+fi
+if printf '%s' "$VERSION" | grep -q '~dev'; then
+    APP_NAME='Álfastafl (DEV)'
+    PACKAGE_DESCRIPTION='Alfastafl Viking-fantasy tafl network game (development preview)'
+    PACKAGE_DETAIL=' Experimental LAN tafl software, not yet feature-complete.'
+else
+    APP_NAME='Álfastafl'
+    PACKAGE_DESCRIPTION='Alfastafl Viking-fantasy tafl local-network game'
+    PACKAGE_DETAIL=' Open-source 11x11 tafl game with LAN play and persistent saves.'
 fi
 FILE_VERSION=$(printf '%s' "$VERSION" | tr '~' '_')
 OUTPUT=${1:-"$ROOT/../alfastafl_${FILE_VERSION}_all.deb"}
@@ -26,18 +35,18 @@ Priority: optional
 Architecture: all
 Maintainer: Alfastafl Contributors <contact@thorinux.fr>
 Depends: python3, python3-pyqt6, python3-pyqt6.qtwebengine, python3-qrcode, python3-pil, iproute2, ufw, pkexec | policykit-1
-Description: Alfastafl Viking-fantasy tafl network game (development preview)
- Experimental LAN tafl software, not yet feature-complete.
+Description: $PACKAGE_DESCRIPTION
+$PACKAGE_DETAIL
 CTRL
 cat > "$BUILD/usr/bin/alfastafl" <<'SHCMD'
 #!/bin/sh
 PYTHONPATH=/opt/alfastafl/src exec /usr/bin/python3 -m alfastafl.desktop "$@"
 SHCMD
 chmod 755 "$BUILD/usr/bin/alfastafl"
-cat > "$BUILD/usr/share/applications/alfastafl.desktop" <<'SHDESK'
+cat > "$BUILD/usr/share/applications/alfastafl.desktop" <<SHDESK
 [Desktop Entry]
 Type=Application
-Name=Álfastafl (DEV)
+Name=$APP_NAME
 Comment=Jeu de tafl viking-fantasy en réseau local
 Exec=/usr/bin/alfastafl
 Terminal=false

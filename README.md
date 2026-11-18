@@ -1,8 +1,15 @@
-# Álfastafl — DEV 0.3.0-dev2
+# Álfastafl — 0.3.0 (canal stable)
+
+La **0.3.0 stable** reprend le code fonctionnel de 0.3.0-dev2 et les correctifs de distribution de la branche `main`. Ce statut indique une **Release non préliminaire sur le canal stable**, pas une version 1.0 ni l'achèvement des fonctionnalités prévues.
+
+**Validation en environnement réel à terminer :** le dialogue polkit et le nettoyage de la règle UFW doivent encore être vérifiés sur Ubuntu MATE avec deux smartphones. Le réseau local fonctionne en HTTP non chiffré ; ne pas exposer l'application sur Internet. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
+
+**Canaux de mise à jour :** les nouvelles installations de cette version choisissent `Stable` par défaut. Les installations provenant d'une DEV conservent leur choix de canal existant ; pour rester uniquement sur les versions stables, utiliser **Mises à jour → Stable**.
+
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
 
-## DEV 0.3.0-dev2 : réseau LAN et pare-feu automatiques
+## Base fonctionnelle reprise de la DEV 0.3.0-dev2 : réseau LAN et pare-feu automatiques
 
 **Démarrage normal sur Ubuntu :** Álfastafl lance immédiatement le serveur d’administration sur `127.0.0.1:8766`, puis détecte automatiquement une interface Wi-Fi/Ethernet privée. Il demande l’authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
 

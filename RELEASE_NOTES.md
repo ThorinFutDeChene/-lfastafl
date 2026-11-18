@@ -1,25 +1,23 @@
-# Álfastafl — 0.3.0-dev2 (DEV)
+# Álfastafl 0.3.0 — canal stable
 
-## Correction critique : serveur LAN et UFW automatiques
+## Première publication sur le canal stable
 
-- Le jeu ouvre automatiquement son serveur réseau privé après démarrage du bureau Ubuntu.
-- Autorisation Linux demandée par **polkit** ; aucune commande UFW à saisir par l’utilisateur.
-- Le port TCP **8766** est autorisé seulement pour l’interface physique Wi-Fi/Ethernet détectée, sur son sous-réseau privé ; aucun port n’est ouvert sur Internet.
-- Deux serveurs sur la même machine : administration et affichage local sur `127.0.0.1:8766`, invités sur l’adresse LAN du Lenovo. Pas d’écoute générale sur `0.0.0.0` dans l’application graphique.
-- Les QR codes et invitations s’affichent uniquement quand l’accès LAN est réellement opérationnel ; l’adresse IP provient de l’interface choisie, pas d’un itinéraire VPN.
-- À la fermeture et à la désactivation du LAN, **seule la règle créée par Álfastafl** est supprimée ; les règles UFW d’Enyalië ou des autres services sont préservées.
-- Un helper privilégié surveille la fermeture du processus par un canal privé ; nettoyage de la règle même après arrêt anormal du jeu, quand le helper est encore actif.
-- Après une panne électrique ou un arrêt forcé du helper lui-même, nettoyage des règles Álfastafl périmées au lancement suivant.
-- Si l’autorisation est refusée, le programme reste utilisable sur son serveur local.
+Cette version reprend le moteur et l'interface de **0.3.0-dev2**. L'installation est publiée sous le numéro Debian `0.3.0` et sans indication DEV dans l'application.
 
-## Vérifications et réserves
+### Fonctionnalités disponibles
 
-- Tests automatisés de détection IPv4, isolation VPN, validation de la portée, cycle de vie des règles et non-interférence avec les autres applications.
-- Pas de modification globale d’UFW, pas d’élévation permanente des droits du jeu.
-- Les tests ne remplacent pas un essai réel avec **UFW actif et polkit sous Ubuntu MATE**.
-- Le transport réseau est encore du HTTP non chiffré, à réserver à un LAN de confiance.
-- Les cinématiques 3D et les fonctions de régie ne sont pas encore présentes.
+- Plateau 11×11 avec trois variantes de règles en cours de validation.
+- Partie sur Ubuntu et accès de joueurs/spectateurs depuis le réseau local avec QR codes distincts et autorisation par l'hôte.
+- Serveur local de l'hôte et serveur LAN sur IPv4 privée ; gestion ponctuelle et limitée d'une règle UFW après authentification polkit, avec nettoyage à la fermeture.
+- Chronomètres, suspension lors des déconnexions, sauvegarde automatique et reprise des parties.
+- Fenêtre maximisée au démarrage, menu de vérification des mises à jour et sélection Stable / DEV.
 
-## Fonctions déjà présentes (dev1)
+### Réserves de validation
 
-Chronomètres T3, suspension/reconnexion, sauvegardes et reprises, règles de Tafl de base et arbitrages, mises à jour DEV et QR joueurs/spectateurs séparés.
+- **Le cycle réel polkit / UFW et les connexions depuis des smartphones sur Ubuntu MATE ne sont pas encore validés.** L'automatisation du pare-feu a été testée par simulation ; ne pas la considérer comme certifiée sur toutes les distributions.
+- Le transport HTTP du LAN n'est pas chiffré : usage uniquement sur un réseau privé de confiance, sans ouverture de routeur vers Internet.
+- Certaines règles particulières de Tafl, la 3D, les cinématiques et la régie multi-parties restent inachevées. Cette version stable 0.3.0 ne prétend pas être la version fonctionnellement complète 1.0.
+
+### Mise à jour depuis une DEV
+
+Le numéro Debian `0.3.0` est plus récent que `0.3.0~dev2`. Les sauvegardes utilisateurs et les paramètres XDG sont conservés lors de l'installation. Le canal de mise à jour déjà choisi n'est pas modifié automatiquement ; sélectionner **Stable** pour ignorer les futures préversions.
