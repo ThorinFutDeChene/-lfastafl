@@ -35,10 +35,12 @@ jobs:
           sudo apt-get install -y python3-qrcode python3-pil
       - name: Run unit and integration tests
         run: PYTHONPATH=src python3 -m unittest discover -s tests -v
-      - name: Set up Node for tutorial UI tests
+      - name: Set up Node for UI tests
         uses: actions/setup-node@v6
         with:
           node-version: '22'
+      - name: Check delayed move responses
+        run: node tests/ui_move_race.cjs
       - name: Install tutorial browser test dependencies
         timeout-minutes: 10
         run: |
@@ -49,12 +51,25 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_tutorial.cjs
+      - name: Exercise the 3D board in Chromium
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_board3d.cjs
       - name: Save tutorial UI screenshots
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v5
         with:
           name: alfastafl-tutorial-ui
           path: test-results/tutorial-ui/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Save 3D board screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: alfastafl-board3d-ui
+          path: test-results/board3d/
           if-no-files-found: ignore
           retention-days: 7
       - name: Build Debian package
@@ -67,7 +82,7 @@ jobs:
         run: |
           tar --exclude='__pycache__' --exclude='dist' --exclude='.git' \
             -czf "dist/alfastafl_${{ steps.version.outputs.file }}_sources.tar.gz" \
-            README.md RULES.md RELEASE_NOTES.md LICENSE VERSION src web tests packaging .github
+            README.md RULES.md RELEASE_NOTES.md THIRD_PARTY_NOTICES.md LICENSE VERSION src web tests packaging .github
           cd dist
           sha256sum "alfastafl_${{ steps.version.outputs.file }}_all.deb" \
             "alfastafl_${{ steps.version.outputs.file }}_sources.tar.gz" > SHA256SUMS.txt

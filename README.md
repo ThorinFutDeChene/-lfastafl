@@ -1,13 +1,40 @@
-# Álfastafl — 0.4.0 (canal stable)
+# Álfastafl — 0.5.0-dev1 (canal DEV)
 
-La **0.4.0 stable** reprend le tutoriel interactif de **0.4.0-dev1**, accessible sur le PC hôte à côté de **Créer une partie**. Elle succède à la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1). L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.5.0-dev1** introduit un **plateau 3D WebGL avec des figurines d'elfes, de nains et du roi**, dans les parties et le tutoriel. Cette préversion reprend la [stable 0.4.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.4.0), qui reste la version de référence du canal stable. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
-**Validation de la version source :** la DEV **0.4.0-dev1** a passé **168 tests Python** et **11 scénarios Chromium**, couvrant notamment les **28 exercices** du tutoriel ([exécution CI](https://github.com/ThorinFutDeChene/-lfastafl/actions/runs/44497542210)). Le parcours visuel dans l'application Qt sur Ubuntu MATE reste à vérifier sur le poste réel. L'utilisateur a confirmé le cycle normal UFW et la connexion des joueurs avec la 0.3.0 ; le démarrage manuel du LAN introduit ensuite, le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier sur son poste. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
+**Validation :** les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D. Le fonctionnement graphique dans Qt sur Ubuntu MATE et sur les appareils mobiles réels reste à vérifier. Les cas atypiques du moteur de règles, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette version choisissent `Stable` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**. Le numéro Debian `0.4.0` est plus récent que `0.4.0~dev1` et `0.3.1`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.0~dev1` est plus récent que `0.4.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## Plateau 3D et figurines
+
+Les parties et le tutoriel utilisent la **Vue 3D** par défaut. Le plateau 11×11 possède une base épaisse, un aspect chêne sombre en deux nuances et des repères de trône et de coins adaptés à la variante. Les pièces sont des figurines sculptées par génération procédurale :
+
+- **Nains en bronze** : barbe, hache et bouclier.
+- **Elfes en pierre claire** : oreilles, cape et arc.
+- **Roi en pierre claire** : couronne, épée et sceptre.
+
+Ces figurines constituent une première version. Le détail des modèles, leur préparation pour l'animation et leur rendu artistique seront affinés ensuite. Ce jalon ne contient pas encore de scène de combat, de son ni d'animation de capture.
+
+### Commandes
+
+| Action | Commande |
+| --- | --- |
+| Jouer un coup | Cliquer ou toucher une pièce, puis sa destination ; le glisser-déposer est également disponible. |
+| Orienter le plateau | Faire glisser le fond pour tourner sur 360° et modifier l'inclinaison. |
+| Zoomer | Utiliser la molette, deux doigts ou les boutons **+** et **−**. |
+| Retrouver un cadrage lisible | Choisir **Vue dessus** ou **Recentrer**. |
+| Adapter le rendu | Choisir **Qualité → Éco**, **Standard** ou **Haute**. |
+| Jouer au clavier | Choisir **Affichage → Vue 2D · clavier**. |
+
+Chaque joueur garde sa propre caméra. Les halos dorés indiquent la sélection et les destinations légales ; les destinations permettant une capture apparaissent en rouge, y compris pour une capture du roi. Ces prévisualisations viennent du moteur côté serveur. Les coups, captures, droits des joueurs et chronomètres restent contrôlés par ce même serveur.
+
+Le rendu 3D nécessite **WebGL 2**. Si cette capacité est indisponible ou si le contexte graphique est perdu, l'affichage bascule automatiquement vers la vue 2D. Celle-ci reste également sélectionnable à tout moment. Les essais sur téléphones et tablettes réels restent à effectuer.
+
+**Aucune connexion Internet n'est nécessaire pour afficher la 3D.** Three.js r187 et ses modules sont embarqués avec l'application ; le plateau et les figurines sont générés localement. Les mentions de licence MIT de Three.js sont réunies dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Tutoriel interactif sur le PC hôte
 
@@ -99,11 +126,13 @@ Les deux QR codes d’invitation sont maintenant séparés : joueur à gauche, i
 
 ## État réel
 
-La **0.4.0** est la version de référence du **canal stable**. Le périmètre fonctionnel reste incomplet.
+La **0.5.0-dev1** est une préversion ; la [0.4.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.4.0) reste la version de référence du **canal stable**. Le périmètre fonctionnel reste incomplet.
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 
-**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, moteur 3D WebGL/Three.js et modèles Blender, cinématiques, bandes-son, réalisation automatique, régie multi-parties, tournoi entièrement intégré à l'interface,  La version actuelle affiche un plateau HTML/CSS en légère perspective, **pas la 3D réelle validée pour le produit final**.
+**Nouveau dans cette DEV** : plateau WebGL 2, premières figurines procédurales reconnaissables, caméra libre, sélection et déplacement par clic, toucher ou glisser-déposer, repères de capture calculés par le serveur et repli en 2D. La validation graphique de ce jalon est en cours.
+
+**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, raffinement artistique des figurines et modèles destinés à l'animation, cinématiques, bandes-son, réalisation automatique, régie multi-parties et tournoi entièrement intégré à l'interface.
 
 ## Tests sur Ubuntu (sans installer)
 
@@ -113,7 +142,14 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 PYTHONPATH=src python3 -m alfastafl --host 127.0.0.1 --port 8766
 ```
 
-Les workflows de publication DEV et stable sont configurés pour exécuter `node tests/browser_tutorial.cjs` avec Playwright et Chromium avant la construction du paquet. Les captures produites dans `test-results/tutorial-ui/` sont conservées dans l'artefact GitHub Actions `alfastafl-tutorial-ui`. Ce contrôle navigateur complète les tests Python ; le parcours dans l'application Qt sur Ubuntu MATE reste à valider sur le poste réel.
+Les workflows de publication DEV et stable sont configurés pour exécuter les scripts suivants avec Playwright et Chromium avant la construction du paquet :
+
+```bash
+node tests/browser_tutorial.cjs
+node tests/browser_board3d.cjs
+```
+
+Le premier conserve les contrôles du tutoriel 2D. Le second prévoit 12 scénarios sur le rendu WebGL 2, les figurines, la caméra, les commandes de jeu, les captures, l'accès spectateur et le repli en 2D. Les captures sont produites dans `test-results/tutorial-ui/` et `test-results/board3d/`, puis conservées dans les artefacts GitHub Actions `alfastafl-tutorial-ui` et `alfastafl-board3d-ui`. Ces contrôles navigateur complètent les tests Python ; le parcours dans l'application Qt sur Ubuntu MATE et sur les mobiles réels reste à valider.
 
 Dans Firefox local : `http://127.0.0.1:8766/`. Pour un accès LAN en test, lancer explicitement `--host 0.0.0.0` depuis un **réseau local de confiance** pour des tests CLI uniquement ; cette commande directe ne gère pas le pare-feu. L'application graphique gère automatiquement UFW. Le protocole HTTP n'est **pas chiffré**, il ne convient pas à une exposition Internet.
 
@@ -128,6 +164,8 @@ Le paquet construit installe les sources dans `/opt/alfastafl/`, le lanceur nati
 ## Licence
 
 GNU GPL version 3, voir `LICENSE`. Code source public, pas de télémétrie ni service cloud central.
+
+Three.js et ses modules embarqués sont distribués sous licence MIT ; voir [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) et `web/vendor/three/LICENSE.txt`. Le code du plateau et des figurines procédurales appartient au projet Álfastafl et relève de sa licence GPL-3.0.
 
 ## Mise à jour de l'application Ubuntu (à partir de 0.1.0-dev3)
 

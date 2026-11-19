@@ -1,0 +1,740 @@
+#!/usr/bin/env node
+'use strict';
+
+/* Real Chromium/WebGL integration checks. All game data and listeners are local
+ * and temporary; this script never enables LAN access or changes the firewall. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const {spawn, spawnSync} = require('node:child_process');
+const {chromium} = require('playwright');
+
+const root = path.resolve(__dirname, '..');
+const output = path.join(root, 'test-results', 'board3d');
+const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'alfastafl-board3d-'));
+const python = process.env.BOARD3D_TEST_PYTHON || process.env.TUTORIAL_TEST_PYTHON || 'python3';
+const environment = {
+  ...process.env,
+  PYTHONPATH: [path.join(root, 'src'), process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),
+};
+fs.mkdirSync(output, {recursive: true});
+
+const report = {started_at: new Date().toISOString(), scenarios: [], screenshots: [],
+  solved: [], limitations: [], unexpected_requests: [], javascript_errors: [], console_errors: []};
+const assetResponses = new Map();
+let server;
+let serverError = '';
+let browser;
+let failurePage;
+let base;
+let fixture;
+let timedOut = false;
+
+function within(promise, milliseconds, description) {
+  let timer;
+  return Promise.race([promise, new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Timeout: ' + description)), milliseconds);
+  })]).finally(() => clearTimeout(timer));
+}
+
+async function scenario(name, action) {
+  const started = Date.now();
+  try {
+    const result = await action();
+    const status = result && result.skip ? 'skipped' : 'passed';
+    report.scenarios.push({name, status, milliseconds: Date.now() - started,
+      ...(result && result.skip ? {reason: result.skip} : {})});
+    console.log((status === 'passed' ? 'PASS ' : 'SKIP ') + name);
+  } catch (error) {
+    report.scenarios.push({name, status: 'failed', milliseconds: Date.now() - started, error: error.message});
+    throw error;
+  }
+}
+
+async function startServer() {
+  const code = `
+import json, signal, sys
+from alfastafl.server import Store, run
+store = Store(sys.argv[1])
+game = store.create('fetlar', {'time_control': {'mode': 'unlimited'}, 'disconnect_grace_seconds': 60})
+sessions = {}
+for camp in ('dwarf', 'elf'):
+    request = store.request(game.id, store.invites[game.id]['player'], '3D ' + camp)
+    sessions[camp] = store.approve(request, camp)
+request = store.request(game.id, store.invites[game.id]['spectator'], '3D spectator')
+sessions['spectator'] = store.approve(request)
+server = run('127.0.0.1', 0, store)
+def interrupt(*_):
+    raise KeyboardInterrupt
+signal.signal(signal.SIGTERM, interrupt)
+print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions}), flush=True)
+try:
+    server.serve_forever()
+except KeyboardInterrupt:
+    pass
+finally:
+    store.shutdown()
+    server.server_close()
+`;
+  server = spawn(python, ['-u', '-c', code, path.join(temporary, 'parties')], {
+    cwd: root, env: environment, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  server.stderr.on('data', chunk => { serverError = (serverError + chunk.toString()).slice(-8000); });
+  const ready = await within(new Promise((resolve, reject) => {
+    let text = '';
+    const onError = error => reject(error);
+    const onExit = code => reject(new Error(`Python server exited (${code}): ${serverError}`));
+    const onData = chunk => {
+      text += chunk.toString();
+      if (!text.includes('\n')) return;
+      try {
+        const data = JSON.parse(text.slice(0, text.indexOf('\n')));
+        assert(Number.isInteger(data.port) && data.port > 0);
+        assert(data.game && data.sessions.dwarf && data.sessions.elf && data.sessions.spectator);
+        server.stdout.off('data', onData);
+        server.off('error', onError);
+        server.off('exit', onExit);
+        resolve(data);
+      } catch (error) { reject(error); }
+    };
+    server.once('error', onError);
+    server.once('exit', onExit);
+    server.stdout.on('data', onData);
+  }), 15000, 'start ephemeral game server');
+  base = 'http://127.0.0.1:' + ready.port;
+  fixture = ready;
+}
+
+function solutions() {
+  const result = spawnSync(python, ['-c',
+    'import json; from alfastafl.tutorial import SOLUTIONS; print(json.dumps(SOLUTIONS))'],
+  {cwd: root, env: environment, encoding: 'utf8', timeout: 10000});
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+async function stopServer() {
+  if (!server || server.exitCode !== null || server.signalCode !== null) return;
+  const stopped = new Promise(resolve => server.once('exit', resolve));
+  server.kill('SIGTERM');
+  try { await within(stopped, 4000, 'stop Python server'); }
+  catch (_) {
+    server.kill('SIGKILL');
+    await within(stopped, 2000, 'kill Python server').catch(() => {});
+  }
+}
+
+async function makeContext(options = {}, {blockedWebGL = false, guest = false} = {}) {
+  const context = await browser.newContext({viewport: {width: 1440, height: 1100}, ...options});
+  if (blockedWebGL) {
+    await context.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (name, ...args) {
+        if (['webgl', 'webgl2', 'experimental-webgl'].includes(String(name))) return null;
+        return original.call(this, name, ...args);
+      };
+    });
+  }
+  // A missing browser favicon is unrelated to application shaders or modules;
+  // satisfy that browser-generated request without suppressing console errors.
+  await context.route('**/*', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const local = url.origin === base;
+    const proxiedGuest = guest && url.hostname === 'guest.test';
+    if (!local && !proxiedGuest && !['data:', 'blob:'].includes(url.protocol)) {
+      report.unexpected_requests.push(url.origin + url.pathname);
+      return route.abort('blockedbyclient');
+    }
+    if (url.pathname === '/favicon.ico') return route.fulfill({status: 204, body: ''});
+    if (proxiedGuest) {
+      const response = await context.request.fetch(base + url.pathname + url.search, {
+        method: request.method(), data: request.postDataBuffer() || undefined,
+        headers: request.headers()['content-type'] ? {'content-type': request.headers()['content-type']} : undefined,
+      });
+      return route.fulfill({response});
+    }
+    return route.continue();
+  });
+  context.on('response', response => {
+    const url = new URL(response.url());
+    if (url.pathname.startsWith('/vendor/') || ['/board3d.js', '/figurines3d.js', '/board-view.js'].includes(url.pathname)) {
+      assetResponses.set(url.pathname, response.status());
+    }
+  });
+  context.on('page', page => {
+    page.setDefaultTimeout(12000);
+    page.setDefaultNavigationTimeout(18000);
+    page.on('pageerror', error => report.javascript_errors.push(error.message));
+    page.on('console', message => {
+      if (message.type() !== 'error') return;
+      const text = message.text();
+      const expectedBlocked = blockedWebGL && /Error creating WebGL context|WebGL(2)? is not supported|Failed to create WebGL(2)? context/i.test(text);
+      // Context loss is deliberately exercised once. Shader/linking errors and
+      // unrelated errors are never hidden by this expected-message allowance.
+      const expectedLoss = /^THREE\.WebGLRenderer: Context Lost\.?$/i.test(text);
+      if (!expectedBlocked && !expectedLoss) report.console_errors.push(text);
+    });
+  });
+  return context;
+}
+
+async function ready3D(page, prefix = 'game', pieces = null) {
+  await page.bringToFront();
+  await page.waitForFunction(({prefix, pieces}) => {
+    const wrapper = document.getElementById(prefix + '-board-view');
+    const host = document.getElementById(prefix + '-board-3d');
+    const renderer = host && host.board3d;
+    if (!wrapper || wrapper.dataset.state !== 'ready' || wrapper.dataset.view !== '3d' ||
+        !renderer || host.hidden) return false;
+    const data = renderer.getDiagnostics();
+    return data.renderer === 'webgl2' && data.active && data.renders > 0 &&
+      data.resolution.width > 0 && data.resolution.height > 0 &&
+      (pieces === null || data.pieceCount === pieces);
+  }, {prefix, pieces});
+}
+
+async function diagnostics(page, prefix = 'game') {
+  return page.evaluate(prefix => document.getElementById(prefix + '-board-3d').board3d.getDiagnostics(), prefix);
+}
+
+async function nextPaint(page) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
+async function squarePoint(page, prefix, position, height = 0.15) {
+  await page.locator('#' + prefix + '-board-3d canvas').scrollIntoViewIfNeeded();
+  const point = await page.evaluate(({prefix, position, height}) => {
+    const result = document.getElementById(prefix + '-board-3d').board3d.projectSquare(...position, height);
+    return {...result, viewportWidth: innerWidth, viewportHeight: innerHeight};
+  }, {prefix, position, height});
+  assert(point && point.visible, `Square ${prefix} ${position} is not in the camera view`);
+  assert(point.x > 0 && point.x < point.viewportWidth && point.y > 0 && point.y < point.viewportHeight,
+    `Square ${prefix} ${position} lies outside the browser viewport: ${JSON.stringify(point)}`);
+  return point;
+}
+
+function responseFor(page, endpoint, method = 'GET', predicate = () => true) {
+  const pending = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname === '/api/' + endpoint && response.request().method() === method && predicate(url);
+  });
+  // If a click fails before its waiter is awaited, page cleanup should not
+  // produce an unrelated unhandled-rejection error that masks the first one.
+  pending.catch(() => {});
+  return pending;
+}
+
+async function tutorialReady(page) {
+  await page.waitForFunction(() => {
+    const panel = document.getElementById('tutorial-panel');
+    return panel.open && panel.getAttribute('aria-busy') === 'false' &&
+      document.querySelectorAll('#tutorial-board button').length === 121;
+  });
+}
+
+async function closeTutorial(page) {
+  if (await page.locator('#tutorial-panel').evaluate(panel => panel.open)) {
+    await page.locator('#tutorial-close').click();
+    await page.waitForFunction(() => !document.getElementById('tutorial-panel').open);
+  }
+}
+
+async function openTutorial(page, mode, lesson = null) {
+  await closeTutorial(page);
+  await page.selectOption('#mode', mode);
+  const loaded = responseFor(page, 'tutorial', 'GET', url => url.searchParams.get('mode') === mode);
+  await page.locator('#tutorial-open').click();
+  assert.equal((await loaded).status(), 200);
+  await tutorialReady(page);
+  if (lesson) await chooseLesson(page, lesson);
+  await ready3D(page, 'tutorial');
+  await page.locator('#tutorial-camera-top').click();
+  await nextPaint(page);
+}
+
+async function chooseLesson(page, id) {
+  if (await page.locator('#tutorial-lessons').inputValue() === id) return tutorialReady(page);
+  const loaded = responseFor(page, 'tutorial', 'GET', url => url.searchParams.get('lesson') === id);
+  await page.selectOption('#tutorial-lessons', id);
+  assert.equal((await loaded).status(), 200);
+  await tutorialReady(page);
+}
+
+async function select3D(page, prefix, from, tap = false) {
+  const endpoint = prefix === 'tutorial' ? 'tutorial/legal' : 'legal';
+  const pending = responseFor(page, endpoint);
+  const point = await squarePoint(page, prefix, from, 0.7);
+  if (tap) await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
+  const response = await pending;
+  assert.equal(response.status(), 200);
+  const legal = await response.json();
+  await page.waitForFunction(({prefix, from}) => {
+    const view = document.getElementById(prefix + '-board-view').boardView;
+    const d = document.getElementById(prefix + '-board-3d').board3d.getDiagnostics();
+    return d.selected && d.selected[0] === from[0] && d.selected[1] === from[1] && !view.state.disabled;
+  }, {prefix, from});
+  await nextPaint(page);
+  return legal;
+}
+
+async function clickMove(page, prefix, from, to, tap = false) {
+  await select3D(page, prefix, from, tap);
+  const pending = responseFor(page, prefix === 'tutorial' ? 'tutorial/move' : 'move', 'POST');
+  const point = await squarePoint(page, prefix, to);
+  if (tap) await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
+  const response = await pending;
+  assert.equal(response.status(), 200);
+  const data = await response.json();
+  if (prefix === 'tutorial') {
+    await tutorialReady(page);
+    await page.waitForFunction(kind => document.getElementById('tutorial-feedback').dataset.kind === kind,
+      data.tutorial.feedback_kind);
+  } else {
+    await page.waitForFunction(n => document.querySelectorAll('#moves li').length === n, data.event.n);
+  }
+  await nextPaint(page);
+  return data;
+}
+
+async function dragMove(page, from, to) {
+  const source = await squarePoint(page, 'tutorial', from, 0.7);
+  const target = await squarePoint(page, 'tutorial', to);
+  const legal = responseFor(page, 'tutorial/legal');
+  const moved = responseFor(page, 'tutorial/move', 'POST');
+  await page.mouse.move(source.x, source.y);
+  await page.mouse.down();
+  await page.mouse.move(source.x + 12, source.y + 3, {steps: 3});
+  assert.equal((await legal).status(), 200);
+  await page.waitForFunction(() => document.getElementById('tutorial-panel').getAttribute('aria-busy') === 'false');
+  await page.mouse.move(target.x, target.y, {steps: 10});
+  await page.mouse.up();
+  const response = await moved;
+  assert.equal(response.status(), 200);
+  const data = await response.json();
+  await tutorialReady(page);
+  await page.waitForFunction(kind => document.getElementById('tutorial-feedback').dataset.kind === kind,
+    data.tutorial.feedback_kind);
+  return data.tutorial;
+}
+
+async function capture(page, filename, locator = null) {
+  const destination = path.join(output, filename);
+  if (locator) await page.locator(locator).screenshot({path: destination});
+  else await page.screenshot({path: destination});
+  report.screenshots.push(path.relative(root, destination));
+}
+
+function cameraDistance(camera) {
+  return Math.hypot(...camera.position.map((value, i) => value - camera.target[i]));
+}
+
+function sameCamera(a, b) {
+  return ['position', 'target'].every(key => a[key].every((value, i) => Math.abs(value - b[key][i]) < 1e-7));
+}
+
+const watchdog = setTimeout(() => {
+  timedOut = true;
+  console.error('3D browser tests exceeded their four-minute deadline.');
+  if (browser) browser.close().catch(() => {});
+  if (server) server.kill('SIGTERM');
+}, 240000);
+
+async function main() {
+  const expected = solutions();
+  await startServer();
+  browser = await chromium.launch({headless: true, timeout: 30000,
+    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
+  const context = await makeContext();
+  const created = await context.request.post(base + '/api/create', {data: {mode: 'fetlar'}});
+  assert.equal(created.status(), 200);
+  const hostGame = (await created.json()).game;
+  const page = await context.newPage();
+  failurePage = page;
+  await page.goto(base + '/?game=' + encodeURIComponent(hostGame), {waitUntil: 'domcontentloaded'});
+
+  await scenario('A local WebGL2 board displays 24 dwarves, 12 elves and their king', async () => {
+    await ready3D(page, 'game', 37);
+    const d = await diagnostics(page);
+    assert.equal(d.threeRevision, '187');
+    assert.equal(d.boardSize, 11);
+    assert.deepEqual(d.pieces, {N: 24, E: 12, R: 1});
+    assert(d.graphics.triangles > 50000, 'The board must contain real 3D meshes');
+    assert.equal(await page.evaluate(() => {
+      const gl = document.getElementById('game-board-3d').board3d.renderer.getContext();
+      return gl instanceof WebGL2RenderingContext && /^WebGL 2/.test(gl.getParameter(gl.VERSION));
+    }), true);
+    await capture(page, 'board-perspective.png', '#game-board-view');
+    report.initial_renderer = d;
+  });
+
+  await scenario('Camera orbit, zoom, top view, reset and adaptive quality work independently', async () => {
+    await page.locator('#game-board-3d canvas').scrollIntoViewIfNeeded();
+    const initial = (await diagnostics(page)).camera;
+    const bounds = await page.locator('#game-board-3d canvas').boundingBox();
+    await page.mouse.move(bounds.x + 14, bounds.y + 25);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + 114, bounds.y + 62, {steps: 8});
+    await page.mouse.up();
+    await nextPaint(page);
+    assert(!sameCamera(initial, (await diagnostics(page)).camera), 'Dragging the background must orbit');
+    const orbited = (await diagnostics(page)).camera;
+    await page.locator('#game-camera-zoom-in').click();
+    await nextPaint(page);
+    assert(cameraDistance((await diagnostics(page)).camera) < cameraDistance(orbited));
+    await page.locator('#game-camera-top').click();
+    await nextPaint(page);
+    const top = (await diagnostics(page)).camera;
+    assert(Math.abs(top.position[0] - top.target[0]) < 0.001);
+    assert(top.position[1] - top.target[1] > 15);
+    assert(Math.abs(top.position[2] - top.target[2]) < 0.5);
+    for (const quality of ['eco', 'high', 'standard']) {
+      await page.selectOption('#game-board-quality', quality);
+      await page.waitForFunction(quality => document.getElementById('game-board-3d').board3d.getDiagnostics().quality === quality, quality);
+      const ratio = (await diagnostics(page)).resolution.pixelRatio;
+      assert(ratio > 0 && ratio <= (quality === 'eco' ? 1 : quality === 'standard' ? 1.5 : 2));
+    }
+    await page.locator('#game-camera-reset').click();
+    await nextPaint(page);
+    assert(sameCamera(initial, (await diagnostics(page)).camera), 'Reset must restore the initial view');
+    await page.locator('#game-camera-top').click();
+    const beforeUpdate = (await diagnostics(page)).camera;
+    const paused = await context.request.post(base + '/api/pause', {data: {game: hostGame}});
+    assert.equal(paused.status(), 200);
+    await page.waitForFunction(() => document.getElementById('state').textContent.includes('paused'));
+    assert(sameCamera(beforeUpdate, (await diagnostics(page)).camera), 'A server state refresh must not reset the camera');
+    await page.locator('#game-camera-reset').click();
+  });
+
+  await scenario('An authorized player makes a real server-validated move by clicking 3D', async () => {
+    const player = await context.newPage();
+    failurePage = player;
+    await player.goto(base + '/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.dwarf),
+      {waitUntil: 'domcontentloaded'});
+    await ready3D(player, 'game', 37);
+    await player.locator('#game-camera-top').click();
+    await nextPaint(player);
+    const [from, to] = expected.fetlar.first_move;
+    const answer = await clickMove(player, 'game', from, to);
+    assert.deepEqual(answer.event.from, from);
+    assert.deepEqual(answer.event.to, to);
+    const state = await context.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
+    const game = (await state.json()).game;
+    assert.equal(game.history.length, 1);
+    assert.equal(game.board[from[0]][from[1]], '.');
+    assert.equal(game.board[to[0]][to[1]], 'N');
+    await player.close();
+    failurePage = page;
+  });
+
+  await scenario('Each rule variant is playable through actual 3D tutorial clicks', async () => {
+    for (const mode of ['historical', 'fetlar', 'copenhagen']) {
+      await openTutorial(page, mode, 'capture');
+      assert.equal((await diagnostics(page, 'tutorial')).mode, mode);
+      const answer = await clickMove(page, 'tutorial', ...expected[mode].capture);
+      assert.equal(answer.tutorial.completed, true, mode);
+      assert.equal(answer.tutorial.last_move.captured.length, 1, mode);
+      report.solved.push({mode, lesson: 'capture', input: 'mouse'});
+    }
+  });
+
+  await scenario('Gold legal destinations and red capture destinations match the server', async () => {
+    await openTutorial(page, 'fetlar', 'capture');
+    const legal = await select3D(page, 'tutorial', expected.fetlar.capture[0]);
+    assert(Array.isArray(legal.captures) && legal.captures.length > 0);
+    assert(legal.moves.length > legal.captures.length);
+    const d = await diagnostics(page, 'tutorial');
+    assert.equal(d.legalCount, legal.moves.length);
+    assert.equal(d.captureCount, legal.captures.length);
+    await page.locator('#tutorial-camera-reset').click();
+    await nextPaint(page);
+    await capture(page, 'tutorial-capture.png');
+    // A separate close view is an inspection of the actual game models. It
+    // changes only the local camera, never the board or the rules.
+    await page.evaluate(() => {
+      const r = document.getElementById('tutorial-board-3d').board3d;
+      r.controls.target.set(-0.45, 0.55, 0.15);
+      r.camera.position.set(3.6, 5.9, 7.7);
+      r.controls.update();
+    });
+    await nextPaint(page);
+    await capture(page, 'figurines-closeup.png', '#tutorial-board-3d');
+    await page.locator('#tutorial-camera-top').click();
+  });
+
+  await scenario('3D drag-and-drop validates a move and explains an illegal diagonal', async () => {
+    await chooseLesson(page, 'movement');
+    await nextPaint(page);
+    const success = await dragMove(page, ...expected.fetlar.movement);
+    assert.equal(success.completed, true);
+    report.solved.push({mode: 'fetlar', lesson: 'movement', input: 'drag'});
+    const reset = responseFor(page, 'tutorial');
+    await page.locator('#tutorial-retry').click();
+    assert.equal((await reset).status(), 200);
+    await tutorialReady(page);
+    const refused = await dragMove(page, [4, 2], [3, 3]);
+    assert.equal(refused.completed, false);
+    assert.equal(refused.feedback_kind, 'error');
+    assert.match(refused.feedback, /diagonale/);
+    assert.equal(refused.board[4][2], 'N');
+    assert.equal(refused.board[3][3], '.');
+  });
+
+  await scenario('Dropping outside the canvas cancels even over a projected legal destination', async () => {
+    const reset = responseFor(page, 'tutorial');
+    await page.locator('#tutorial-retry').click();
+    assert.equal((await reset).status(), 200);
+    await tutorialReady(page);
+    await ready3D(page, 'tutorial');
+    await page.locator('#tutorial-board-3d canvas').scrollIntoViewIfNeeded();
+    const [from, to] = expected.fetlar.movement;
+    const initialBoard = await page.evaluate(() => document.getElementById('tutorial-board-view').boardView.state.board);
+    const framing = await page.evaluate(({from, to}) => {
+      const r = document.getElementById('tutorial-board-3d').board3d;
+      const rect = r.canvas.getBoundingClientRect();
+      const outsideX = rect.right + 18;
+      // Look almost vertically down from the allowed minimum zoom distance.
+      // Pan so the real, legal destination projects just beyond the canvas's
+      // right edge, over the adjacent dialog content, while its source remains
+      // visible. The former infinite-plane picking bug accepted exactly this.
+      let low = -5;
+      let high = 5;
+      const centreZ = from[0] - 5;
+      for (let iteration = 0; iteration < 28; iteration++) {
+        const centreX = (low + high) / 2;
+        r.controls.target.set(centreX, 0.12, centreZ);
+        r.camera.position.set(centreX, 10.12, centreZ + 0.11);
+        r.controls.update();
+        const destination = r.projectSquare(...to, 0.12);
+        if (destination.x > outsideX) low = centreX;
+        else high = centreX;
+      }
+      return {
+        source: r.projectSquare(...from, 0.7),
+        destination: r.projectSquare(...to, 0.12),
+        rect: {left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom},
+        viewport: {width: innerWidth, height: innerHeight},
+      };
+    }, {from, to});
+    const {source, destination, rect, viewport} = framing;
+    assert(source.visible && source.x > rect.left + 10 && source.x < rect.right - 10 &&
+      source.y > rect.top + 10 && source.y < rect.bottom - 10, 'The drag must start on a visible figurine');
+    assert(destination.x > rect.right + 12 && destination.x < rect.right + 24,
+      'The legal destination must project outside the canvas, not onto a border');
+    assert(destination.x < viewport.width - 1 && destination.y > 0 && destination.y < viewport.height - 1,
+      'The release point must remain inside the browser viewport');
+    await nextPaint(page);
+
+    const moveRequests = [];
+    const onRequest = request => {
+      if (request.method() === 'POST' && ['/api/move', '/api/tutorial/move'].includes(new URL(request.url()).pathname)) {
+        moveRequests.push(new URL(request.url()).pathname);
+      }
+    };
+    page.on('request', onRequest);
+    try {
+      const legal = responseFor(page, 'tutorial/legal');
+      await page.mouse.move(source.x, source.y);
+      await page.mouse.down();
+      await page.mouse.move(source.x + 12, source.y + 3, {steps: 3});
+      const response = await legal;
+      assert.equal(response.status(), 200);
+      const moves = (await response.json()).moves;
+      assert(moves.some(square => square[0] === to[0] && square[1] === to[1]),
+        'Regression setup requires a server-approved destination outside the canvas');
+      await tutorialReady(page);
+      await page.mouse.move(destination.x, destination.y, {steps: 12});
+      await page.mouse.up();
+      // Drain input microtasks/rendering, then a local round trip. A pending
+      // asynchronous onDrop cannot hide behind a same-tick request assertion.
+      await nextPaint(page);
+      await page.evaluate(async () => {
+        const response = await fetch('/api/address');
+        if (!response.ok) throw new Error('Local event-loop barrier failed');
+        await response.json();
+      });
+      await nextPaint(page);
+      assert.deepEqual(moveRequests, [], 'Releasing outside the canvas must not submit a move');
+      const finalBoard = await page.evaluate(() => document.getElementById('tutorial-board-view').boardView.state.board);
+      assert.deepEqual(finalBoard, initialBoard, 'An outside drop must preserve every square');
+      assert.notEqual(await page.locator('#tutorial-feedback').getAttribute('data-kind'), 'success');
+    } finally {
+      await page.mouse.up().catch(() => {});
+      page.off('request', onRequest);
+      await page.locator('#tutorial-camera-reset').click();
+    }
+    report.outside_drop = {from, to, outside_pixels: destination.x - rect.right};
+  });
+
+  await scenario('Choosing 2D preserves the game and returning to 3D preserves its camera', async () => {
+    await closeTutorial(page);
+    await ready3D(page, 'game', 37);
+    await page.locator('#game-camera-top').click();
+    const original = (await diagnostics(page)).camera;
+    await page.selectOption('#game-board-mode', '2d');
+    assert.equal(await page.locator('#board').isVisible(), true);
+    assert.equal(await page.locator('#board .piece').count(), 37);
+    assert.equal(await page.locator('#game-board-3d').isVisible(), false);
+    await page.selectOption('#game-board-mode', '3d');
+    await ready3D(page, 'game', 37);
+    assert(sameCamera(original, (await diagnostics(page)).camera));
+  });
+
+  await scenario('A lost WebGL context falls back to 2D and can be retried', async () => {
+    const supported = await page.evaluate(() => {
+      const r = document.getElementById('game-board-3d').board3d;
+      const extension = r.renderer.getContext().getExtension('WEBGL_lose_context');
+      if (!extension) return false;
+      window.__lostBoardRenderer = r;
+      extension.loseContext();
+      return true;
+    });
+    if (!supported) {
+      const reason = 'WEBGL_lose_context unavailable; automatic startup fallback is tested separately.';
+      report.limitations.push(reason);
+      return {skip: reason};
+    }
+    await page.waitForFunction(() => document.getElementById('game-board-view').dataset.state === 'fallback');
+    assert.equal(await page.locator('#game-board-mode').inputValue(), '2d');
+    assert.equal(await page.locator('#board').isVisible(), true);
+    assert.equal(await page.locator('#board .piece').count(), 37);
+    await page.selectOption('#game-board-mode', '3d');
+    await ready3D(page, 'game', 37);
+    assert.equal(await page.evaluate(() => document.getElementById('game-board-3d').board3d !== window.__lostBoardRenderer), true);
+  });
+
+  await scenario('A mobile touchscreen plays a tutorial move in the real 3D view', async () => {
+    const mobileContext = await makeContext({viewport: {width: 390, height: 844},
+      deviceScaleFactor: 1, isMobile: true, hasTouch: true});
+    try {
+      const mobile = await mobileContext.newPage();
+      failurePage = mobile;
+      await mobile.goto(base, {waitUntil: 'domcontentloaded'});
+      await openTutorial(mobile, 'historical', 'movement');
+      const result = await clickMove(mobile, 'tutorial', ...expected.historical.movement, true);
+      assert.equal(result.tutorial.completed, true);
+      report.solved.push({mode: 'historical', lesson: 'movement', input: 'touch'});
+      assert.equal(await mobile.evaluate(() => {
+        const panel = document.getElementById('tutorial-panel');
+        return document.documentElement.scrollWidth <= innerWidth + 1 && panel.scrollWidth <= panel.clientWidth + 1;
+      }), true, 'The small-screen tutorial must not overflow horizontally');
+      await capture(mobile, 'board-mobile.png');
+    } finally { await mobileContext.close(); failurePage = page; }
+  });
+
+  await scenario('A remote spectator sees the 3D board but cannot play or open the tutorial', async () => {
+    const guestContext = await makeContext({}, {guest: true});
+    const attemptedActions = [];
+    guestContext.on('request', request => {
+      const pathname = new URL(request.url()).pathname;
+      if (['/api/move', '/api/legal'].includes(pathname) || pathname.startsWith('/api/tutorial')) attemptedActions.push(pathname);
+    });
+    try {
+      const guest = await guestContext.newPage();
+      failurePage = guest;
+      await guest.goto('http://guest.test/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.spectator),
+        {waitUntil: 'domcontentloaded'});
+      await ready3D(guest, 'game', 37);
+      assert.equal(await guest.locator('#host').isVisible(), false);
+      assert.equal(await guest.locator('#tutorial-open').count(), 0);
+      assert.equal(await guest.locator('#tutorial-panel').count(), 0);
+      await guest.locator('#game-camera-top').click();
+      const from = await squarePoint(guest, 'game', [5, 4], 0.7);
+      const to = await squarePoint(guest, 'game', [4, 4]);
+      await guest.mouse.click(from.x, from.y);
+      await guest.mouse.click(to.x, to.y);
+      await guest.mouse.move(from.x, from.y);
+      await guest.mouse.down();
+      await guest.mouse.move(to.x, to.y, {steps: 8});
+      await guest.mouse.up();
+      await nextPaint(guest);
+      assert.deepEqual(attemptedActions, []);
+      const refused = await guestContext.request.post(base + '/api/move', {data: {
+        game: fixture.game, session: fixture.sessions.spectator, from: [5, 4], to: [4, 4],
+      }});
+      assert.equal(refused.status(), 403);
+      const state = await guestContext.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
+      assert.equal((await state.json()).game.history.length, 1);
+    } finally { await guestContext.close(); failurePage = page; }
+  });
+
+  await scenario('When WebGL is unavailable the accessible 2D tutorial remains playable', async () => {
+    const blockedContext = await makeContext({}, {blockedWebGL: true});
+    try {
+      const fallback = await blockedContext.newPage();
+      failurePage = fallback;
+      await fallback.goto(base + '/?game=' + encodeURIComponent(hostGame), {waitUntil: 'domcontentloaded'});
+      await fallback.waitForFunction(() => document.getElementById('game-board-view').dataset.state === 'fallback' &&
+        document.querySelectorAll('#board .piece').length === 37);
+      assert.equal(await fallback.locator('#game-board-mode').inputValue(), '2d');
+      await fallback.selectOption('#mode', 'historical');
+      const loaded = responseFor(fallback, 'tutorial');
+      await fallback.locator('#tutorial-open').click();
+      await loaded;
+      await tutorialReady(fallback);
+      await fallback.waitForFunction(() => document.getElementById('tutorial-board-view').dataset.state === 'fallback');
+      assert.equal(await fallback.locator('#tutorial-flat-board').isVisible(), true);
+      const [from, to] = expected.historical.first_move;
+      const legal = responseFor(fallback, 'tutorial/legal');
+      await fallback.locator(`#tutorial-board button[data-row="${from[0]}"][data-col="${from[1]}"]`).click();
+      await legal;
+      await tutorialReady(fallback);
+      const move = responseFor(fallback, 'tutorial/move', 'POST');
+      await fallback.locator(`#tutorial-board button[data-row="${to[0]}"][data-col="${to[1]}"]`).click();
+      const result = (await (await move).json()).tutorial;
+      assert.equal(result.completed, true);
+      await tutorialReady(fallback);
+    } finally { await blockedContext.close(); failurePage = page; }
+  });
+
+  await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
+    for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
+      '/vendor/three/three.module.js', '/vendor/three/three.core.js',
+      '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
+      assert.equal(assetResponses.get(asset), 200, asset);
+    }
+    assert.deepEqual(report.unexpected_requests, []);
+    assert.deepEqual(report.javascript_errors, []);
+    assert.deepEqual(report.console_errors, []);
+    const address = await context.request.get(base + '/api/address');
+    assert.equal(address.status(), 200);
+    assert.equal((await address.json()).lan_enabled, false);
+    const gameState = await context.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
+    assert.equal((await gameState.json()).game.history.length, 1, 'Tutorials must not modify the multiplayer match');
+    report.modules = [...assetResponses.keys()].sort();
+  });
+  report.status = 'passed';
+}
+
+(async () => {
+  try {
+    await main();
+    if (timedOut) throw new Error('Global browser test deadline exceeded.');
+  } catch (error) {
+    report.status = 'failed';
+    report.error = error.stack || String(error);
+    if (serverError) report.server_stderr = serverError;
+    console.error(report.error);
+    process.exitCode = 1;
+    if (failurePage && !failurePage.isClosed()) {
+      await within(failurePage.screenshot({path: path.join(output, 'failure.png')}), 5000, 'failure screenshot').catch(() => {});
+      report.page_state = await failurePage.evaluate(() => ({
+        game: document.getElementById('game-board-view')?.dataset,
+        tutorial: document.getElementById('tutorial-board-view')?.dataset,
+        gameStatus: document.getElementById('game-board-status')?.textContent,
+        tutorialStatus: document.getElementById('tutorial-board-status')?.textContent,
+      })).catch(() => null);
+    }
+  } finally {
+    if (browser) await within(browser.close(), 8000, 'close Chromium').catch(() => {});
+    await stopServer();
+    fs.rmSync(temporary, {recursive: true, force: true});
+    clearTimeout(watchdog);
+    report.finished_at = new Date().toISOString();
+    fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
+  }
+})();

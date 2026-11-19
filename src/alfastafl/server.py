@@ -321,6 +321,12 @@ class Store:
                 return []
             return game.legal(square) if game.turn == side else []
 
+    def legal_details_for(self, gid, sid, square):
+        with self.lock:
+            moves = self.legal_for(gid, sid, square)
+            return {'moves': moves,
+                    'captures': self.games[gid].capture_destinations(square, moves)}
+
     def offer_draw(self, gid, sid):
         with self.lock:
             side = self.player(gid, sid)
@@ -433,11 +439,16 @@ class AppHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError,UnicodeDecodeError):raise ValueError('Invalid JSON')
     def static(self,path):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
-        p={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/tutorial.js':'tutorial.js','/style.css':'style.css'}.get(path)
+        assets=('index.html','app.js','tutorial.js','style.css',
+                'board-view.js','board3d.js','figurines3d.js',
+                'vendor/three/three.module.js','vendor/three/three.core.js',
+                'vendor/three/OrbitControls.js','vendor/three/BufferGeometryUtils.js',
+                'vendor/three/LICENSE.txt')
+        p='index.html' if path=='/' else {('/'+name):name for name in assets}.get(path)
         if not p:self.send_error(404);return
         raw=(root/p).read_bytes()
-        typ={'html':'text/html','css':'text/css','js':'text/javascript'}[p.rsplit('.',1)[-1]]
-        self.send_response(200);self.send_header('Content-Type',typ+'; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
+        typ={'html':'text/html','css':'text/css','js':'text/javascript','txt':'text/plain'}[p.rsplit('.',1)[-1]]
+        self.send_response(200);self.send_header('Content-Type',typ+'; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-cache');self.end_headers();self.wfile.write(raw)
     def do_GET(self):
         u=urlparse(self.path);q=parse_qs(u.query)
         if u.path=='/api/qr':
@@ -465,7 +476,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     try:
                         start=[int(q.get('row',['-1'])[0]),int(q.get('col',['-1'])[0])]
                     except (ValueError,TypeError):raise ValueError('Coordonnées du tutoriel invalides.')
-                    return self.send({'moves':tutorial.legal_moves(mode,lesson,start)})
+                    return self.send(tutorial.legal_details(mode,lesson,start))
                 return self.send({'error':'Unknown endpoint'},404)
             with self.server.store.lock:
                 st=self.server.store
@@ -499,7 +510,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     try:
                         r=int(q.get('row',['-1'])[0]);c=int(q.get('col',['-1'])[0])
                     except (ValueError,TypeError):raise ValueError('Invalid square')
-                    return self.send({'moves':st.legal_for(gid,sid,[r,c])})
+                    return self.send(st.legal_details_for(gid,sid,[r,c]))
                 if u.path=='/api/tournaments':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'tournaments':list(st.tournaments.values())})

@@ -49,7 +49,7 @@
 #connection-state{max-width:770px;margin:12px auto}
 @media(max-width:500px){.clock-panel{gap:6px;grid-template-columns:minmax(0,1fr) minmax(96px,.7fr) minmax(0,1fr)}.clock-box{padding:8px 3px}.clock-mode-box{font-size:.75rem}.clock-box span{font-size:.8rem}}
 
-/* Host-only tutorial: a separate, flat board for learning legal moves. */
+/* Host-only tutorial: a separate board for learning legal moves. */
 .host-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 #tutorial-open[hidden]{display:none}
 #tutorial-open{background:#182820;color:#f0d7a7;border-color:#c6a76d}
@@ -134,3 +134,51 @@
   .tutorial-board .square.tutorial-focus::before{font-size:13px;top:-1px}
   .tutorial-legend{gap:8px;font-size:.7rem}
 }
+
+
+/* Shared local 3D view and accessible 2D alternative. */
+.board-view{min-width:0;margin-top:12px}
+.board-view [hidden]{display:none!important}
+.board-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px;border:1px solid #526149;border-radius:10px;background:#16251e}
+.board-tools label{margin:0;gap:6px;font-size:.8rem;min-width:0;flex-wrap:wrap;color:#d9d7c3}
+.board-tools select{min-width:0;max-width:100%;padding:8px;font-size:.82rem}
+.board-tools button{padding:8px 10px;font-size:.81rem;min-height:34px;background:#24362b;color:#f1d6a2;border-color:#718164}
+.board-tools button:hover:not(:disabled){background:#3c4b35}
+.board-tools button:disabled,.board-tools select:disabled{opacity:.45;cursor:default}
+.board-camera-tools{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.board-tools button:focus-visible,.board-tools select:focus-visible{outline:2px solid #ffe09a;outline-offset:2px}
+.board-status{font-size:.81rem;line-height:1.4;color:#c5d3bb;margin:9px 2px;min-height:1.4em}
+.board-status[data-kind="error"]{color:#ffd0a5}
+.board-stage{width:100%;height:clamp(340px,58vw,650px);position:relative;overflow:hidden;border:1px solid #59654d;border-radius:12px;background:radial-gradient(ellipse at 50% 35%,#283d31,#0b1712);isolation:isolate}
+.board-stage canvas{display:block;width:100%;height:100%;outline:none;touch-action:none}
+.board-stage canvas:focus-visible{outline:3px solid #f4d992;outline-offset:-4px}
+.board-help,.board-empty{font-size:.8rem;line-height:1.45;color:#c1cbb9;margin:10px 3px}
+.board-empty{font-weight:650;color:#dfc68f}
+#game-board-view #board{transform:none;max-width:770px}
+#game-board-view #board .square{padding:0;border-radius:0}
+#game-board-view #board .piece{pointer-events:none}
+.tutorial-play .board-stage{height:clamp(320px,45vw,500px)}
+.tutorial-play .board-tools{gap:7px;padding:8px}
+.tutorial-play .board-tools button{font-size:.76rem;padding:7px 8px}
+.tutorial-play .board-tools label{font-size:.76rem}
+.tutorial-play .board-tools select{font-size:.78rem;padding:7px}
+.tutorial-play .board-help{font-size:.76rem}
+.tutorial-play .board-view{margin-top:0}
+@media(max-width:760px){
+  .board-tools{align-items:flex-start}
+  .board-camera-tools{order:3;flex-basis:100%}
+  .board-tools label{display:inline-flex}
+  .board-stage,.tutorial-play .board-stage{height:clamp(300px,94vw,530px)}
+  .board-help{font-size:.76rem}
+}
+
+.board-legend{display:flex;gap:15px;flex-wrap:wrap;margin:10px 3px;color:#cbd1c3;font-size:.78rem}
+.board-legend span{display:inline-flex;align-items:center;gap:6px}
+.legal-key,.capture-key{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ffe492;flex-shrink:0}
+.capture-key{background:#f1776b}
+#board .square.capture{box-shadow:inset 0 0 0 4px #ee7767}
+.tutorial-board .square.capture{box-shadow:inset 0 0 0 2px #ee7767}
+.tutorial-board .square.capture::after{background:#f1776b}
+
+.board-view .square.selected{outline:2px solid #f1d49b;outline-offset:-3px}
+.board-view .square:focus-visible{outline:3px solid #fff;outline-offset:-3px}

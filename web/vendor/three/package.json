@@ -1,0 +1,8 @@
+{
+  "name": "three",
+  "version": "0.187.0",
+  "type": "module",
+  "main": "./three.module.js",
+  "exports": "./three.module.js",
+  "license": "MIT"
+}

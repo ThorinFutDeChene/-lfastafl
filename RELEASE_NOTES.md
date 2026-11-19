@@ -1,23 +1,24 @@
-# Álfastafl 0.4.0 — canal stable
+# Álfastafl 0.5.0-dev1 — plateau 3D et figurines
 
-Cette version stable reprend le tutoriel de **0.4.0-dev1**, sans changement fonctionnel, et succède à la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1).
+Cette préversion reprend la [stable 0.4.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.4.0) et introduit le plateau 3D dans les parties et le tutoriel.
 
-## Nouveau : Tutoriel
+## Nouveau : plateau et figurines 3D
 
-- Bouton **Tutoriel** à côté de **Créer une partie**, réservé au PC hôte. Le panneau reprend la variante sélectionnée dans **Héberger**.
-- **9 exercices historiques, 9 Fetlar et 10 Copenhague** : camps, déplacements, obstacles, trône, captures, cases hostiles, entrée volontaire entre des adversaires, échappée et capture du roi ; mur de boucliers pour Copenhague.
-- Destinations légales calculées par le moteur du jeu, explications des erreurs, indices, reprise d'un exercice et navigation libre.
-- Mémo adapté à la variante, avec les sources et les limites déjà documentées dans [RULES.md](RULES.md).
-- Exercices indépendants des parties, sauvegardes et invitations QR, utilisables avec le LAN désactivé. L'API refuse l'accès aux appareils invités.
+- Plateau 11×11 épais à l'aspect chêne sombre, avec trône et coins adaptés aux règles.
+- Premières figurines procédurales : **nains en bronze** avec barbe, hache et bouclier ; **elfes en pierre claire** avec oreilles, cape et arc ; **roi** avec couronne, épée et sceptre.
+- Caméra indépendante : rotation à 360°, inclinaison, zoom, **Vue dessus**, **Recentrer** et qualités **Éco / Standard / Haute**.
+- Coups par clic, toucher ou glisser-déposer. Repères dorés pour la sélection et les déplacements légaux, destinations de capture rouges calculées par le serveur, roi compris.
+- **Vue 3D** par défaut dans les parties et le tutoriel. **Vue 2D · clavier** sélectionnable, avec bascule automatique si WebGL 2 est indisponible ou si le contexte graphique est perdu.
+- Three.js r187 embarqué : aucun téléchargement Internet nécessaire au rendu. Mentions de licence MIT dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-La progression n'est pas persistée. Le tutoriel propose des exercices ciblés ; il ne comprend pas d'IA ni de partie complète accompagnée.
+Les figurines sont une première version à affiner. Les modèles détaillés, leur préparation pour l'animation, les scènes de combat, les animations de capture et les sons viendront dans un jalon ultérieur.
 
 ## Validation
 
-La DEV **0.4.0-dev1** dont est issue cette version a passé **168 tests Python** et **11 scénarios Chromium**, couvrant notamment les **28 exercices** ([exécution CI](https://github.com/ThorinFutDeChene/-lfastafl/actions/runs/44497542210)). Le parcours visuel dans l'application Qt sur Ubuntu MATE reste à vérifier sur le poste réel.
+Les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D, y compris les déplacements, les gestes tactiles, les droits des spectateurs et le repli en 2D. Le rendu dans Qt sur Ubuntu MATE et sur les mobiles réels reste à vérifier.
 
-Les limites du moteur concernant les forteresses complexes, certains nuls de Fetlar et les interprétations historiques restent documentées dans le mémo et dans [RULES.md](RULES.md). Le comportement LAN de la 0.3.1 est conservé : démarrage désactivé, activation par clic et fermeture automatique du partage.
+Les règles, les autorisations et les chronomètres restent sous l'autorité du serveur. Le démarrage LAN désactivé, son activation volontaire et le nettoyage à la fermeture sont conservés. Les limites du moteur concernant les forteresses complexes, certains nuls de Fetlar et les interprétations historiques restent documentées dans le mémo et dans [RULES.md](RULES.md).
 
 ## Distribution
 
-Version Debian : `0.4.0`, plus récente que `0.4.0~dev1` et `0.3.1`. Les nouvelles installations choisissent **Stable** par défaut ; le choix de canal enregistré est conservé. Le canal DEV reçoit également les versions stables. Pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**. Les sauvegardes et paramètres utilisateurs sont conservés.
+Version Debian : `0.5.0~dev1`, plus récente que `0.4.0`. La **0.4.0** reste la stable de référence. Les nouvelles installations de cette préversion choisissent **DEV** par défaut ; le choix de canal enregistré est conservé. Pour recevoir cette version, sélectionner **Mises à jour → Développement (DEV)**. Les sauvegardes et paramètres utilisateurs sont conservés.

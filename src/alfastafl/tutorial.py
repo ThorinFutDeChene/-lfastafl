@@ -277,6 +277,15 @@ def legal_moves(mode, lesson, start):
     return _game(mode, item).legal(start)
 
 
+def legal_details(mode, lesson, start):
+    """Return legal and capturing destinations from an isolated exercise board."""
+    _, item = _select(mode, lesson)
+    start = _coordinate(start)
+    game = _game(mode, item)
+    moves = game.legal(start)
+    return {'moves': moves, 'captures': game.capture_destinations(start, moves)}
+
+
 def _illegal_feedback(game, start, end):
     piece = game.board[start[0]][start[1]]
     if piece == EMPTY:
