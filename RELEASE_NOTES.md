@@ -1,32 +1,22 @@
-# Álfastafl 0.5.1-dev2 — redémarrage automatique après mise à jour
+# Álfastafl 0.5.1-dev3 — suppression des parties sauvegardées
 
-Cette préversion conserve toutes les fonctions de la **0.5.1-dev1** (plateau 3D immersif réservé aux invités autorisés) et ajoute un processus fiable de redémarrage après une installation Debian réussie.
+Cette préversion reprend toutes les fonctions de la **0.5.1-dev2**, notamment l'affichage immersif des invités autorisés et le redémarrage automatique après une mise à jour.
 
-## Nouveau : mise à jour puis redémarrage
+## Nouveau : gestion des sauvegardes
 
-- Une fois la mise à jour APT terminée **avec succès**, l'ancienne application se ferme et la nouvelle version s'ouvre automatiquement, sans message modal demandant de le faire manuellement.
-- La relance est programmée par un processus détaché **sans privilèges root**, sans appel à un shell ; il attend la fermeture effective de l'ancienne application avant de lancer le binaire /usr/bin/alfastafl.
-- Détection des processus *zombies* et des PID réutilisés ; pas de seconde instance tant que l'ancienne reste active. En cas de blocage prolongé, le processus auxiliaire cesse ses tentatives.
-- Les parties sont sauvegardées et mises en pause lors de la fermeture, avec horloges suspendues. L'accès LAN et les règles temporaires de pare-feu sont fermés comme lors d'un arrêt normal ; ils ne sont **jamais** rouverts automatiquement.
-- Refus de l'utilisateur, erreur APT ou échec de vérification : **aucune relance**. Si seul le démarrage auxiliaire échoue après une installation réussie, le programme reste ouvert et indique qu'une relance manuelle est nécessaire.
-- La validation des téléchargements et l'accord préalable de l'utilisateur restent obligatoires.
+- **Supprimer** apparaît à côté de chaque partie de la liste **Parties hébergées et sauvegardées** du PC hôte.
+- Une confirmation explicite identifie la partie et avertit que la suppression est définitive.
+- La suppression enlève réellement le fichier de sauvegarde `.alfastafl` et la partie de la mémoire du serveur ; elle n'efface aucune autre sauvegarde.
+- Si la partie supprimée était sélectionnée, la zone de jeu est désélectionnée et les panneaux correspondants disparaissent.
+- Une partie **active** ne peut pas être effacée : il faut d'abord choisir **Sauvegarder et quitter cette partie**. Les parties en pause ou terminées peuvent être supprimées ; les matchs référencés par un tournoi sont protégés.
+- Commande **réservée au PC hôte**, refusée par le serveur pour tous les clients distants, même s'ils connaissent l'identifiant du match.
+- Nettoyage des invitations, des sessions, des demandes en attente et des états internes liés à la partie effacée. Les appareils distants reviennent au formulaire de demande d'accès.
+- Si l'utilisateur annule ou si le disque refuse l'effacement, la sauvegarde est conservée.
 
-**Important :** le redémarrage automatique ne peut prendre effet que si la version en cours d'exécution contient déjà ce mécanisme. L'installation de la 0.5.1-dev2 depuis une version antérieure demandera une dernière relance manuelle. À partir des mises à jour suivantes, la relance sera automatique.
+## Vérification
 
-## Conservé depuis 0.5.1-dev1
-
-- Accès aux joueurs et spectateurs via invitation et validation par l'hôte.
-- Plateau 3D en plein espace disponible sur téléphone, tablette ou ordinateur invité autorisé.
-- Petit menu de commandes ☰, séparation des droits joueur/spectateur, horloges et arbitrages visibles.
-- Retour à la demande d'accès si l'autorisation est révoquée.
-- Les 3 variantes, les parties/sauvegardes et les 28 exercices du tutoriel local restent inchangés.
-
-## Validation
-
-Des tests unitaires vérifient l'attente de l'ancienne instance, les processus zombies, la protection contre la réutilisation de PID, l'absence de seconde copie en cas de timeout, le lancement sans privilèges, ainsi que la fermeture du LAN avant relance. Les parcours Qt sont testés pour installation réussie, refus APT et échec de relance. La chaîne de publication exige aussi les tests du moteur, le tutoriel Chromium et les scénarios du plateau 3D.
-
-La validation sur l'environnement Ubuntu MATE réel et lors d'une mise à jour APT sur un poste utilisateur reste à effectuer.
+Tests Python de suppression : fichier effacé, persistance après redémarrage, refus pour partie active, protection tournoi, annulation via l'interface, gestion des erreurs de disque, sécurité des accès distants et révocation des sessions. Un nouveau scénario Chromium valide les boutons, la confirmation, le refus des parties actives et l'effacement de la partie sélectionnée. Tous les tests existants (moteur, tutoriel, plateau 3D et mise à jour automatique) sont également exécutés avant publication.
 
 ## Distribution
 
-Paquet Debian **0.5.1~dev2**, canal **Mises à jour → Développement (DEV)**. La stable **0.5.0** reste inchangée.
+Version Debian **0.5.1~dev3**, canal **Mises à jour → Développement (DEV)**. La stable **0.5.0** reste inchangée. Les sauvegardes non supprimées sont conservées et la fonction de redémarrage automatique de la DEV2 reste intégrée.

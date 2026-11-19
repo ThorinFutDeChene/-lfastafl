@@ -787,6 +787,62 @@ async function main() {
     } finally { await blockedContext.close(); failurePage = page; }
   });
 
+  await scenario('Host can permanently delete a paused save but not an active game', async () => {
+    const activeResult = await context.request.post(base + '/api/create', {data: {mode: 'fetlar'}});
+    const pausedResult = await context.request.post(base + '/api/create', {data: {mode: 'historical'}});
+    assert.equal(activeResult.status(), 200);
+    assert.equal(pausedResult.status(), 200);
+    const activeId = (await activeResult.json()).game;
+    const pausedId = (await pausedResult.json()).game;
+    assert.equal((await context.request.post(base + '/api/pause', {
+      data: {game: pausedId},
+    })).status(), 200);
+    const pausedFile = path.join(temporary, 'parties', pausedId + '.alfastafl');
+    assert(fs.existsSync(pausedFile), 'Paused save must exist before deletion');
+    const manager = await context.newPage();
+    try {
+      failurePage = manager;
+      await manager.goto(base + '/?game=' + encodeURIComponent(pausedId), {waitUntil: 'domcontentloaded'});
+      const pausedEntry = manager.locator('#game-list .game-entry').filter({hasText: pausedId.slice(0, 8)});
+      const activeEntry = manager.locator('#game-list .game-entry').filter({hasText: activeId.slice(0, 8)});
+      await pausedEntry.waitFor();
+      await activeEntry.waitFor();
+      await manager.waitForFunction(() => document.getElementById('state').textContent.includes('paused'));
+      assert.equal(await activeEntry.locator('.game-delete').isDisabled(), true,
+        'The UI must refuse deleting active games');
+      const denied = await context.request.post(base + '/api/delete', {data: {game: activeId}});
+      assert.equal(denied.status(), 400, 'The server must refuse deleting an active game');
+      assert.equal(await pausedEntry.locator('.game-delete').isEnabled(), true);
+      const dialogs = [];
+      manager.on('dialog', async dialog => {
+        dialogs.push(dialog.message());
+        if (dialogs.length === 1) await dialog.dismiss();
+        else await dialog.accept();
+      });
+      await pausedEntry.locator('.game-delete').click();
+      assert.equal(dialogs.length, 1);
+      assert.match(dialogs[0], /définitivement/i);
+      assert(fs.existsSync(pausedFile), 'Cancel must preserve the saved file');
+      assert.equal(await pausedEntry.count(), 1);
+      await pausedEntry.locator('.game-delete').click();
+      await manager.waitForFunction(shortId =>
+        !document.getElementById('game-list').textContent.includes(shortId) &&
+        document.getElementById('state').textContent === 'Aucune partie sélectionnée',
+        pausedId.slice(0, 8));
+      assert.equal(dialogs.length, 2);
+      assert(!fs.existsSync(pausedFile), 'Confirmed delete must remove the saved file');
+      assert.equal(await manager.locator('#host-game-controls').isVisible(), false);
+      assert.equal(await manager.locator('#clocks').isVisible(), false);
+      assert.equal(await manager.locator('#invitations').isVisible(), false);
+      assert.equal(await manager.evaluate(() => sessionStorage.getItem('alfastafl.game')), null);
+      assert.equal((await context.request.get(base + '/api/state?game=' + pausedId)).status(), 404);
+      const games = await (await context.request.get(base + '/api/games')).json();
+      assert(!games.games.some(game => game.id === pausedId));
+      assert(games.games.some(game => game.id === activeId), 'Other matches must remain intact');
+      await capture(manager, 'host-saved-games-delete.png');
+    } finally { await manager.close(); failurePage = page; }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',

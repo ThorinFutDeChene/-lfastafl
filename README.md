@@ -1,13 +1,21 @@
-# Álfastafl — 0.5.1-dev2 (canal DEV)
+# Álfastafl — 0.5.1-dev3 (canal DEV)
 
-La **0.5.1-dev2** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.5.1-dev3** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D. Le fonctionnement graphique dans Qt sur Ubuntu MATE et sur les appareils mobiles réels reste à vérifier. Les cas atypiques du moteur de règles, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev2` est plus récent que `0.5.1~dev1` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev3` est plus récent que `0.5.1~dev2` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## Supprimer une partie sauvegardée
+
+Sur le **PC hôte**, chaque partie de la rubrique **Parties hébergées et sauvegardées** dispose maintenant de deux commandes distinctes : **sélectionner** la partie ou **Supprimer**. La suppression demande systématiquement une confirmation mentionnant la variante et les premiers caractères de l'identifiant ; l'opération est définitive et efface le fichier de sauvegarde `.alfastafl` du dossier utilisateur, pas seulement l'affichage de la liste.
+
+Pour protéger les parties en réseau, **une partie active ne peut pas être supprimée** : il faut d'abord utiliser **Sauvegarder et quitter cette partie**. Les parties en pause et les parties terminées peuvent être effacées ; les parties liées à un tournoi sont protégées contre l'effacement isolé. L'action est interdite aux joueurs et spectateurs distants par le serveur. Les invitations, sessions, demandes en attente, chronomètres et données de partie associées sont révoqués ou nettoyés. Si la partie supprimée était affichée, le plateau est désélectionné et revient à **Aucune partie sélectionnée**. Les autres sauvegardes restent inchangées.
+
+Le formulaire de confirmation permet d'annuler sans aucune modification. Si le disque refuse la suppression, le serveur garde la partie dans la liste et affiche une erreur.
 
 ## Redémarrage automatique après une mise à jour
 
@@ -17,7 +25,7 @@ Après accord explicite et installation réussie d'un paquet vérifié par SHA-2
 
 Un refus d'installation, une erreur de téléchargement ou un échec APT ne déclenche **aucun redémarrage**. Si l'installation aboutit mais que le processus de relance ne peut pas être programmé, l'application reste ouverte et indique la relance manuelle nécessaire. Le processus auxiliaire expire sans rien lancer si l'ancienne instance ne s'est pas fermée.
 
-**Première activation :** cette fonction ne peut être exécutée que par une version qui la contient déjà. Lors de l'installation de la **0.5.1-dev2 depuis la 0.5.1-dev1 (ou la 0.5.0)**, la version déjà ouverte ne connaît pas encore cette procédure : une dernière relance manuelle reste nécessaire. À partir de la version dev2 installée et redémarrée, les mises à jour suivantes seront automatiquement suivies d'un redémarrage.
+**Première activation :** cette fonction ne peut être exécutée que par une version qui la contient déjà. Lors de l'installation de la **0.5.1-dev2 depuis une version antérieure**, la version déjà ouverte ne connaît pas encore cette procédure : une dernière relance manuelle reste nécessaire. À partir de la version dev2 installée et redémarrée, les mises à jour suivantes seront automatiquement suivies d'un redémarrage.
 
 ## Plateau 3D et figurines
 

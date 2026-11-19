@@ -75,6 +75,14 @@ function showTimeOption(){
 }
 $('time-mode').onchange=showTimeOption;
 showTimeOption();
+function clearSelectedGame(){
+ // Invalidates in-flight state responses before the deleted game can repaint.
+ gameId='';session='';game=null;you=null;reviewVotes={};requestId='';
+ invalidateBoardInteraction();
+ sessionStorage.removeItem('alfastafl.game');
+ sessionStorage.removeItem('alfastafl.session');
+ render();
+}
 async function listGames(force=false){
  if(!isHost||(!force&&Date.now()-gameListUpdatedAt<5000))return;
  try{
@@ -82,16 +90,38 @@ async function listGames(force=false){
   $('game-list').replaceChildren();
   if(!data.games.length){$('game-list').textContent='Aucune partie enregistrée.';return;}
   for(const g of data.games){
+   const entry=document.createElement('div');entry.className='game-entry';
    const button=document.createElement('button');button.type='button';
+   button.className='game-select';
    button.classList.toggle('active-game',g.id===gameId);
    button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
    button.title='Sélectionner cette partie';
    button.onclick=async()=>{
-    gameId=g.id;session='';invalidateBoardInteraction();render();
+    gameId=g.id;session='';game=null;you=null;invalidateBoardInteraction();render();
     sessionStorage.setItem('alfastafl.game',gameId);
     await load();await listGames(true);
    };
-   $('game-list').append(button);
+   const remove=document.createElement('button');remove.type='button';
+   remove.className='game-delete';remove.textContent='Supprimer';
+   remove.setAttribute('aria-label',`Supprimer la partie ${g.mode} ${g.id.slice(0,8)}`);
+   remove.disabled=g.status==='active';
+   remove.title=remove.disabled?'Sauvegardez et quittez la partie active avant de la supprimer.':
+    'Effacer définitivement cette partie et sa sauvegarde';
+   remove.onclick=async()=>{
+    const title=`${g.mode} • ${g.moves} coup(s) • ${g.id.slice(0,8)}`;
+    if(!confirm(`Supprimer définitivement la partie ${title} ?\n\nCette opération efface la sauvegarde et ne peut pas être annulée.`))return;
+    remove.disabled=true;
+    try{
+     const result=await api('delete',{game:g.id});
+     if(result.deleted!==true)throw Error('Le serveur n’a pas confirmé la suppression.');
+     clearDevice(g.id);
+     if(gameId===g.id)clearSelectedGame();
+     say(`Partie ${g.id.slice(0,8)} supprimée définitivement.`);
+    }catch(error){say('Suppression impossible : '+error.message);}
+    await listGames(true);
+   };
+   entry.append(button,remove);
+   $('game-list').append(entry);
   }
  }catch(error){say(error.message);}
 }
@@ -168,7 +198,16 @@ function focusGameSquare(position){
 function render(){
  syncGuestLayout();
  syncGameBoard();
- if(!game||game.id!==gameId){$('board').replaceChildren();return;}
+ if(!game||game.id!==gameId){
+  $('board').replaceChildren();
+  $('state').textContent='Aucune partie sélectionnée';
+  $('moves').replaceChildren();
+  for(const id of ['clocks','connection-state','host-game-controls',
+                   'player-controls','draw-response','repetition-review','invitations'])
+   $(id).hidden=true;
+  return;
+ }
+ $('clocks').hidden=false;
 
  $('state').textContent=game.mode+' · '+game.status+' · tour '+game.turn+
     (game.reason?' · '+game.reason:'');
@@ -263,7 +302,7 @@ async function load(){
   }else if(isHost){$('invitations').hidden=true;}
  }catch(error){
   if(!currentRequest())return;
-  if(session&&error.message==='Unauthorized'){
+  if(session&&['Unauthorized','Unknown game'].includes(error.message)){
    clearDevice(gameId);
    session='';
    sessionStorage.removeItem('alfastafl.session');

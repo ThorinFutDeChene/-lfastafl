@@ -1,5 +1,5 @@
 """Local-network web service. All game mutations are server-authoritative."""
-import json, threading, secrets, os, tempfile, pathlib, time, socket, io
+import json, threading, secrets, os, tempfile, pathlib, time, socket, io, uuid
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
@@ -179,6 +179,57 @@ class Store:
                 else:
                     self._start_if_ready(g,now)
             return s
+
+    def delete_game(self, gid):
+        """Permanently delete a paused/finished match, never a live match.
+
+        The host confirmation is handled by the UI; the status and filesystem
+        checks are enforced here regardless of how the endpoint is called.
+        """
+        with self.lock:
+            game = self.games.get(gid)
+            if game is None:
+                raise KeyError('Partie inconnue ou déjà supprimée.')
+            if game.status not in ('paused', 'finished'):
+                raise ValueError('Partie en cours : sauvegardez et quittez avant de la supprimer.')
+            if any(match.get('game') == gid
+                   for tournament in self.tournaments.values()
+                   for match in tournament.get('matches', [])):
+                raise ValueError('Cette partie appartient à un tournoi et ne peut pas être supprimée.')
+            # No user-supplied path: only a known game with a canonical UUID.
+            try:
+                valid_id = str(uuid.UUID(game.id)) == game.id
+            except (ValueError, AttributeError, TypeError):
+                valid_id = False
+            if not valid_id:
+                raise ValueError('Identifiant de partie invalide.')
+            saved_file = self.path / (game.id + '.alfastafl')
+            try:
+                saved_file.unlink()
+            except FileNotFoundError:
+                pass  # The in-memory entry may outlive an externally removed save.
+            # Deleting the checkpoint first means an I/O error cannot silently
+            # remove the match from the UI while leaving the save on disk.
+            try:
+                directory_fd = os.open(self.path, os.O_DIRECTORY | os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except (OSError, AttributeError):
+                pass
+            self.games.pop(gid)
+            self.invites.pop(gid, None)
+            self._anchors.pop(gid, None)
+            self._checkpoints.pop(gid, None)
+            self.repetition_votes.pop(gid, None)
+            for sid in [key for key, item in self.sessions.items() if item['game'] == gid]:
+                del self.sessions[sid]
+            for request in self.pending.values():
+                if request['game'] == gid:
+                    request['status'] = 'rejected'
+                    request['session'] = None
+            return True
 
     def pause(self,gid):
         """Host saves and leaves. Old authorizations and invite URLs are revoked."""
@@ -528,7 +579,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
-            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
+            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/create':
                 g=st.create(d.get('mode','fetlar'),d.get('settings'))
                 return self.send({'game':g.id,'invites':st.invites[g.id]})
@@ -544,6 +595,7 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path=='/api/repetition/vote':return self.send(st.repetition_vote(d['game'],d['session'],d['outcome']))
             if u.path=='/api/resume':return self.send({'game':st.resume(d['game']).id})
             if u.path=='/api/pause':return self.send({'game':st.pause(d['game']).as_dict()})
+            if u.path=='/api/delete':return self.send({'deleted':st.delete_game(d['game'])})
             if u.path=='/api/disconnect/decide':
                 return self.send({'game':st.disconnect_decision(d['game'],d['action'],d.get('camp'))})
             if u.path=='/api/tournament/create':
@@ -563,6 +615,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self.send({'matches':matches})
             return self.send({'error':'Unknown endpoint'},404)
         except (KeyError,ValueError,PermissionError,IndexError,TypeError) as e:return self.send({'error':str(e)},403 if isinstance(e,PermissionError) else 400)
+        except OSError:return self.send({'error':'La suppression a échoué sur le disque ; la partie est conservée.'},500)
     def log_message(self,*args):pass
 
 class GameServer(ThreadingHTTPServer):

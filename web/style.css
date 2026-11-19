@@ -294,3 +294,22 @@ body.guest-board-only #game > #host-game-controls {display:none!important}
  body.guest-board-only #game > .row {padding:7px 10px}
  body.guest-board-only #game .board-tools select {font-size:.85rem}
 }
+
+/* Clear, separate host controls for selecting or deleting saved games. */
+#game-list .game-entry{display:inline-flex;align-items:stretch;max-width:100%;gap:3px}
+#game-list .game-entry button{font-size:.88rem;min-height:40px}
+#game-list .game-select{border-radius:8px 3px 3px 8px;white-space:normal}
+#game-list .game-delete{
+ border-radius:3px 8px 8px 3px;
+ background:#482720;color:#ffddca;border-color:#a86a57;
+ font-weight:700;
+}
+#game-list .game-delete:hover:not(:disabled){background:#71352a;color:#fff}
+#game-list .game-delete:disabled{opacity:.5;cursor:not-allowed}
+#game-list .game-entry button:focus-visible{outline:3px solid #ffe3a1;outline-offset:2px}
+#clocks[hidden]{display:none!important}
+@media(max-width:500px){
+ #game-list .game-entry{width:100%}
+ #game-list .game-select{flex:1;min-width:0;text-align:left}
+ #game-list .game-delete{flex-shrink:0}
+}
