@@ -1,10 +1,10 @@
-# Álfastafl — 0.5.0-dev1 (canal DEV)
+# Álfastafl — 0.5.1-dev1 (canal DEV)
 
-La **0.5.0-dev1** introduit un **plateau 3D WebGL avec des figurines d'elfes, de nains et du roi**, dans les parties et le tutoriel. Cette préversion reprend la [stable 0.4.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.4.0), qui reste la version de référence du canal stable. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.5.1-dev1** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D. Le fonctionnement graphique dans Qt sur Ubuntu MATE et sur les appareils mobiles réels reste à vérifier. Les cas atypiques du moteur de règles, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.0~dev1` est plus récent que `0.4.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev1` est plus récent que `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
@@ -35,6 +35,15 @@ Chaque joueur garde sa propre caméra. Les halos dorés indiquent la sélection 
 Le rendu 3D nécessite **WebGL 2**. Si cette capacité est indisponible ou si le contexte graphique est perdu, l'affichage bascule automatiquement vers la vue 2D. Celle-ci reste également sélectionnable à tout moment. Les essais sur téléphones et tablettes réels restent à effectuer.
 
 **Aucune connexion Internet n'est nécessaire pour afficher la 3D.** Three.js r187 et ses modules sont embarqués avec l'application ; le plateau et les figurines sont générés localement. Les mentions de licence MIT de Three.js sont réunies dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+
+### Vue plateau seule pour appareils invités
+
+Quand un téléphone, une tablette ou un ordinateur ouvre un lien ou scanne un QR d'invitation, le formulaire de demande d'accès reste affiché jusqu'à l'approbation par l'hôte. **Après réception de l'autorisation du serveur**, le plateau de jeu occupe automatiquement toute la surface de la page ; le formulaire, l'en-tête, l'historique, les légendes et les panneaux d'hébergement disparaissent.
+
+Le petit bouton **☰** donne accès aux commandes de vue 3D/2D, de caméra et de qualité. Les **joueurs** y retrouvent également les commandes de partie nulle et d'abandon ; les **spectateurs** ne peuvent pas jouer. Les demandes de réponse (proposition de nulle, arbitrage) restent visibles au-dessus du plateau ; les horloges ne s'affichent que si la partie est chronométrée. En cas de révocation du droit d'accès, l'écran revient au formulaire de connexion.
+
+Ce mode remplit la **fenêtre du navigateur**, mais ne force pas le plein écran natif ni la disparition des barres système, que les navigateurs mobiles ne permettent pas toujours sans intervention de l'utilisateur.
 
 ## Tutoriel interactif sur le PC hôte
 

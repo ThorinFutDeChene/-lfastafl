@@ -2,15 +2,15 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Álfastafl (DEV)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Álfastafl 0.5.1 (DEV)</title>
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
 </head>
 <body>
 <main>
   <header>
-    <h1>ᚨ Álfastafl <small>0.5.0 DEV1</small></h1>
+    <h1>ᚨ Álfastafl <small>0.5.1 DEV1</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -78,6 +78,7 @@
     <p id="joinmsg"></p>
   </section>
   <section id="game">
+    <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
     <div class="row"><h2>Plateau</h2><span id="state">Aucune partie sélectionnée</span></div>
     <div id="clocks" class="clock-panel" aria-live="off">
       <div class="clock-box"><span>Elfes</span><strong id="clock-elf">—</strong></div>

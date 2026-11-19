@@ -20,6 +20,29 @@ async function api(path,data){
  if(!response.ok)throw Error(result.error||response.status);
  return result;
 }
+function setGuestMenu(open) {
+ const visible = document.body.classList.contains('guest-board-only') && Boolean(open);
+ document.body.classList.toggle('guest-menu-open', visible);
+ $('guest-menu-toggle').setAttribute('aria-expanded', String(visible));
+}
+function syncGuestLayout() {
+ // URL invites or saved strings are not authorization: trust only /api/state.
+ const authorized = !isHost && Boolean(session && game && game.id === gameId &&
+  you && ['player', 'spectator'].includes(you.role));
+ document.body.classList.toggle('guest-board-only', authorized);
+ document.body.dataset.guestRole = authorized ? you.role : '';
+ document.body.dataset.guestTimed = String(authorized && game.clock && game.clock.mode !== 'unlimited');
+ $('join').hidden = authorized;
+ $('guest-menu-toggle').hidden = !authorized;
+ if (!authorized) setGuestMenu(false);
+}
+$('guest-menu-toggle').onclick = () => setGuestMenu(!document.body.classList.contains('guest-menu-open'));
+document.addEventListener('keydown', event => {
+ if (event.key === 'Escape' && document.body.classList.contains('guest-menu-open')) {
+  setGuestMenu(false);
+  $('guest-menu-toggle').focus({preventScroll: true});
+ }
+});
 function say(s){$('msg').textContent=s;}
 function fmtTime(value){
  if(value===null||value===undefined)return '∞';
@@ -143,6 +166,7 @@ function focusGameSquare(position){
  if(!$('board').hidden)$('board').querySelector(`[data-row="${position[0]}"][data-col="${position[1]}"]`)?.focus({preventScroll:true});
 }
 function render(){
+ syncGuestLayout();
  syncGameBoard();
  if(!game||game.id!==gameId){$('board').replaceChildren();return;}
 
@@ -240,7 +264,7 @@ async function load(){
    clearDevice(gameId);
    session='';
    sessionStorage.removeItem('alfastafl.session');
-   you=null;invalidateBoardInteraction();render();
+   you=null;game=null;invalidateBoardInteraction();render();
   }
   say(error.message);
  }
@@ -393,7 +417,7 @@ async function tick(){
   try{
    const reply=await api('request?id='+encodeURIComponent(requestId));
    if(reply.status==='approved'){
-    session=reply.session;invalidateBoardInteraction();sessionStorage.setItem('alfastafl.session',session);
+    session=reply.session;requestId='';invalidateBoardInteraction();sessionStorage.setItem('alfastafl.session',session);
     rememberDevice(gameId,session);
     sessionStorage.setItem('alfastafl.game',gameId);
     $('joinmsg').textContent='Connexion autorisee';await load();

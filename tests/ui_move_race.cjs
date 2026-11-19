@@ -96,6 +96,8 @@ function makeDocument() {
     return elements.get(id);
   };
   document.createElement = tag => new Element(tag);
+  document.body = new Element('body');
+  document.addEventListener = () => {}; // Guest view keyboard shortcut is not exercised here.
   document.activeElement = new Element('body');
   for (const camp of ['elf', 'dwarf']) {
     new Element().append(document.getElementById('clock-' + camp));

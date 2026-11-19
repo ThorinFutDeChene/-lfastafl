@@ -203,6 +203,28 @@ async function diagnostics(page, prefix = 'game') {
 async function nextPaint(page) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
+async function expectImmersiveGuest(page, role) {
+  await page.waitForFunction(role => document.body.classList.contains('guest-board-only') &&
+    document.body.dataset.guestRole === role, role);
+  assert.equal(await page.locator('#host').isVisible(), false);
+  assert.equal(await page.locator('#join').isVisible(), false);
+  assert.equal(await page.locator('main > header').isVisible(), false);
+  assert.equal(await page.locator('#moves').isVisible(), false);
+  assert.equal(await page.locator('#game-board-view .board-legend').isVisible(), false);
+  assert.equal(await page.locator('#guest-menu-toggle').isVisible(), true);
+  assert.equal(await page.locator('#game-board-view .board-tools').isVisible(), false);
+  assert.equal(await page.locator('#player-controls').isVisible(), false);
+  const geometry = await page.evaluate(() => {
+    const box = document.getElementById('game-board-3d').getBoundingClientRect();
+    return {x: box.x, y: box.y, width: box.width, height: box.height,
+      vw: document.documentElement.clientWidth, vh: innerHeight,
+      overflow: document.documentElement.scrollWidth > innerWidth + 1};
+  });
+  assert(Math.abs(geometry.x) <= 1 && Math.abs(geometry.y) <= 1 &&
+    Math.abs(geometry.width - geometry.vw) <= 2 &&
+    Math.abs(geometry.height - geometry.vh) <= 2, JSON.stringify(geometry));
+  assert.equal(geometry.overflow, false, 'Immersive board must have no horizontal overflow');
+}
 
 async function squarePoint(page, prefix, position, height = 0.15) {
   await page.locator('#' + prefix + '-board-3d canvas').scrollIntoViewIfNeeded();
@@ -416,7 +438,12 @@ async function main() {
     await player.goto(base + '/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.dwarf),
       {waitUntil: 'domcontentloaded'});
     await ready3D(player, 'game', 37);
+    await expectImmersiveGuest(player, 'player');
+    await player.locator('#guest-menu-toggle').click();
+    assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), true);
+    assert.equal(await player.locator('#player-controls').isVisible(), true);
     await player.locator('#game-camera-top').click();
+    await player.locator('#guest-menu-toggle').click();
     await nextPaint(player);
     const [from, to] = expected.fetlar.first_move;
     const answer = await clickMove(player, 'game', from, to);
@@ -639,10 +666,13 @@ async function main() {
       await guest.goto('http://guest.test/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.spectator),
         {waitUntil: 'domcontentloaded'});
       await ready3D(guest, 'game', 37);
-      assert.equal(await guest.locator('#host').isVisible(), false);
+      await expectImmersiveGuest(guest, 'spectator');
       assert.equal(await guest.locator('#tutorial-open').count(), 0);
       assert.equal(await guest.locator('#tutorial-panel').count(), 0);
+      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#player-controls').isVisible(), false);
       await guest.locator('#game-camera-top').click();
+      await guest.locator('#guest-menu-toggle').click();
       const from = await squarePoint(guest, 'game', [5, 4], 0.7);
       const to = await squarePoint(guest, 'game', [4, 4]);
       await guest.mouse.click(from.x, from.y);
@@ -660,6 +690,70 @@ async function main() {
       const state = await guestContext.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
       assert.equal((await state.json()).game.history.length, 1);
     } finally { await guestContext.close(); failurePage = page; }
+  });
+
+  await scenario('Approval changes a mobile or tablet guest to full-board mode, and revoked access restores joining', async () => {
+    const created = await context.request.post(base + '/api/create', {data: {
+      mode: 'fetlar', settings: {time_control: {mode: 'move', seconds: 60}},
+    }});
+    assert.equal(created.status(), 200);
+    const {game: guestGame, invites} = await created.json();
+    const mobileContext = await makeContext({viewport: {width: 390, height: 844},
+      deviceScaleFactor: 1, isMobile: true, hasTouch: true}, {guest: true});
+    try {
+      const guest = await mobileContext.newPage();
+      failurePage = guest;
+      await guest.goto('http://guest.test/?game=' + encodeURIComponent(guestGame) +
+        '&invite=' + encodeURIComponent(invites.spectator), {waitUntil: 'domcontentloaded'});
+      await guest.waitForFunction(() => document.getElementById('gid').value !== '');
+      assert.equal(await guest.locator('#join').isVisible(), true);
+      assert.equal(await guest.locator('main > header').isVisible(), true);
+      assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
+      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false);
+      await guest.locator('#name').fill('Spectateur mobile');
+      const joining = responseFor(guest, 'join', 'POST');
+      await guest.locator('#request').click();
+      assert.equal((await joining).status(), 200);
+      const pending = await context.request.get(base + '/api/pending');
+      assert.equal(pending.status(), 200);
+      const request = (await pending.json()).pending.find(x => x.game === guestGame && x.role === 'spectator');
+      assert(request, 'Host must see the spectator waiting for approval');
+      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false,
+        'Sending a request must not enter game-only mode');
+      const approved = await context.request.post(base + '/api/approve',
+        {data: {request: request.id, camp: null}});
+      assert.equal(approved.status(), 200);
+      await ready3D(guest, 'game', 37);
+      await expectImmersiveGuest(guest, 'spectator');
+      assert.equal(await guest.locator('#clocks').isVisible(), true,
+        'Timed games must keep the clocks overlaid on the board');
+      await capture(guest, 'guest-approved-mobile.png');
+      await guest.locator('#guest-menu-toggle').click();
+      await guest.selectOption('#game-board-mode', '2d');
+      assert.equal(await guest.locator('#board').isVisible(), true);
+      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#game-board-view .board-tools').isVisible(), false);
+      const flat = await guest.locator('#board').boundingBox();
+      assert(flat && flat.x >= -1 && flat.y >= -1 &&
+        flat.x + flat.width <= 391 && flat.y + flat.height <= 845,
+        'Accessible 2D board must fit the phone display');
+      await capture(guest, 'guest-approved-mobile-2d.png');
+      await guest.reload({waitUntil: 'domcontentloaded'});
+      await ready3D(guest, 'game', 37);
+      await expectImmersiveGuest(guest, 'spectator');
+      // Actual server-side revocation: host saves and closes this invitation.
+      const revoked = await context.request.post(base + '/api/pause', {data: {game: guestGame}});
+      assert.equal(revoked.status(), 200);
+      await guest.reload({waitUntil: 'domcontentloaded'});
+      await guest.waitForFunction(() => document.getElementById('join').hidden === false &&
+        !document.body.classList.contains('guest-board-only') &&
+        !localStorage.getItem('alfastafl.device.' + new URLSearchParams(location.search).get('game')));
+      assert.equal(await guest.locator('#join').isVisible(), true);
+      assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
+      assert.equal(await guest.locator('#player-controls').isVisible(), false);
+    } finally {
+      await mobileContext.close(); failurePage = page;
+    }
   });
 
   await scenario('When WebGL is unavailable the accessible 2D tutorial remains playable', async () => {
