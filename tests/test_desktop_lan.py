@@ -1,0 +1,251 @@
+"""Exercise desktop LAN opt-in and shutdown without Qt, sockets or root access."""
+import sys
+import unittest
+from contextlib import ExitStack
+from types import ModuleType
+from unittest.mock import Mock, patch
+
+from alfastafl import desktop, lan
+
+
+class Signal:
+    def __init__(self, queue=None):
+        self.slots = []
+        self.queue = queue
+
+    def connect(self, slot):
+        self.slots.append(slot)
+
+    def emit(self, *args):
+        for slot in self.slots:
+            if self.queue is None:
+                slot(*args)
+            else:
+                self.queue.append(lambda slot=slot, args=args: slot(*args))
+
+
+class Action:
+    def __init__(self, text, _parent):
+        self.text = text
+        self.checked = False
+        self.enabled = True
+        self.blocked = False
+        self.toggled = Signal()
+
+    def setCheckable(self, value):
+        self.checkable = value
+
+    def setEnabled(self, value):
+        self.enabled = value
+
+    def setChecked(self, value):
+        changed = self.checked != value
+        self.checked = value
+        if changed and not self.blocked:
+            self.toggled.emit(value)
+
+    def setText(self, value):
+        self.text = value
+
+    def blockSignals(self, value):
+        self.blocked = value
+
+    def click(self):
+        if self.enabled:
+            self.setChecked(not self.checked)
+
+
+class DesktopSession:
+    """Run main() with deterministic worker completion and queued Qt signals."""
+    def __init__(self, scenario):
+        self.scenario = scenario
+        self.pending = []
+        self.events = []
+        self.actions = []
+        self.servers = []
+        self.network = lan.LocalNetwork('wlp1s0', '192.168.1.102', '192.168.1.0/24')
+        self.detect = Mock(return_value=self.network)
+        self.lease = Mock()
+        self.lease.alive.return_value = True
+        self.lease.start.side_effect = lambda _: self.events.append('lease.start')
+        self.lease.close.side_effect = lambda: self.events.append('lease.close')
+        self.lease_factory = Mock(return_value=self.lease)
+        self.run_server = Mock(side_effect=self.make_server)
+        self.store = Mock()
+        self.warning = Mock()
+        self.quitting = False
+        self.scenario_executed = False
+        self.aboutToQuit = Signal()
+
+    @property
+    def action(self):
+        return self.actions[0]
+
+    def make_server(self, host, _port, _store):
+        server = Mock(lan_enabled=False, lan_address=host)
+        server.shutdown.side_effect = lambda: self.events.append(host + '.shutdown')
+        server.server_close.side_effect = lambda: self.events.append(host + '.close')
+        self.servers.append(server)
+        return server
+
+    def drain(self):
+        while self.pending:
+            self.pending.pop(0)()
+
+    def activate(self):
+        self.action.click()
+        self.drain()
+
+    def quit(self):
+        if not self.quitting:
+            self.quitting = True
+            self.aboutToQuit.emit()
+
+    def exec(self):
+        # Execute any scheduled startup callbacks before the user interaction.
+        self.drain()
+        self.scenario_executed = True
+        self.scenario(self)
+        self.quit()
+        return 0
+
+    def run(self):
+        session = self
+
+        class QObject:
+            def __init__(self, *_):
+                pass
+
+        class QTimer:
+            def __init__(self, *_):
+                self.timeout = Signal()
+
+            def start(self, _interval):
+                pass
+
+            def stop(self):
+                pass
+
+            @staticmethod
+            def singleShot(_delay, callback):
+                session.pending.append(callback)
+
+        def action_factory(*args):
+            action = Action(*args)
+            self.actions.append(action)
+            return action
+
+        def thread_factory(*, target, **_):
+            # No OS threads or real serve_forever calls; mocked server methods
+            # return immediately and worker results use the queued signals.
+            return Mock(start=Mock(side_effect=target))
+
+        definitions = {
+            'PyQt6': {},
+            'PyQt6.QtWidgets': {
+                'QApplication': lambda _: self,
+                'QMainWindow': lambda *_: Mock(),
+                'QToolBar': lambda *_: Mock(),
+                'QMessageBox': Mock(warning=self.warning),
+            },
+            'PyQt6.QtGui': {'QAction': action_factory},
+            'PyQt6.QtCore': {
+                'QUrl': str, 'QObject': QObject, 'QTimer': QTimer,
+                'pyqtSignal': lambda *_: Signal(self.pending),
+            },
+            'PyQt6.QtWebEngineWidgets': {'QWebEngineView': lambda *_: Mock()},
+            'alfastafl.updater_ui': {'UpdateController': Mock()},
+        }
+        modules = {}
+        for name, attributes in definitions.items():
+            module = ModuleType(name)
+            module.__dict__.update(attributes)
+            modules[name] = module
+
+        with ExitStack() as stack:
+            stack.enter_context(patch.dict(sys.modules, modules))
+            stack.enter_context(patch.object(desktop, 'run', self.run_server))
+            stack.enter_context(patch.object(desktop, 'Store', return_value=self.store))
+            stack.enter_context(patch.object(desktop.threading, 'Thread', side_effect=thread_factory))
+            stack.enter_context(patch.object(lan, 'detect_network', self.detect))
+            stack.enter_context(patch.object(lan, 'FirewallLease', self.lease_factory))
+            try:
+                desktop.main()
+            except SystemExit as exc:
+                if exc.code != 0:
+                    raise
+        if not self.scenario_executed:
+            raise AssertionError('The desktop event loop did not execute the scenario')
+
+
+class DesktopLanTests(unittest.TestCase):
+    def assert_local_only(self, session):
+        self.assertFalse(session.action.checked)
+        self.assertTrue(session.action.enabled)
+        self.assertTrue(session.action.checkable)
+        self.assertEqual(session.action.text, 'Activer accès LAN')
+        session.detect.assert_not_called()
+        session.lease_factory.assert_not_called()
+        session.run_server.assert_called_once_with('127.0.0.1', desktop.PORT, session.store)
+        self.assertFalse(session.servers[0].lan_enabled)
+
+    def assert_lan_closed(self, session):
+        self.assertFalse(session.action.checked)
+        self.assertFalse(session.servers[0].lan_enabled)
+        self.assertEqual(session.servers[0].lan_address, '127.0.0.1')
+        session.lease.close.assert_called_once_with()
+        events = session.events
+        self.assertLess(events.index(session.network.address + '.shutdown'),
+                        events.index(session.network.address + '.close'))
+        self.assertLess(events.index(session.network.address + '.close'),
+                        events.index('lease.close'))
+
+    def test_launch_and_exit_without_opt_in_never_start_lan(self):
+        session = DesktopSession(self.assert_local_only)
+        session.run()
+        session.lease_factory.assert_not_called()
+        session.servers[0].shutdown.assert_called_once_with()
+        session.servers[0].server_close.assert_called_once_with()
+
+    def test_click_opens_exact_private_address_then_toggle_closes_lan(self):
+        def scenario(session):
+            session.activate()
+            session.detect.assert_called_once_with()
+            session.lease.start.assert_called_once_with(session.network)
+            self.assertEqual([call.args[0] for call in session.run_server.call_args_list],
+                             ['127.0.0.1', session.network.address])
+            self.assertTrue(session.action.checked)
+            self.assertTrue(session.servers[0].lan_enabled)
+            session.action.click()
+            self.assert_lan_closed(session)
+
+        DesktopSession(scenario).run()
+
+    def test_application_exit_closes_lan_before_firewall_lease(self):
+        def scenario(session):
+            session.activate()
+            session.quit()
+            self.assert_lan_closed(session)
+            session.store.shutdown.assert_called_once_with()
+
+        DesktopSession(scenario).run()
+
+    def test_new_session_starts_off_after_previous_session_used_lan(self):
+        previous = DesktopSession(lambda session: session.activate())
+        previous.run()
+        self.assert_lan_closed(previous)
+        DesktopSession(self.assert_local_only).run()
+
+    def test_ready_queued_before_exit_cannot_reopen_lan_after_exit(self):
+        def scenario(session):
+            session.action.click()
+            session.lease.start.assert_called_once_with(session.network)
+            # The worker has completed, but its ready signal is still queued.
+            session.quit()
+            session.drain()
+            session.run_server.assert_called_once_with('127.0.0.1', desktop.PORT, session.store)
+            session.lease.close.assert_called_once_with()
+            self.assertFalse(session.action.checked)
+            self.assertFalse(session.servers[0].lan_enabled)
+
+        DesktopSession(scenario).run()

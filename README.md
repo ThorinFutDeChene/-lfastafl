@@ -1,19 +1,21 @@
-# Álfastafl — 0.3.0 (canal stable)
+# Álfastafl — 0.3.1-dev1 (canal DEV)
 
-La **0.3.0 stable** reprend le code fonctionnel de 0.3.0-dev2 et les correctifs de distribution de la branche `main`. Ce statut indique une **Release non préliminaire sur le canal stable**, pas une version 1.0 ni l'achèvement des fonctionnalités prévues.
+La **0.3.1-dev1** reprend la base **0.3.0 stable** et rend l'accès LAN volontaire à chaque lancement. Le bouton **Activer accès LAN** démarre décoché et reste cliquable ; le partage s'arrête automatiquement à la fermeture et n'est jamais réactivé au lancement suivant.
 
-**Validation en environnement réel à terminer :** le dialogue polkit et le nettoyage de la règle UFW doivent encore être vérifiés sur Ubuntu MATE avec deux smartphones. Le réseau local fonctionne en HTTP non chiffré ; ne pas exposer l'application sur Internet. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
+**Validation en environnement réel :** l'utilisateur a confirmé sur sa configuration Ubuntu MATE le cycle normal d'apparition/disparition de la règle UFW et la connexion des joueurs avec la 0.3.0. Le démarrage manuel de cette DEV reste à confirmer sur son poste. Le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier. Le réseau local fonctionne en HTTP non chiffré ; ne pas exposer l'application sur Internet. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette version choisissent `Stable` par défaut. Les installations provenant d'une DEV conservent leur choix de canal existant ; pour rester uniquement sur les versions stables, utiliser **Mises à jour → Stable**.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Les installations existantes conservent leur choix de canal ; pour recevoir les préversions, utiliser **Mises à jour → Développement (DEV)**. La version **0.3.0** reste la publication stable de référence.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
 
-## Base fonctionnelle reprise de la DEV 0.3.0-dev2 : réseau LAN et pare-feu automatiques
+## Accès LAN volontaire et gestion automatique du pare-feu
 
-**Démarrage normal sur Ubuntu :** Álfastafl lance immédiatement le serveur d’administration sur `127.0.0.1:8766`, puis détecte automatiquement une interface Wi-Fi/Ethernet privée. Il demande l’authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
+**Démarrage normal sur Ubuntu :** Álfastafl lance uniquement le serveur d’administration sur `127.0.0.1:8766`. L'accès LAN reste désactivé, sans demande d'autorisation du pare-feu ni nouvelle règle UFW.
 
-**Fermeture normale :** Álfastafl ferme le serveur LAN et retire automatiquement **sa propre règle UFW**, identifiée par un commentaire unique. Les règles existantes des autres programmes (par exemple Enyalië sur 8765) ne sont jamais supprimées. Un processus privilégié garde le canal ouvert : si le programme s’arrête brutalement, la fermeture de ce canal déclenche le nettoyage. Après une coupure électrique ou un arrêt forcé du service privilégié, les anciennes règles marquées Álfastafl sont nettoyées au prochain lancement autorisé.
+**Activation manuelle :** cliquer sur **Activer accès LAN** dans la barre d'outils. Álfastafl détecte alors une interface Wi-Fi/Ethernet privée et demande l’authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
+
+**Fermeture normale :** Álfastafl désactive le partage, ferme le serveur LAN et retire automatiquement **sa propre règle UFW**, identifiée par un commentaire unique. Le lancement suivant reste toujours en mode local. Les règles existantes des autres programmes (par exemple Enyalië sur 8765) ne sont jamais supprimées. Un processus privilégié garde le canal ouvert : si le programme s’arrête brutalement, la fermeture de ce canal déclenche le nettoyage. Après une coupure électrique ou un arrêt forcé du service privilégié, les anciennes règles marquées Álfastafl sont nettoyées à la prochaine activation LAN autorisée.
 
 **Échec d'autorisation :** si polkit refuse, que le Wi-Fi n’est pas disponible ou qu'UFW ne confirme pas l’ouverture, aucune exposition réseau n’est lancée ; le plateau reste disponible en local. L’accès peut être réessayé dans la barre d’outils. La désactivation manuelle du LAN retire également la règle. Il faut qu’**UFW et iproute2** soient installés, ainsi qu’un agent polkit fonctionnel sur le bureau Ubuntu.
 

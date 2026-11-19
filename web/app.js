@@ -282,7 +282,7 @@ async function pending(){
 async function tick(){
  if(isHost){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
   `Serveur réseau actif : http://${n.address}:${n.port}/`:
-  'Mode local. Autorisation et ouverture du réseau en cours (ou refusées).';
+  'Mode local. Activez l’accès LAN dans la barre d’outils pour connecter des joueurs.';
  }catch(error){$('lan-status').textContent='Etat du réseau indisponible.';}}
  if(requestId&&!session){
   try{

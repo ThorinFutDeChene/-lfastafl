@@ -1,23 +1,23 @@
-# Álfastafl 0.3.0 — canal stable
+# Álfastafl 0.3.1-dev1 — accès LAN désactivé au démarrage
 
-## Première publication sur le canal stable
+## Comportement du partage local
 
-Cette version reprend le moteur et l'interface de **0.3.0-dev2**. L'installation est publiée sous le numéro Debian `0.3.0` et sans indication DEV dans l'application.
+Cette préversion reprend la base **0.3.0 stable** avec un changement ciblé de l'accès réseau :
 
-### Fonctionnalités disponibles
+- À chaque lancement, le bouton **Activer accès LAN** est décoché et cliquable. Le jeu reste utilisable localement ; aucune activation LAN ni demande d'autorisation du pare-feu ne démarre automatiquement.
+- Un clic active le partage avec la gestion UFW existante, limitée au réseau privé et au port TCP 8766.
+- La désactivation manuelle ou la fermeture normale arrête le serveur LAN et retire la règle UFW créée pour la session.
+- L'état actif n'est jamais mémorisé : le lancement suivant reste en mode local.
+- Le message affiché sur l'accueil indique désormais comment activer le partage depuis la barre d'outils.
 
-- Plateau 11×11 avec trois variantes de règles en cours de validation.
-- Partie sur Ubuntu et accès de joueurs/spectateurs depuis le réseau local avec QR codes distincts et autorisation par l'hôte.
-- Serveur local de l'hôte et serveur LAN sur IPv4 privée ; gestion ponctuelle et limitée d'une règle UFW après authentification polkit, avec nettoyage à la fermeture.
-- Chronomètres, suspension lors des déconnexions, sauvegarde automatique et reprise des parties.
-- Fenêtre maximisée au démarrage, menu de vérification des mises à jour et sélection Stable / DEV.
+## Validation
 
-### Réserves de validation
+- Le cycle normal UFW et la connexion des joueurs ont été confirmés par l'utilisateur sur sa configuration Ubuntu MATE avec la **0.3.0**.
+- Cette modification doit encore être confirmée sur le poste réel : démarrage local, activation manuelle, fermeture et relancement local.
+- Le déroulement complet d'une partie, la reprise après déconnexion et le nettoyage après arrêt brutal restent à vérifier en conditions réelles.
 
-- **Le cycle réel polkit / UFW et les connexions depuis des smartphones sur Ubuntu MATE ne sont pas encore validés.** L'automatisation du pare-feu a été testée par simulation ; ne pas la considérer comme certifiée sur toutes les distributions.
-- Le transport HTTP du LAN n'est pas chiffré : usage uniquement sur un réseau privé de confiance, sans ouverture de routeur vers Internet.
-- Certaines règles particulières de Tafl, la 3D, les cinématiques et la régie multi-parties restent inachevées. Cette version stable 0.3.0 ne prétend pas être la version fonctionnellement complète 1.0.
+Le protocole LAN reste en HTTP sur réseau privé de confiance. Les réserves de validation du moteur de règles et les fonctionnalités encore inachevées de la 0.3.0 s'appliquent également à cette préversion.
 
-### Mise à jour depuis une DEV
+## Distribution
 
-Le numéro Debian `0.3.0` est plus récent que `0.3.0~dev2`. Les sauvegardes utilisateurs et les paramètres XDG sont conservés lors de l'installation. Le canal de mise à jour déjà choisi n'est pas modifié automatiquement ; sélectionner **Stable** pour ignorer les futures préversions.
+Version Debian : `0.3.1~dev1`, plus récente que `0.3.0`. La stable de référence reste **0.3.0**. Les sauvegardes et paramètres utilisateurs sont conservés. Pour recevoir cette préversion via l'application, sélectionner **Mises à jour → Développement (DEV)**.

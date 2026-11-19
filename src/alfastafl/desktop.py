@@ -1,4 +1,4 @@
-"""Qt6 native host: loopback UI plus automatically leased LAN and UFW access."""
+"""Qt6 native host: local-only startup with optional session-scoped LAN access."""
 import threading
 
 from .server import run, Store, PORT
@@ -30,16 +30,17 @@ def main():
     thread[0].start()
 
     win = QMainWindow()
-    win.setWindowTitle('Álfastafl')
+    win.setWindowTitle('Álfastafl (DEV)')
     win.resize(1100, 820)
     view = QWebEngineView()
     win.setCentralWidget(view)
     view.setUrl(QUrl(f'http://127.0.0.1:{PORT}/'))
     bar = QToolBar('Réseau local')
     win.addToolBar(bar)
-    lan_action = QAction('Activation LAN automatique…', win)
+    lan_action = QAction('Activer accès LAN', win)
     lan_action.setCheckable(True)
-    lan_action.setEnabled(False)
+    # Sharing is opt-in for each application session, never restored on startup.
+    lan_action.setChecked(False)
     bar.addAction(lan_action)
 
     # A second listener is bound to the exact private LAN IPv4 address.
@@ -178,9 +179,7 @@ def main():
 
     app.aboutToQuit.connect(shutdown)
     show_main_window(win)
-    # The local server is started first; the LAN opens automatically only
-    # once polkit authorizes our narrowly scoped UFW rule.
-    QTimer.singleShot(250, controller.start)
+    # Only the toolbar action can enable LAN access during this session.
     sys.exit(app.exec())
 
 

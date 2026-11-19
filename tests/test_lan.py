@@ -1,4 +1,4 @@
-"""LAN setup must be automatic, scoped, reversible and reject public interfaces."""
+"""Requested LAN access must be scoped, reversible and reject public interfaces."""
 import io
 import ipaddress
 import tempfile
@@ -175,15 +175,6 @@ ufw allow in on wlp1s0 from 192.168.1.0/24 to 192.168.1.102 port 8766 proto tcp 
 
 
 class UIIntegration(unittest.TestCase):
-    def test_desktop_auto_starts_lan_and_closes_on_quit(self):
-        source = (Path(__file__).resolve().parents[1] / 'src/alfastafl/desktop.py').read_text('utf-8')
-        self.assertIn('QTimer.singleShot(250, controller.start)', source)
-        self.assertIn('app.aboutToQuit.connect(shutdown)', source)
-        self.assertIn('self.lease.close()', source)
-        self.assertIn('open_network_server(network)', source)
-        self.assertIn('remote = run(network.address, PORT, store)', source)
-        self.assertNotIn("run('0.0.0.0', PORT, store)", source)
-
     def test_invites_remain_hidden_until_lan_ready(self):
         root = Path(__file__).resolve().parents[1]
         js = (root/'web/app.js').read_text('utf-8')
