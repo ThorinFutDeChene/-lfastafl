@@ -38,6 +38,13 @@
       </label>
     </div>
     <div class="host-actions">
+      <label class="host-create-role">Sur ce PC
+        <select id="create-host-camp" aria-label="Participation du PC hôte à la nouvelle partie">
+          <option value="">Héberger seulement (spectateur)</option>
+          <option value="dwarf">Jouer les Nains</option>
+          <option value="elf">Jouer les Elfes</option>
+        </select>
+      </label>
       <button id="create" type="button">Créer une partie</button>
       <button id="tutorial-open" type="button" aria-haspopup="dialog" aria-controls="tutorial-panel" hidden>Tutoriel</button>
     </div>
@@ -90,6 +97,15 @@
     <div id="host-game-controls" class="game-alert" hidden>
       <strong>Gestion de la partie (hôte uniquement)</strong>
       <p id="host-game-info"></p>
+      <div id="host-player-chooser" class="host-player-chooser" role="group" aria-label="Choisir le camp du PC hôte">
+        <strong>Jouer sur le PC hôte</strong>
+        <p id="host-player-status" role="status">Le PC hôte peut choisir un camp libre.</p>
+        <div class="host-player-actions">
+          <button id="host-play-dwarf" type="button">Jouer les Nains</button>
+          <button id="host-play-elf" type="button">Jouer les Elfes</button>
+          <button id="host-watch" type="button">Rester spectateur</button>
+        </div>
+      </div>
       <button id="save-leave" type="button">Sauvegarder et quitter cette partie</button>
       <button id="resume-game" type="button" hidden>Reprendre la partie sauvegardée</button>
       <div id="disconnect-actions" hidden>
