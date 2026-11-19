@@ -460,6 +460,111 @@ async function main() {
     } finally { await playerContext.close(); failurePage = page; }
   });
 
+  await scenario('The host can create a 3D game as dwarf and play against a remote elf', async () => {
+    const host = await context.newPage();
+    try {
+      failurePage = host;
+      await host.goto(base, {waitUntil: 'domcontentloaded'});
+      await host.selectOption('#mode', 'fetlar');
+      await host.selectOption('#create-host-camp', 'dwarf');
+      const creation = responseFor(host, 'create', 'POST');
+      await host.locator('#create').click();
+      const response = await creation;
+      assert.equal(response.status(), 200);
+      const created = await response.json();
+      assert(created.game && created.host_session, 'Host needs a real server-issued player session');
+      await ready3D(host, 'game', 37);
+      await host.waitForFunction(id => document.getElementById('host-game-info').textContent.includes(id.slice(0, 8)),
+        created.game);
+      assert.equal(await host.locator('#host').isVisible(), true,
+        'Host must retain LAN and administration controls');
+      assert.equal(await host.locator('#join').isVisible(), true);
+      assert.equal(await host.locator('#host-player-status').textContent(),
+        'PC hôte : Nains');
+      assert.equal(await host.locator('#player-controls').isVisible(), true);
+      assert.equal(await host.locator('#host-play-elf').isDisabled(), false);
+      assert.equal(await host.evaluate(() => document.body.classList.contains('guest-board-only')), false);
+      const session = await host.evaluate(() => sessionStorage.getItem('alfastafl.session'));
+      assert.equal(session, created.host_session);
+      const state1 = await (await context.request.get(base + '/api/state?game=' + created.game +
+        '&session=' + created.host_session)).json();
+      assert.deepEqual(state1.you.role, 'player');
+      assert.deepEqual(state1.you.camp, 'dwarf');
+      assert.equal(state1.seats.dwarf.host, true);
+      const request = await context.request.post(base + '/api/join', {data: {
+        game: created.game, invite: created.invites.player, name: 'Elfe distant',
+      }});
+      assert.equal(request.status(), 200);
+      const approved = await context.request.post(base + '/api/approve', {data: {
+        request: (await request.json()).request, camp: 'elf',
+      }});
+      assert.equal(approved.status(), 200);
+      const guest = await (await approved.json()).session;
+      assert(guest);
+      await host.locator('#game-camera-top').click();
+      const [from, to] = expected.fetlar.first_move;
+      const moved = await clickMove(host, 'game', from, to);
+      assert.deepEqual(moved.event.from, from);
+      assert.deepEqual(moved.event.to, to);
+      const state2 = await (await context.request.get(base + '/api/state?game=' + created.game)).json();
+      assert.equal(state2.game.history.length, 1);
+      assert.equal(state2.game.turn, 'elf');
+      assert.equal(state2.game.board[to[0]][to[1]], 'N');
+      assert.equal(await host.locator('#host-watch').isDisabled(), true,
+        'Host cannot unseat itself after making a move');
+      const stranger = await context.request.post(base + '/api/host/seat', {
+        data: {game: created.game, camp: 'elf'},
+      });
+      assert.equal(stranger.status(), 400, 'Host cannot steal a remotely occupied camp');
+      await capture(host, 'host-playing-dwarves.png', '#game');
+    } finally { await host.close(); failurePage = page; }
+  });
+
+  await scenario('The host may join an existing free camp and spectate again before play', async () => {
+    const created = await context.request.post(base + '/api/create', {data: {mode: 'fetlar'}});
+    assert.equal(created.status(), 200);
+    const data = await created.json();
+    const request = await context.request.post(base + '/api/join', {data: {
+      game: data.game, invite: data.invites.player, name: 'Nain déjà présent',
+    }});
+    assert.equal(request.status(), 200);
+    const approval = await context.request.post(base + '/api/approve', {
+      data: {request: (await request.json()).request, camp: 'dwarf'},
+    });
+    assert.equal(approval.status(), 200);
+    const host = await context.newPage();
+    try {
+      failurePage = host;
+      await host.goto(base + '/?game=' + encodeURIComponent(data.game), {waitUntil: 'domcontentloaded'});
+      await ready3D(host, 'game', 37);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('Nains'));
+      assert.equal(await host.locator('#host-play-dwarf').isDisabled(), true,
+        'Already seated guest must remain the only dwarf');
+      assert.equal(await host.locator('#host-play-elf').isEnabled(), true);
+      assert.equal(await host.locator('#player-controls').isVisible(), false);
+      const seating = responseFor(host, 'host/seat', 'POST');
+      await host.locator('#host-play-elf').click();
+      assert.equal((await seating).status(), 200);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('PC hôte : Elfes'));
+      assert.equal(await host.locator('#player-controls').isVisible(), true);
+      const hostSession = await host.evaluate(() => sessionStorage.getItem('alfastafl.session'));
+      assert(hostSession);
+      await host.reload({waitUntil: 'domcontentloaded'});
+      await ready3D(host, 'game', 37);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('PC hôte : Elfes'));
+      assert.equal(await host.evaluate(() => sessionStorage.getItem('alfastafl.session')), hostSession);
+      const withdrawing = responseFor(host, 'host/seat', 'POST');
+      await host.locator('#host-watch').click();
+      assert.equal((await withdrawing).status(), 200);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('PC hôte : Spectateur'));
+      assert.equal(await host.locator('#player-controls').isVisible(), false);
+      assert.equal(await host.evaluate(() => sessionStorage.getItem('alfastafl.session')), null);
+      const state = await (await context.request.get(base + '/api/state?game=' + data.game)).json();
+      assert.equal(state.seats.dwarf.host, false);
+      assert.equal(state.seats.elf, undefined);
+    } finally { await host.close(); failurePage = page; }
+  });
+
   await scenario('Each rule variant is playable through actual 3D tutorial clicks', async () => {
     for (const mode of ['historical', 'fetlar', 'copenhagen']) {
       await openTutorial(page, mode, 'capture');

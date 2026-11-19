@@ -8,7 +8,7 @@ function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+i
 function rememberDevice(id,token){try{localStorage.setItem('alfastafl.device.'+id,token);}catch(_){} }
 function clearDevice(id){try{localStorage.removeItem('alfastafl.device.'+id);}catch(_){} }
 let session=q.get('session')||deviceSession(gameId)||sessionStorage.getItem('alfastafl.session')||'';
-let selected=null,legalDestinations=[],captureDestinations=[],game=null,requestId='',you=null,reviewVotes={};
+let selected=null,legalDestinations=[],captureDestinations=[],game=null,requestId='',you=null,reviewVotes={},hostSeats={};
 let clockReceivedAt=0,serverTimeReceivedAt=0;let gameListUpdatedAt=0;
 let gameBusy=false,boardRevision=0,loadRevision=0,appliedLoadRevision=0,gameDrag=null;
 let gameKeyboardSquare=[0,0];
@@ -77,7 +77,7 @@ $('time-mode').onchange=showTimeOption;
 showTimeOption();
 function clearSelectedGame(){
  // Invalidates in-flight state responses before the deleted game can repaint.
- gameId='';session='';game=null;you=null;reviewVotes={};requestId='';
+ gameId='';session='';game=null;you=null;reviewVotes={};hostSeats={};requestId='';
  invalidateBoardInteraction();
  sessionStorage.removeItem('alfastafl.game');
  sessionStorage.removeItem('alfastafl.session');
@@ -97,8 +97,9 @@ async function listGames(force=false){
    button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
    button.title='Sélectionner cette partie';
    button.onclick=async()=>{
-    gameId=g.id;session='';game=null;you=null;invalidateBoardInteraction();render();
+    gameId=g.id;session='';game=null;you=null;hostSeats={};invalidateBoardInteraction();render();
     sessionStorage.setItem('alfastafl.game',gameId);
+    sessionStorage.removeItem('alfastafl.session');
     await load();await listGames(true);
    };
    const remove=document.createElement('button');remove.type='button';
@@ -130,6 +131,23 @@ function renderHostControls(){
  if(controls.hidden)return;
  const review=['repetition_review','draw_proposal'].includes(game.reason);
  $('host-game-info').textContent=`Partie ${game.id.slice(0,8)} • ${game.status} • ${game.reason||'aucun incident'}`;
+ const hostCamp=you&&you.role==='player'&&session&&hostSeats[you.camp]?.host?you.camp:null;
+ const roleText=hostCamp==='dwarf'?'Nains':hostCamp==='elf'?'Elfes':'Spectateur';
+ const seatsText=['dwarf','elf'].filter(c=>hostSeats[c]&&!hostSeats[c].host)
+  .map(c=>(c==='dwarf'?'Nains':'Elfes')+' : '+hostSeats[c].name);
+ $('host-player-status').textContent='PC hôte : '+roleText+(seatsText.length?' • Occupés : '+seatsText.join(' ; '):'');
+ const roleLocked=Boolean(hostCamp&&(game.history.length||game.clock?.started));
+ for(const camp of ['dwarf','elf']){
+  const button=$(camp==='dwarf'?'host-play-dwarf':'host-play-elf');
+  const occupied=Boolean(hostSeats[camp]&&!hostSeats[camp].host);
+  button.disabled=game.status!=='active'||occupied||roleLocked||hostCamp===camp;
+  button.setAttribute('aria-pressed',String(hostCamp===camp));
+  button.title=occupied?'Ce camp est déjà pris.':
+   game.status!=='active'?'Reprenez la partie pour choisir un camp.':
+   roleLocked?'Le camp ne peut pas être changé après le début de la partie.':'';
+ }
+ $('host-watch').disabled=!hostCamp||game.status!=='active'||roleLocked;
+ $('host-watch').setAttribute('aria-pressed',String(!hostCamp));
  $('save-leave').hidden=game.status==='finished'||game.reason==='saved_by_host';
  $('resume-game').hidden=game.status!=='paused'||review||game.reason==='disconnected'||game.reason==='awaiting_substitute';
  const incident=game.status==='paused'&&game.reason==='disconnected'&&game.disconnect&&game.disconnect.action_required;
@@ -278,7 +296,10 @@ async function load(){
    throw Error('Unauthorized');
   appliedLoadRevision=request;
   const before=positionKey();
-  game=state.game;you=state.you;reviewVotes=state.review_votes||{};
+  game=state.game;you=state.you;reviewVotes=state.review_votes||{};hostSeats=state.seats||{};
+  if(isHost&&session&&!you){
+   session='';sessionStorage.removeItem('alfastafl.session');
+  }
   clockReceivedAt=performance.now();serverTimeReceivedAt=state.server_now||Date.now()/1000;
   if(before!==positionKey()||!myTurn())invalidateBoardInteraction();
   render();
@@ -381,9 +402,12 @@ $('create').onclick=async()=>{
       !Number.isInteger(reconnect)||reconnect<60||reconnect>3600){throw Error('Durée ou délai de reconnexion invalide.');}
   const created=await api('create',{mode:$('mode').value,settings:{
    time_control:{mode:timeMode,seconds},reconnect_timeout_seconds:reconnect
-  }});
-  gameId=created.game;session='';invalidateBoardInteraction();render();
+  },host_camp:$('create-host-camp').value||null});
+  gameId=created.game;session=created.host_session||'';game=null;you=null;hostSeats={};
+  invalidateBoardInteraction();render();
   sessionStorage.setItem('alfastafl.game',gameId);
+  if(session)sessionStorage.setItem('alfastafl.session',session);
+  else sessionStorage.removeItem('alfastafl.session');
   await load();await listGames(true);
  }catch(error){say(error.message);}
 
@@ -423,6 +447,22 @@ async function hostAction(path,body,confirmation){
  try{await api(path,body);say('Opération enregistrée.');await load();await listGames(true);}
  catch(error){say(error.message);}
 }
+async function chooseHostCamp(camp){
+ if(!gameId||!game||game.id!==gameId)return;
+ try{
+  const response=await api('host/seat',{game:gameId,camp});
+  session=response.session||'';
+  if(session)sessionStorage.setItem('alfastafl.session',session);
+  else sessionStorage.removeItem('alfastafl.session');
+  invalidateBoardInteraction();
+  say(camp==='dwarf'?'Le PC hôte joue les Nains.':
+      camp==='elf'?'Le PC hôte joue les Elfes.':'Le PC hôte reste spectateur.');
+  await load();await listGames(true);
+ }catch(error){say(error.message);await load();}
+}
+$('host-play-dwarf').onclick=()=>chooseHostCamp('dwarf');
+$('host-play-elf').onclick=()=>chooseHostCamp('elf');
+$('host-watch').onclick=()=>chooseHostCamp(null);
 $('save-leave').onclick=()=>hostAction('pause',{game:gameId},
  'Sauvegarder et fermer cette partie ? Les invitations existantes seront révoquées.');
 $('resume-game').onclick=()=>hostAction('resume',{game:gameId});

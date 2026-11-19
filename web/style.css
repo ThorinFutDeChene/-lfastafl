@@ -313,3 +313,18 @@ body.guest-board-only #game > #host-game-controls {display:none!important}
  #game-list .game-select{flex:1;min-width:0;text-align:left}
  #game-list .game-delete{flex-shrink:0}
 }
+
+/* Optional participation of the PC host, separate from spectator/guest roles. */
+.host-create-role{display:inline-flex;gap:10px;align-items:center;margin:5px}
+.host-create-role select{max-width:100%}
+.host-player-chooser{
+ border:1px solid #73805a;border-radius:8px;background:#1a2922;
+ padding:12px;margin:12px 0;
+}
+.host-player-chooser strong{color:#f0d29a}
+#host-player-status{margin:9px 0;font-size:.92rem;color:#e1dac6}
+.host-player-actions{display:flex;gap:9px;flex-wrap:wrap}
+.host-player-actions button{margin:0}
+.host-player-actions button[aria-pressed="true"]{outline:2px solid #f1db9f}
+.host-player-actions button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:600px){.host-create-role{width:100%;align-items:flex-start;flex-wrap:wrap}.host-create-role select{width:100%}}

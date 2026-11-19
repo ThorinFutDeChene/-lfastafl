@@ -71,6 +71,49 @@ class Store:
             self.games[g.id]=g;self.save(g)
             self.invites[g.id]={'player':secrets.token_urlsafe(24),'spectator':secrets.token_urlsafe(24)}
         return g
+    def seat_host(self, gid, camp):
+        """Assign a local host player through the same session/clock rules as guests.
+
+        Called only by host-only HTTP endpoints; regular move endpoints still
+        require a valid player session, including on 127.0.0.1.
+        """
+        with self.lock:
+            game=self.games.get(gid)
+            if game is None:
+                raise ValueError('Partie inconnue.')
+            if camp not in (None,'elf','dwarf'):
+                raise ValueError('Choisissez Elfes, Nains ou Hôte spectateur.')
+            if game.status!='active':
+                raise ValueError('Reprenez la partie avant de choisir un camp.')
+            previous=[(sid,s) for sid,s in self.sessions.items()
+                      if s['game']==gid and s['role']=='player' and
+                      s.get('local_host') and s['active']]
+            if previous and previous[0][1]['camp']==camp:
+                return previous[0][0]
+            # A local player must not silently change identity after playing or
+            # while clocks are already running with both participants.
+            if previous and (game.history or game.clock['started']):
+                raise ValueError('Impossible de changer de camp après le début de la partie.')
+            if camp is not None:
+                occupied=self._seats(gid).get(camp)
+                if occupied is not None and not occupied.get('local_host'):
+                    raise ValueError('Ce camp est déjà occupé par un joueur distant.')
+            for sid,old in previous:
+                old['active']=False
+                if game.players.get(old['camp'])==old['name']:
+                    game.players.pop(old['camp'],None)
+            if camp is None:
+                if previous:self.save(game)
+                return None
+            sid=secrets.token_urlsafe(30)
+            now=self.monotonic()
+            self.sessions[sid]={'game':gid,'role':'player','camp':camp,'name':'PC hôte',
+                                'local_host':True,'active':True,'seen':False,
+                                'connected':True,'last_seen':now}
+            game.players[camp]='PC hôte'
+            self.save(game)
+            return sid
+
     def _seats(self, gid):
         return {s['camp']:s for s in self.sessions.values()
                 if s['game']==gid and s['role']=='player' and s['active']}
@@ -554,6 +597,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     g=st.games[gid]
                     if not self.admin() and (not auth or auth['game']!=gid or not auth['active']):return self.send({'error':'Unauthorized'},403)
                     return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None,
+                                      'seats':{camp:{'name':seat['name'],'host':bool(seat.get('local_host'))}
+                                               for camp,seat in st._seats(gid).items()}
+                                               if self.admin() else None,
                                       'review_votes':st.repetition_votes.get(gid,{}),
                                       'server_now':st.wall_clock()})
                 if u.path=='/api/legal':
@@ -579,10 +625,17 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
-            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
+            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/create':
+                host_camp=d.get('host_camp')
+                if host_camp not in (None,'elf','dwarf'):
+                    raise ValueError('Camp du PC hôte invalide.')
                 g=st.create(d.get('mode','fetlar'),d.get('settings'))
-                return self.send({'game':g.id,'invites':st.invites[g.id]})
+                host_session=st.seat_host(g.id,host_camp) if host_camp else None
+                return self.send({'game':g.id,'invites':st.invites[g.id],
+                                  'host_session':host_session})
+            if u.path=='/api/host/seat':
+                return self.send({'session':st.seat_host(d['game'],d.get('camp')),'camp':d.get('camp')})
             if u.path=='/api/join':return self.send({'request':st.request(d['game'],d['invite'],d.get('name','Guest'))})
             if u.path=='/api/approve':return self.send({'session':st.approve(d['request'],d.get('camp'))})
             if u.path=='/api/reject':

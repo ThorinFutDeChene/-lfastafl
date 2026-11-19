@@ -1,13 +1,23 @@
-# Álfastafl — 0.5.1-dev3 (canal DEV)
+# Álfastafl — 0.5.1-dev4 (canal DEV)
 
-La **0.5.1-dev3** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.5.1-dev4** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D. Le fonctionnement graphique dans Qt sur Ubuntu MATE et sur les appareils mobiles réels reste à vérifier. Les cas atypiques du moteur de règles, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev3` est plus récent que `0.5.1~dev2` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev4` est plus récent que `0.5.1~dev3` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## Jouer directement sur le PC hôte
+
+Le PC Ubuntu ne sert plus uniquement à héberger : il peut être **joueur Nain ou Elfe**, avec le même moteur de coups, les mêmes captures et les mêmes horloges que les appareils invités.
+
+**Créer une partie :** dans **Héberger → Sur ce PC**, choisir **Jouer les Nains**, **Jouer les Elfes** ou **Héberger seulement (spectateur)**, puis créer la partie. Le jeu attribue alors au PC une session de joueur autorisée par le serveur. Le plateau 3D hôte reste directement jouable à la souris ; la vue 2D au clavier et les commandes de caméra restent disponibles.
+
+**Partie déjà créée :** dans **Gestion de la partie → Jouer sur le PC hôte**, cliquer sur **Jouer les Nains** ou **Jouer les Elfes**. Seuls les camps réellement libres peuvent être attribués. **Rester spectateur** permet de quitter son camp avant le début des coups et des chronomètres. Il n'est pas permis de changer de camp après le début du jeu, ni de prendre le camp d'un autre joueur. Si la partie est suspendue, l'hôte doit d'abord choisir **Reprendre la partie sauvegardée**.
+
+Le PC hôte conserve les commandes d'administration, le tutoriel, le LAN volontaire et les QR codes. Le rôle de joueur s'applique **uniquement** au camp choisi et n'accorde aucun droit nouveau aux appareils invités. Les autorisations de jeu et le contrôle des coups restent côté serveur. La session de joueur du PC hôte est automatiquement révoquée lors d'une sauvegarde/quitter ; après un redémarrage ou une reprise d'une partie sauvegardée, il faut sélectionner de nouveau son camp. Une partie chronométrée attend que les deux camps soient connectés avant de démarrer le chronomètre.
 
 ## Supprimer une partie sauvegardée
 
