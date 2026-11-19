@@ -986,83 +986,6 @@ async function main() {
     } finally { await manager.close(); failurePage = page; }
   });
 
-  await scenario('Magical-chess 3D capture shatters sculptures, pauses clock and can be skipped', async () => {
-    const battle=fixture.battle;
-    assert(battle.game && battle.sessions.dwarf && battle.sessions.elf && battle.sessions.spectator);
-    const host=await context.newPage();
-    const guestContext=await makeContext({}, {guest:true});
-    let spectator;
-    try {
-      failurePage=host;
-      await host.goto(base+'/?game='+encodeURIComponent(battle.game)+
-        '&session='+encodeURIComponent(battle.sessions.dwarf),{waitUntil:'domcontentloaded'});
-      await ready3D(host,'game',4);
-      const originalCamera=(await diagnostics(host)).camera;
-      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
-      const setup=await (await context.request.get(base+'/api/state?game='+battle.game+
-        '&session='+encodeURIComponent(battle.sessions.elf))).json();
-      assert.equal(setup.game.clock.started,true,'Both players must be present to start the clock');
-      spectator=await guestContext.newPage();
-      failurePage=spectator;
-      await spectator.goto('http://guest.test/?game='+encodeURIComponent(battle.game)+
-        '&session='+encodeURIComponent(battle.sessions.spectator),{waitUntil:'domcontentloaded'});
-      await ready3D(spectator,'game',4);
-      await expectImmersiveGuest(spectator,'spectator');
-      const confirmed=await context.request.post(base+'/api/move',{data:{
-        game:battle.game,session:battle.sessions.dwarf,
-        'from':[5,1],'to':[5,3],
-      }});
-      assert.equal(confirmed.status(),200);
-      const record=(await confirmed.json()).event;
-      assert.deepEqual(record.captured,[[5,4,'E']]);
-      const cut=await (await context.request.get(base+'/api/state?game='+battle.game)).json();
-      assert.equal(cut.cinematic.duration,12);
-      assert.equal(cut.game.clock.started,false,'Clock must be paused by server during combat');
-      const refused=await context.request.post(base+'/api/move',{data:{
-        game:battle.game,session:battle.sessions.elf,
-        'from':[8,8],'to':[8,7],
-      }});
-      assert.equal(refused.status(),400,'No next move until cinematic window ends');
-      await Promise.all([host,spectator].map(p=>p.waitForFunction(() =>
-        document.getElementById('game-board-3d').board3d?.getDiagnostics().cinematic.active)));
-      assert.equal(await host.locator('#capture-overlay').isVisible(),true);
-      assert.equal(await spectator.locator('#capture-overlay').isVisible(),true);
-      assert.equal(await spectator.locator('#host').isVisible(),false);
-      const beforeCamera=await diagnostics(host);
-      assert.equal(beforeCamera.cinematic.shardCount,12);
-      // Observe actual visibility atomically in Chromium: separate Playwright
-      // evaluations can straddle animation frames on slow software WebGL.
-      const fragmentsHandle=await host.waitForFunction(() => {
-        const animation=document.getElementById('game-board-3d').board3d?.captureCinematic;
-        if(!animation?.active)return false;
-        const shown=animation.actors.reduce((sum, actor)=>
-          sum+actor.shards.filter(shard=>shard.visible).length,0);
-        return shown>0 ? {shown,progress:animation.progress} : false;
-      });
-      const fragments=await fragmentsHandle.jsonValue();
-      assert(fragments.shown>0,'Shattered sculpture must produce visible 3D fragments');
-      assert(!sameCamera(originalCamera,(await diagnostics(host)).camera),
-        'Cinematic must change the personal camera viewpoint');
-      assert.equal(await host.locator('#audio-music').count(),1);
-      assert.equal(await host.locator('#audio-effects').count(),1);
-      assert.equal(await host.locator('#capture-skip').isVisible(),true);
-      await host.locator('#capture-skip').click();
-      await host.waitForFunction(() => !document.getElementById('game-board-3d').board3d
-        ?.getDiagnostics().cinematic.active);
-      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
-      assert.equal(await host.locator('#game-board-3d canvas').isVisible(),true);
-      const restored=(await diagnostics(host));
-      assert.equal(restored.pieceCount,3);
-      assert(sameCamera(originalCamera,restored.camera),'Skipping must restore the exact camera view');
-      await spectator.locator('#capture-skip').click();
-      assert.equal(await spectator.locator('#capture-overlay').isVisible(),false);
-    } finally {
-      await guestContext.close();
-      await host.close();
-      failurePage=page;
-    }
-  });
-
   await scenario('An authorized host and remote spectator see the same smoothly animated move', async () => {
     const created=await context.request.post(base+'/api/create',{data:{
       mode:'fetlar',host_camp:'dwarf',settings:{time_control:{mode:'unlimited'}},
@@ -1190,6 +1113,101 @@ async function main() {
       assert.equal(await listener.locator('#audio-effects').inputValue(),'67');
     }finally{
       await listener.close();failurePage=page;
+    }
+  });
+
+  await scenario('Magical-chess 3D capture shatters sculptures, pauses clock and can be skipped', async () => {
+    const battle=fixture.battle;
+    assert(battle.game && battle.sessions.dwarf && battle.sessions.elf && battle.sessions.spectator);
+    const host=await context.newPage();
+    const guestContext=await makeContext({}, {guest:true});
+    let spectator;
+    try {
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.dwarf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',4);
+      const originalCamera=(await diagnostics(host)).camera;
+      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
+      const setup=await (await context.request.get(base+'/api/state?game='+battle.game+
+        '&session='+encodeURIComponent(battle.sessions.elf))).json();
+      assert.equal(setup.game.clock.started,true,'Both players must be present to start the clock');
+      spectator=await guestContext.newPage();
+      failurePage=spectator;
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',4);
+      await expectImmersiveGuest(spectator,'spectator');
+      const confirmed=await context.request.post(base+'/api/move',{data:{
+        game:battle.game,session:battle.sessions.dwarf,
+        'from':[5,1],'to':[5,3],
+      }});
+      assert.equal(confirmed.status(),200);
+      const record=(await confirmed.json()).event;
+      assert.deepEqual(record.captured,[[5,4,'E']]);
+      const cut=await (await context.request.get(base+'/api/state?game='+battle.game)).json();
+      assert.equal(cut.cinematic.duration,12);
+      assert.equal(cut.game.clock.started,false,'Clock must be paused by server during combat');
+      const refused=await context.request.post(base+'/api/move',{data:{
+        game:battle.game,session:battle.sessions.elf,
+        'from':[8,8],'to':[8,7],
+      }});
+      assert.equal(refused.status(),400,'No next move until cinematic window ends');
+      await Promise.all([host,spectator].map(p=>p.waitForFunction(() =>
+        document.getElementById('game-board-3d').board3d?.getDiagnostics().cinematic.active)));
+      assert.equal(await host.locator('#capture-overlay').isVisible(),true);
+      assert.equal(await spectator.locator('#capture-overlay').isVisible(),true);
+      assert.equal(await spectator.locator('#host').isVisible(),false);
+      const beforeCamera=await diagnostics(host);
+      assert.equal(beforeCamera.cinematic.shardCount,12);
+      // Skip the host view early, before awaiting the fragment effects that
+      // occur much later in the shared 12-second cinematic window. Playwright
+      // click stability checks can otherwise wait until the overlay disappears.
+      await host.waitForFunction(() => document.getElementById('game-board-3d')
+        .board3d?.getDiagnostics().cinematic.progress > .22);
+      assert(!sameCamera(originalCamera,(await diagnostics(host)).camera),
+        'Cinematic must change the personal camera viewpoint');
+      assert.equal(await host.locator('#audio-music').count(),1);
+      assert.equal(await host.locator('#audio-effects').count(),1);
+      assert.equal(await host.locator('#capture-skip').isVisible(),true);
+      const hostSkipped=await host.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        if(!board?.captureCinematic.active)return false;
+        document.getElementById('capture-skip').click();
+        return true;
+      });
+      assert.equal(hostSkipped,true,'Host must be able to skip before scene completion');
+      await host.waitForFunction(() => !document.getElementById('game-board-3d')
+        .board3d?.getDiagnostics().cinematic.active);
+      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
+      assert.equal(await host.locator('#game-board-3d canvas').isVisible(),true);
+      const restored=(await diagnostics(host));
+      assert.equal(restored.pieceCount,3);
+      assert(sameCamera(originalCamera,restored.camera),'Skipping must restore the exact camera view');
+      // The spectator still has their independent cinematic after the host
+      // skipped. Verify real 3D fragments, then skip directly without a
+      // Playwright waiting-for-stability delay on the timed overlay.
+      const fragmentsHandle=await spectator.waitForFunction(()=>{
+        const animation=document.getElementById('game-board-3d').board3d?.captureCinematic;
+        if(!animation?.active)return false;
+        const shown=animation.actors.reduce((sum,actor)=>
+          sum+actor.shards.filter(shard=>shard.visible).length,0);
+        return shown>0?{shown,progress:animation.progress}:false;
+      });
+      const fragments=await fragmentsHandle.jsonValue();
+      assert(fragments.shown>0,'Shattered sculpture must produce visible 3D fragments');
+      const spectatorSkipped=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        if(!board?.captureCinematic.active)return false;
+        document.getElementById('capture-skip').click();
+        return true;
+      });
+      assert.equal(spectatorSkipped,true,'Spectator must be able to skip their own scene');
+      assert.equal(await spectator.locator('#capture-overlay').isVisible(),false);
+    } finally {
+      await guestContext.close();
+      await host.close();
+      failurePage=page;
     }
   });
 
