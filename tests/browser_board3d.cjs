@@ -166,11 +166,25 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
     }
     if (url.pathname === '/favicon.ico') return route.fulfill({status: 204, body: ''});
     if (proxiedGuest) {
-      const response = await context.request.fetch(base + url.pathname + url.search, {
-        method: request.method(), data: request.postDataBuffer() || undefined,
-        headers: request.headers()['content-type'] ? {'content-type': request.headers()['content-type']} : undefined,
-      });
-      return route.fulfill({response});
+      try {
+        const response = await context.request.fetch(base + url.pathname + url.search, {
+          method: request.method(), data: request.postDataBuffer() || undefined,
+          headers: request.headers()['content-type'] ? {'content-type': request.headers()['content-type']} : undefined,
+        });
+        // Materialize bytes before fulfilling the response: the API request
+        // context can disappear while a guest tab is being closed. Avoid
+        // referring to a disposed APIResponse after its context closes.
+        const status = response.status();
+        const headers = response.headers();
+        const body = await response.body();
+        return await route.fulfill({status, headers, body});
+      } catch (error) {
+        // A route aborted by a closing guest page is not an application error.
+        // For a still-live page aborting causes its awaited fetch to fail, so
+        // unexpected proxy failures remain visible to the integration test.
+        try { await route.abort('failed'); } catch (_) { /* Closed page. */ }
+        return;
+      }
     }
     return route.continue();
   });
