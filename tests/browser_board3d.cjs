@@ -967,38 +967,38 @@ async function main() {
   });
 
   await scenario('Magical-chess 3D capture shatters sculptures, pauses clock and can be skipped', async () => {
-    const capture=fixture.battle;
-    assert(capture.game && capture.sessions.dwarf && capture.sessions.elf && capture.sessions.spectator);
+    const battle=fixture.battle;
+    assert(battle.game && battle.sessions.dwarf && battle.sessions.elf && battle.sessions.spectator);
     const host=await context.newPage();
     const guestContext=await makeContext({}, {guest:true});
     let spectator;
     try {
       failurePage=host;
-      await host.goto(base+'/?game='+encodeURIComponent(capture.game)+
-        '&session='+encodeURIComponent(capture.sessions.dwarf),{waitUntil:'domcontentloaded'});
+      await host.goto(base+'/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.dwarf),{waitUntil:'domcontentloaded'});
       await ready3D(host,'game',4);
       assert.equal(await host.locator('#capture-overlay').isVisible(),false);
-      const setup=await (await context.request.get(base+'/api/state?game='+capture.game+
-        '&session='+encodeURIComponent(capture.sessions.elf))).json();
+      const setup=await (await context.request.get(base+'/api/state?game='+battle.game+
+        '&session='+encodeURIComponent(battle.sessions.elf))).json();
       assert.equal(setup.game.clock.started,true,'Both players must be present to start the clock');
       spectator=await guestContext.newPage();
       failurePage=spectator;
-      await spectator.goto('http://guest.test/?game='+encodeURIComponent(capture.game)+
-        '&session='+encodeURIComponent(capture.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.spectator),{waitUntil:'domcontentloaded'});
       await ready3D(spectator,'game',4);
       await expectImmersiveGuest(spectator,'spectator');
       const confirmed=await context.request.post(base+'/api/move',{data:{
-        game:capture.game,session:capture.sessions.dwarf,
+        game:battle.game,session:battle.sessions.dwarf,
         'from':[5,1],'to':[5,3],
       }});
       assert.equal(confirmed.status(),200);
       const record=(await confirmed.json()).event;
       assert.deepEqual(record.captured,[[5,4,'E']]);
-      const cut=await (await context.request.get(base+'/api/state?game='+capture.game)).json();
+      const cut=await (await context.request.get(base+'/api/state?game='+battle.game)).json();
       assert.equal(cut.cinematic.duration,8);
       assert.equal(cut.game.clock.started,false,'Clock must be paused by server during combat');
       const refused=await context.request.post(base+'/api/move',{data:{
-        game:capture.game,session:capture.sessions.elf,
+        game:battle.game,session:battle.sessions.elf,
         'from':[8,8],'to':[8,7],
       }});
       assert.equal(refused.status(),400,'No next move until cinematic window ends');
