@@ -1011,7 +1011,7 @@ async function main() {
       assert.equal(beforeCamera.cinematic.shardCount,12);
       await host.waitForFunction(() => document.getElementById('game-board-3d').board3d
         ?.getDiagnostics().cinematic.progress > .58);
-      await capture(host,'capture-sculpture-shatter.png','#game-board-view');
+      await capture(host,'capture-sculpture-shatter.png');
       assert.equal(await host.locator('#audio-music').count(),1);
       assert.equal(await host.locator('#audio-effects').count(),1);
       assert.equal(await host.locator('#capture-skip').isVisible(),true);
