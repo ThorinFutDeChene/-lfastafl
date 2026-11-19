@@ -234,6 +234,9 @@ async function load(){
  try{
   const state=await api('state?game='+encodeURIComponent(requestedGame)+'&session='+encodeURIComponent(requestedSession));
   if(!currentRequest())return;
+  // Remote clients cannot trust HTTP 200 without an approved identity.
+  if(!isHost&&requestedSession&&(!state.you||!['player','spectator'].includes(state.you.role)))
+   throw Error('Unauthorized');
   appliedLoadRevision=request;
   const before=positionKey();
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};
