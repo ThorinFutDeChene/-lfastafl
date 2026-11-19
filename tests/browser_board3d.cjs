@@ -67,7 +67,7 @@ sessions['spectator'] = store.approve(request)
 # Dedicated tiny legal capture, with a timed 8-second cinematic.
 from alfastafl.core import EMPTY
 battle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
-    'capture_cinematic_seconds':8})
+    'capture_cinematic_seconds':12})
 battle.board = [[EMPTY]*11 for _ in range(11)]
 for row,col,piece in [(5,1,'N'),(5,4,'E'),(5,5,'N'),(8,8,'R')]:
     battle.board[row][col] = piece
@@ -996,7 +996,7 @@ async function main() {
       const record=(await confirmed.json()).event;
       assert.deepEqual(record.captured,[[5,4,'E']]);
       const cut=await (await context.request.get(base+'/api/state?game='+battle.game)).json();
-      assert.equal(cut.cinematic.duration,8);
+      assert.equal(cut.cinematic.duration,12);
       assert.equal(cut.game.clock.started,false,'Clock must be paused by server during combat');
       const refused=await context.request.post(base+'/api/move',{data:{
         game:battle.game,session:battle.sessions.elf,
@@ -1010,15 +1010,17 @@ async function main() {
       assert.equal(await spectator.locator('#host').isVisible(),false);
       const beforeCamera=await diagnostics(host);
       assert.equal(beforeCamera.cinematic.shardCount,12);
-      await host.waitForFunction(() => document.getElementById('game-board-3d').board3d
-        ?.getDiagnostics().cinematic.progress > .58);
-      const fragments=await host.evaluate(() => {
-        const animation=document.getElementById('game-board-3d').board3d.captureCinematic;
-        return {shown:animation.actors.reduce((sum, actor)=>
-          sum+actor.shards.filter(shard=>shard.visible).length,0),
-          progress:animation.progress};
+      // Observe actual visibility atomically in Chromium: separate Playwright
+      // evaluations can straddle animation frames on slow software WebGL.
+      const fragmentsHandle=await host.waitForFunction(() => {
+        const animation=document.getElementById('game-board-3d').board3d?.captureCinematic;
+        if(!animation?.active)return false;
+        const shown=animation.actors.reduce((sum, actor)=>
+          sum+actor.shards.filter(shard=>shard.visible).length,0);
+        return shown>0 ? {shown,progress:animation.progress} : false;
       });
-      assert(fragments.shown > 0, 'Shattered sculpture must produce visible 3D fragments');
+      const fragments=await fragmentsHandle.jsonValue();
+      assert(fragments.shown>0,'Shattered sculpture must produce visible 3D fragments');
       assert(!sameCamera(originalCamera,(await diagnostics(host)).camera),
         'Cinematic must change the personal camera viewpoint');
       assert.equal(await host.locator('#audio-music').count(),1);

@@ -160,16 +160,16 @@ export class CaptureCinematic {
   if(this.actors.some(a=>a.kind==='R'))this._sound('king',.67,'king');
   for(const victim of this.actors) {
    const index=victim.index;
-   const impact=.43+Math.min(index*.025,.18);
-   const crumble=.56+Math.min(index*.025,.18);
-   const recoil=tween(t,impact,Math.min(.86,impact+.16));
-   const fracture=tween(t,crumble,Math.min(.91,crumble+.16));
+   const impact=.38+Math.min(index*.02,.12);
+   const crumble=.47+Math.min(index*.018,.10);
+   const recoil=tween(t,impact,Math.min(.88,impact+.25));
+   const fracture=tween(t,crumble,Math.min(.83,crumble+.25));
    victim.figure.rotation.z=-recoil*.8;
    victim.figure.position.y=SURFACE+Math.sin(Math.PI*recoil)*.12;
    victim.figure.scale.setScalar(Math.max(.002,1-fracture));
    victim.figure.visible=fracture<.98;
    victim.shards.forEach(shard=>{
-    shard.visible=fracture>0.03&&fracture<1;
+    shard.visible=t>crumble+.02&&t<.95;
     const v=shard.userData.velocity;
     const age=fracture*.9;
     shard.position.set(victim.place.x+v.x*age*2,
