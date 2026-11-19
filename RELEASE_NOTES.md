@@ -1,24 +1,23 @@
-# Álfastafl 0.3.1 — canal stable
+# Álfastafl 0.4.0-dev1 — tutoriel interactif sur le PC hôte
 
-## Comportement du partage local
+Cette préversion reprend la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1) et ajoute un parcours pour apprendre les coups et les règles.
 
-Cette version stable reprend le comportement de **0.3.1-dev1** et succède à la [stable 0.3.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.0) :
+## Nouveau : Tutoriel
 
-- À chaque lancement, le bouton **Activer accès LAN** est décoché et cliquable. Le jeu reste utilisable localement ; aucune activation LAN ni demande d'autorisation du pare-feu ne démarre automatiquement.
-- Un clic active le partage avec la gestion UFW existante, limitée au réseau privé et au port TCP 8766.
-- La désactivation manuelle ou la fermeture normale arrête le serveur LAN et retire la règle UFW créée pour la session.
-- L'état actif n'est jamais mémorisé : le lancement suivant reste en mode local.
-- Le message affiché sur l'accueil indique désormais comment activer le partage depuis la barre d'outils.
+- Bouton **Tutoriel** à côté de **Créer une partie**, réservé au PC hôte. Le panneau reprend la variante sélectionnée dans **Héberger**.
+- **9 exercices historiques, 9 Fetlar et 10 Copenhague** : camps, déplacements, obstacles, trône, captures, cases hostiles, entrée volontaire entre des adversaires, échappée et capture du roi ; mur de boucliers pour Copenhague.
+- Destinations légales calculées par le moteur du jeu, explications des erreurs, indices, reprise d'un exercice et navigation libre.
+- Mémo adapté à la variante, avec les sources et les limites déjà documentées dans [RULES.md](RULES.md).
+- Exercices indépendants des parties, sauvegardes et invitations QR, utilisables avec le LAN désactivé. L'API refuse l'accès aux appareils invités.
+
+La progression n'est pas persistée. Le tutoriel propose des exercices ciblés ; il ne comprend pas d'IA ni de partie complète accompagnée.
 
 ## Validation
 
-- La 0.3.1 a passé **147 tests automatisés**, dont les contrôles du démarrage local, de l'activation par clic, de la fermeture et du relancement avec le LAN désactivé.
-- Le cycle normal UFW et la connexion des joueurs ont été confirmés par l'utilisateur sur sa configuration Ubuntu MATE avec la **0.3.0**.
-- Le nouveau démarrage manuel doit encore être confirmé sur le poste réel : démarrage local, activation manuelle, fermeture et relancement local.
-- Le déroulement complet d'une partie, la reprise après déconnexion et le nettoyage après arrêt brutal restent à vérifier en conditions réelles.
+Les tests automatisés du moteur et de l'API du tutoriel ont réussi. Le parcours visuel dans l'application Ubuntu MATE reste à vérifier sur le poste réel.
 
-Le protocole LAN reste en HTTP sur réseau privé de confiance. Les réserves de validation du moteur de règles et les fonctionnalités encore inachevées de la 0.3.0 s'appliquent également à cette version.
+Les limites du moteur concernant les forteresses complexes, certains nuls de Fetlar et les interprétations historiques restent documentées dans le mémo et dans [RULES.md](RULES.md). Le comportement LAN de la 0.3.1 est conservé : démarrage désactivé, activation par clic et fermeture automatique du partage.
 
 ## Distribution
 
-Version Debian : `0.3.1`, plus récente que `0.3.1~dev1` et `0.3.0`. Les sauvegardes et paramètres utilisateurs sont conservés. Les nouvelles installations choisissent le canal **Stable** par défaut ; les installations existantes conservent leur choix. Pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**.
+Version Debian : `0.4.0~dev1`, plus récente que `0.3.1`. La **0.3.1** reste la stable de référence. Les nouvelles installations de cette préversion choisissent **DEV** par défaut ; les installations existantes conservent leur canal. Pour recevoir cette version, sélectionner **Mises à jour → Développement (DEV)**. Les sauvegardes et paramètres utilisateurs sont conservés.

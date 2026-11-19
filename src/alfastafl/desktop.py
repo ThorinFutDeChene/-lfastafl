@@ -30,7 +30,7 @@ def main():
     thread[0].start()
 
     win = QMainWindow()
-    win.setWindowTitle('Álfastafl')
+    win.setWindowTitle('Álfastafl (DEV)')
     win.resize(1100, 820)
     view = QWebEngineView()
     win.setCentralWidget(view)

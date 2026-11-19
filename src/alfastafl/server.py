@@ -4,6 +4,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
 from .timecontrol import normalize_settings, new_clock, charge, switch_turn
+from . import tutorial
 
 PORT=8766
 
@@ -432,7 +433,7 @@ class AppHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError,UnicodeDecodeError):raise ValueError('Invalid JSON')
     def static(self,path):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
-        p={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css'}.get(path)
+        p={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/tutorial.js':'tutorial.js','/style.css':'style.css'}.get(path)
         if not p:self.send_error(404);return
         raw=(root/p).read_bytes()
         typ={'html':'text/html','css':'text/css','js':'text/javascript'}[p.rsplit('.',1)[-1]]
@@ -454,6 +455,18 @@ class AppHandler(BaseHTTPRequestHandler):
             except ImportError:return self.send({'error':'Install python3-qrcode'},503)
         
         try:
+            if u.path.startswith('/api/tutorial'):
+                if not self.admin():return self.send({'error':'Tutoriel réservé au PC hôte.'},403)
+                mode=q.get('mode',['fetlar'])[0]
+                lesson=q.get('lesson',[None])[0]
+                if u.path=='/api/tutorial':
+                    return self.send({'tutorial':tutorial.lesson_state(mode,lesson)})
+                if u.path=='/api/tutorial/legal':
+                    try:
+                        start=[int(q.get('row',['-1'])[0]),int(q.get('col',['-1'])[0])]
+                    except (ValueError,TypeError):raise ValueError('Coordonnées du tutoriel invalides.')
+                    return self.send({'moves':tutorial.legal_moves(mode,lesson,start)})
+                return self.send({'error':'Unknown endpoint'},404)
             with self.server.store.lock:
                 st=self.server.store
                 if u.path=='/api/address':
@@ -496,7 +509,14 @@ class AppHandler(BaseHTTPRequestHandler):
         except Exception:return self.send({'error':'Internal server error'},500)
     def do_POST(self):
         try:
-            d=self.read_json();st=self.server.store;u=urlparse(self.path)
+            u=urlparse(self.path)
+            if u.path.startswith('/api/tutorial') and not self.admin():
+                raise PermissionError('Tutoriel réservé au PC hôte.')
+            d=self.read_json();st=self.server.store
+            if u.path=='/api/tutorial/move':
+                if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
+                return self.send({'tutorial':tutorial.play_move(
+                    d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
             if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/create':
                 g=st.create(d.get('mode','fetlar'),d.get('settings'))

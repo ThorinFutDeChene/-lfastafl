@@ -2,5 +2,6 @@ __pycache__/
 *.py[cod]
 *.deb
 dist/
+test-results/
 .env
 *.egg-info/

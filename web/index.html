@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Álfastafl</title>
+  <title>Álfastafl (DEV)</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main>
   <header>
-    <h1>ᚨ Álfastafl <small>0.3.1</small></h1>
+    <h1>ᚨ Álfastafl <small>0.4.0 DEV1</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -36,7 +36,10 @@
         <input id="reconnect-minutes" type="number" min="1" max="60" step="1" value="5">
       </label>
     </div>
-    <button id="create" type="button">Créer une partie</button>
+    <div class="host-actions">
+      <button id="create" type="button">Créer une partie</button>
+      <button id="tutorial-open" type="button" aria-haspopup="dialog" aria-controls="tutorial-panel" hidden>Tutoriel</button>
+    </div>
     <p id="lan-status" role="status">Mode local. Activez l’accès LAN dans la barre d’outils pour connecter des joueurs.</p>
     <div class="saved-games">
       <h3>Parties hébergées et sauvegardées</h3>
@@ -119,8 +122,64 @@
     <h3>Historique des coups</h3>
     <ol id="moves"></ol>
   </section>
+  <dialog id="tutorial-panel" class="tutorial-dialog" aria-labelledby="tutorial-heading">
+    <div class="tutorial-header">
+      <div>
+        <p class="tutorial-eyebrow">Apprendre à jouer</p>
+        <h2 id="tutorial-heading" tabindex="-1">Tutoriel</h2>
+        <p id="tutorial-mode-label" class="tutorial-mode-label"></p>
+      </div>
+      <button id="tutorial-close" type="button" class="tutorial-secondary">Retour au jeu</button>
+    </div>
+    <div class="tutorial-toolbar">
+      <label for="tutorial-lessons">Exercice
+        <select id="tutorial-lessons" aria-label="Choisir un exercice"></select>
+      </label>
+      <p id="tutorial-progress"></p>
+    </div>
+    <div class="tutorial-layout">
+      <div class="tutorial-play">
+        <p id="tutorial-camp" class="tutorial-camp"></p>
+        <div class="tutorial-board-frame">
+          <div id="tutorial-files" class="tutorial-files" aria-hidden="true"></div>
+          <div id="tutorial-ranks" class="tutorial-ranks" aria-hidden="true"></div>
+          <div id="tutorial-board" class="tutorial-board" role="group" aria-label="Plateau d’exercice, 11 lignes et 11 colonnes" aria-describedby="tutorial-selection"></div>
+        </div>
+        <div class="tutorial-legend" aria-label="Repères du plateau">
+          <span><i class="tutorial-legend-dot" aria-hidden="true"></i>Coup légal</span>
+          <span><i class="tutorial-legend-target" aria-hidden="true"></i>Objectif</span>
+          <span><i class="tutorial-legend-focus" aria-hidden="true">▾</i>Pièce à observer</span>
+        </div>
+        <p id="tutorial-selection" class="tutorial-selection">Choisissez une pièce, puis sa destination. Les flèches du clavier permettent de parcourir le plateau.</p>
+      </div>
+      <div class="tutorial-instructions">
+        <h3 id="tutorial-lesson-title" tabindex="-1"></h3>
+        <div id="tutorial-explanation"></div>
+        <div class="tutorial-objective">
+          <strong>À vous de jouer</strong>
+          <p id="tutorial-objective"></p>
+        </div>
+        <p id="tutorial-feedback" class="tutorial-feedback" role="status" aria-live="polite" tabindex="-1"></p>
+        <button id="tutorial-hint" type="button" class="tutorial-secondary" aria-expanded="false" aria-controls="tutorial-hint-text">Afficher un indice</button>
+        <p id="tutorial-hint-text" class="tutorial-hint" hidden></p>
+        <button id="tutorial-retry" type="button" class="tutorial-secondary">Recommencer l’exercice</button>
+      </div>
+    </div>
+    <nav class="tutorial-navigation" aria-label="Parcourir les exercices">
+      <button id="tutorial-prev" type="button" class="tutorial-secondary">← Précédent</button>
+      <button id="tutorial-next" type="button">Suivant →</button>
+    </nav>
+    <details id="tutorial-rules" class="tutorial-rules">
+      <summary id="tutorial-rules-summary">Mémo des règles</summary>
+      <dl id="tutorial-rule-list"></dl>
+      <ul id="tutorial-limitations"></ul>
+      <div id="tutorial-sources" class="tutorial-sources"></div>
+    </details>
+    <p class="tutorial-footnote">Exercices sur le PC hôte, indépendants de vos parties. Le tutoriel ne nécessite pas d’activer l’accès LAN.</p>
+  </dialog>
   <footer>Prototype technique. Cinématiques et rendu 3D non intégrés dans cette version.</footer>
 </main>
 <script src="/app.js"></script>
+<script src="/tutorial.js"></script>
 </body>
 </html>

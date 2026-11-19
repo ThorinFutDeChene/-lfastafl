@@ -1,13 +1,25 @@
-# Álfastafl — 0.3.1 (canal stable)
+# Álfastafl — 0.4.0-dev1 (canal DEV)
 
-La **0.3.1 stable** reprend la **0.3.1-dev1** et succède à la [stable 0.3.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.0). L'accès LAN est volontaire à chaque lancement : le bouton **Activer accès LAN** démarre décoché et reste cliquable. Le partage s'arrête automatiquement à la fermeture normale et n'est jamais réactivé au lancement suivant.
+La **0.4.0-dev1** ajoute un **tutoriel interactif sur le PC hôte**, accessible à côté de **Créer une partie**. Cette préversion reprend la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1), qui reste la version de référence du canal stable.
 
-**Validation :** la 0.3.1 a passé 147 tests automatisés, dont les contrôles du démarrage local, de l'activation par clic, de la fermeture et du relancement avec le LAN désactivé. L'utilisateur a confirmé sur sa configuration Ubuntu MATE le cycle normal d'apparition/disparition de la règle UFW et la connexion des joueurs avec la 0.3.0. Le nouveau démarrage manuel reste à confirmer sur son poste. Le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier. Le réseau local fonctionne en HTTP non chiffré ; ne pas exposer l'application sur Internet. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
+**Validation :** les tests automatisés du moteur du tutoriel et de son API ont réussi, notamment pour les positions proposées, les coups attendus et le refus des accès depuis un autre appareil. Le parcours visuel du tutoriel dans l'application Ubuntu MATE reste à vérifier sur le poste réel. L'utilisateur a confirmé le cycle normal UFW et la connexion des joueurs avec la 0.3.0 ; le démarrage manuel du LAN introduit ensuite, le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier sur son poste. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette version choisissent `Stable` par défaut. Les installations existantes conservent leur choix de canal ; pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**. Le numéro Debian `0.3.1` est plus récent que `0.3.1~dev1` et `0.3.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Les installations existantes conservent leur choix de canal ; pour recevoir cette version, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.4.0~dev1` est plus récent que `0.3.1`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## Tutoriel interactif sur le PC hôte
+
+Dans **Héberger**, choisir une variante de règles puis cliquer sur **Tutoriel**, à côté de **Créer une partie**. Le tutoriel s'ouvre dans un panneau et reprend la variante sélectionnée. Le bouton **Retour au jeu** ferme ce panneau.
+
+Le parcours propose **9 exercices en Historique · Tawlbwrdd**, **9 en Classique · Fetlar** et **10 en Compétition · Copenhague**, soit **28 positions d'apprentissage**. Il aborde les camps et le premier coup, les déplacements, les obstacles, le trône, les captures, les cases hostiles, l'entrée volontaire entre deux adversaires, l'échappée et la capture du roi. Copenhague ajoute un exercice sur le mur de boucliers.
+
+Chaque exercice présente une position, une explication et un objectif. Sélectionner une pièce affiche ses destinations légales, calculées par le moteur de règles du jeu. Un coup refusé ou un objectif non atteint reçoit une explication. Les commandes **Afficher un indice**, **Recommencer l'exercice**, **Précédent** et **Suivant**, ainsi que la liste des exercices, permettent de progresser librement. Le **mémo des règles** s'adapte à la variante et fournit les références déjà réunies dans [RULES.md](RULES.md).
+
+Le tutoriel fonctionne **sans activer l'accès LAN**. Il est réservé au PC hôte, avec un contrôle d'accès également effectué par le serveur. Ses exercices utilisent des positions indépendantes des parties, des sauvegardes et des invitations QR. La progression n'est pas conservée entre les ouvertures ; ce parcours propose des exercices ciblés, sans adversaire IA ni partie complète accompagnée.
+
+Les limites du moteur s'appliquent aussi au tutoriel : les forteresses de sortie complexes, certains nuls théoriques de Fetlar et les interprétations historiques nécessitent encore une validation approfondie. Le mémo présente les règles de la variante retenue et les limites correspondantes.
 
 ## Accès LAN volontaire et gestion automatique du pare-feu
 
@@ -87,7 +99,7 @@ Les deux QR codes d’invitation sont maintenant séparés : joueur à gauche, i
 
 ## État réel
 
-Le jeu est publié sur le **canal stable**, avec un périmètre fonctionnel encore incomplet.
+La **0.4.0-dev1** est une préversion ; la [0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1) reste la référence du **canal stable**. Le périmètre fonctionnel reste incomplet.
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 
@@ -100,6 +112,8 @@ cd alfastafl_dev
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 PYTHONPATH=src python3 -m alfastafl --host 127.0.0.1 --port 8766
 ```
+
+Les workflows de publication DEV et stable sont configurés pour exécuter `node tests/browser_tutorial.cjs` avec Playwright et Chromium avant la construction du paquet. Les captures produites dans `test-results/tutorial-ui/` sont conservées dans l'artefact GitHub Actions `alfastafl-tutorial-ui`. Ce contrôle navigateur complète les tests Python ; le parcours dans l'application Qt sur Ubuntu MATE reste à valider sur le poste réel.
 
 Dans Firefox local : `http://127.0.0.1:8766/`. Pour un accès LAN en test, lancer explicitement `--host 0.0.0.0` depuis un **réseau local de confiance** pour des tests CLI uniquement ; cette commande directe ne gère pas le pare-feu. L'application graphique gère automatiquement UFW. Le protocole HTTP n'est **pas chiffré**, il ne convient pas à une exposition Internet.
 

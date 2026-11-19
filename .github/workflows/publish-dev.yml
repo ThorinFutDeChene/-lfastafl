@@ -35,6 +35,28 @@ jobs:
           sudo apt-get install -y python3-qrcode python3-pil
       - name: Run unit and integration tests
         run: PYTHONPATH=src python3 -m unittest discover -s tests -v
+      - name: Set up Node for tutorial UI tests
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install tutorial browser test dependencies
+        timeout-minutes: 10
+        run: |
+          npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Exercise the host tutorial in Chromium
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tutorial.cjs
+      - name: Save tutorial UI screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: alfastafl-tutorial-ui
+          path: test-results/tutorial-ui/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build Debian package
         run: |
           mkdir -p dist
