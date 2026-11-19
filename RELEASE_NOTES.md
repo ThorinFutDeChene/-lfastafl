@@ -1,23 +1,24 @@
-# Álfastafl 0.4.0 — canal stable
+# Álfastafl 0.5.0 — canal stable
 
-Cette version stable reprend le tutoriel de **0.4.0-dev1**, sans changement fonctionnel, et succède à la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1).
+Cette version stable reprend les fonctions de la **0.5.0-dev1** (plateau et figurines 3D) et remplace la stable 0.4.0.
 
-## Nouveau : Tutoriel
+## Plateau et figurines 3D
 
-- Bouton **Tutoriel** à côté de **Créer une partie**, réservé au PC hôte. Le panneau reprend la variante sélectionnée dans **Héberger**.
-- **9 exercices historiques, 9 Fetlar et 10 Copenhague** : camps, déplacements, obstacles, trône, captures, cases hostiles, entrée volontaire entre des adversaires, échappée et capture du roi ; mur de boucliers pour Copenhague.
-- Destinations légales calculées par le moteur du jeu, explications des erreurs, indices, reprise d'un exercice et navigation libre.
-- Mémo adapté à la variante, avec les sources et les limites déjà documentées dans [RULES.md](RULES.md).
-- Exercices indépendants des parties, sauvegardes et invitations QR, utilisables avec le LAN désactivé. L'API refuse l'accès aux appareils invités.
+- Plateau 11 × 11 en chêne sombre, sculpté en volume, avec trône et coins adaptés aux trois variantes.
+- **24 nains en bronze** (barbe, hache, bouclier), **12 elfes en pierre claire** (oreilles, cape, arc) et **un roi** (couronne, épée, sceptre). Première génération de figurines sculptées.
+- Caméra libre à 360°, rotation, inclinaison, zoom, **Vue dessus**, **Recentrer** et niveaux de qualité **Éco / Standard / Haute**.
+- Déplacements par clic, toucher ou glisser-déposer. Halo doré pour la pièce sélectionnée, cases légales dorées, captures possibles rouges ; propositions calculées par le moteur du serveur.
+- Affichage 3D par défaut dans les parties et le tutoriel hôte. Mode **Vue 2D · clavier** et repli automatique si WebGL2 est absent ou perdu.
+- Three.js r187 embarqué pour un fonctionnement hors ligne ; licence MIT et composants répertoriés dans THIRD_PARTY_NOTICES.md.
 
-La progression n'est pas persistée. Le tutoriel propose des exercices ciblés ; il ne comprend pas d'IA ni de partie complète accompagnée.
+Le tutoriel de 28 exercices et le fonctionnement LAN volontaire de la 0.4.0 sont conservés. La version 3D n'implémente pas encore les scènes de combat animées, les figurines articulées ni les sons.
 
 ## Validation
 
-La DEV **0.4.0-dev1** dont est issue cette version a passé **168 tests Python** et **11 scénarios Chromium**, couvrant notamment les **28 exercices** ([exécution CI](https://github.com/ThorinFutDeChene/-lfastafl/actions/runs/44497542210)). Le parcours visuel dans l'application Qt sur Ubuntu MATE reste à vérifier sur le poste réel.
+La DEV d'origine a passé **174 tests Python**, **3 tests des réponses asynchrones**, **11 scénarios Chromium du tutoriel** et **13 scénarios Chromium du plateau 3D** ([CI DEV](https://github.com/ThorinFutDeChene/-lfastafl/actions/runs/44591067388)). La chaîne stable réexécute également les tests 3D et interdit la publication si l'un de ces contrôles échoue.
 
-Les limites du moteur concernant les forteresses complexes, certains nuls de Fetlar et les interprétations historiques restent documentées dans le mémo et dans [RULES.md](RULES.md). Le comportement LAN de la 0.3.1 est conservé : démarrage désactivé, activation par clic et fermeture automatique du partage.
+Le rendu QtWebEngine sur le poste Ubuntu MATE réel et sur des mobiles physiques reste à confirmer. Les limites connues de certaines règles particulières restent documentées dans RULES.md.
 
 ## Distribution
 
-Version Debian : `0.4.0`, plus récente que `0.4.0~dev1` et `0.3.1`. Les nouvelles installations choisissent **Stable** par défaut ; le choix de canal enregistré est conservé. Le canal DEV reçoit également les versions stables. Pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**. Les sauvegardes et paramètres utilisateurs sont conservés.
+Paquet Debian **0.5.0**, version stable plus récente que **0.5.0~dev1**. Installation depuis le canal **Mises à jour → Stable**, avec conservation des sauvegardes et paramètres existants. Les choix de canal enregistrés restent inchangés.

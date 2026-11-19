@@ -8,8 +8,10 @@ function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+i
 function rememberDevice(id,token){try{localStorage.setItem('alfastafl.device.'+id,token);}catch(_){} }
 function clearDevice(id){try{localStorage.removeItem('alfastafl.device.'+id);}catch(_){} }
 let session=q.get('session')||deviceSession(gameId)||sessionStorage.getItem('alfastafl.session')||'';
-let selected=null,legalDestinations=[],game=null,requestId='',you=null,reviewVotes={};
+let selected=null,legalDestinations=[],captureDestinations=[],game=null,requestId='',you=null,reviewVotes={};
 let clockReceivedAt=0,serverTimeReceivedAt=0;let gameListUpdatedAt=0;
+let gameBusy=false,boardRevision=0,loadRevision=0,appliedLoadRevision=0,gameDrag=null;
+let gameKeyboardSquare=[0,0];
 if(!isHost)$('host').hidden=true;
 async function api(path,data){
  const opts=data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{};
@@ -62,7 +64,7 @@ async function listGames(force=false){
    button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
    button.title='Sélectionner cette partie';
    button.onclick=async()=>{
-    gameId=g.id;session='';selected=null;legalDestinations=[];
+    gameId=g.id;session='';invalidateBoardInteraction();render();
     sessionStorage.setItem('alfastafl.game',gameId);
     await load();await listGames(true);
    };
@@ -105,27 +107,80 @@ function renderConnection(){
 }
 
 function available(r,c){return legalDestinations.some(m=>m[0]===r&&m[1]===c);}
-function myTurn(){return Boolean(game&&you&&you.role==='player'&&you.camp===game.turn&&game.status==='active'&&
+function myTurn(){return Boolean(game&&game.id===gameId&&you&&you.role==='player'&&you.camp===game.turn&&game.status==='active'&&
  (game.clock?.mode==='unlimited'||game.clock?.started));}
+function positionKey(){
+ return game ? [gameId,session,game.id,game.turn,game.status,game.reason,
+  Boolean(game.clock?.started),game.history.length,game.board.map(row=>row.join('')).join('')].join('|') : '';
+}
+function invalidateBoardInteraction(){
+ boardRevision++;gameBusy=false;gameDrag=null;selected=null;legalDestinations=[];captureDestinations=[];
+}
+function ownsGamePiece(r,c){
+ const piece=game?.board?.[r]?.[c];
+ return Boolean(piece&&piece!=='.'&&you&&(piece==='N'?'dwarf':'elf')===you.camp);
+}
+function canDragGamePiece(r,c){return !gameBusy&&myTurn()&&ownsGamePiece(r,c);}
+const gameBoardView=new AlfastaflBoardView({
+ prefix:'game',flat:$('board'),callbacks:{
+  onClick:clickSquare,canDrag:canDragGamePiece,
+  onDragStart:beginGameDrag,onDrop:dropGamePiece
+ }
+});
+function syncGameBoard(){
+ const visibleGame=game&&game.id===gameId?game:null;
+ gameBoardView.update({board:visibleGame?visibleGame.board:null,
+  mode:visibleGame?visibleGame.mode:$('mode').value,
+  selected,legal:legalDestinations,captures:captureDestinations,targets:[],focus:[],
+  interactive:Boolean(visibleGame&&myTurn()),disabled:gameBusy||!visibleGame||!myTurn()});
+ $('game-board-empty').hidden=Boolean(visibleGame);
+}
+function focusGameSquare(position){
+ gameKeyboardSquare=position;
+ for(const button of $('board').querySelectorAll('button')){
+  button.tabIndex=Number(button.dataset.row)===position[0]&&Number(button.dataset.col)===position[1]?0:-1;
+ }
+ if(!$('board').hidden)$('board').querySelector(`[data-row="${position[0]}"][data-col="${position[1]}"]`)?.focus({preventScroll:true});
+}
 function render(){
- if(!game)return;
+ syncGameBoard();
+ if(!game||game.id!==gameId){$('board').replaceChildren();return;}
+
  $('state').textContent=game.mode+' · '+game.status+' · tour '+game.turn+
     (game.reason?' · '+game.reason:'');
- const board=$('board');board.replaceChildren();
+ const board=$('board');
+ const focused=board.contains(document.activeElement)?[Number(document.activeElement.dataset.row),Number(document.activeElement.dataset.col)]:null;
+ board.replaceChildren();
  for(let r=0;r<11;r++)for(let c=0;c<11;c++){
   const square=document.createElement('button');square.type='button';
+  square.dataset.row=String(r);square.dataset.col=String(c);
+  square.disabled=gameBusy||!myTurn();
+  square.tabIndex=gameKeyboardSquare[0]===r&&gameKeyboardSquare[1]===c?0:-1;
+  square.setAttribute('aria-pressed',String(Boolean(selected&&selected[0]===r&&selected[1]===c)));
   square.className='square'+((r+c)%2?' alt':'');
-  if((r===5&&c===5)||([0,10].includes(r)&&[0,10].includes(c)))square.className+=' special';
+  if((r===5&&c===5)||(game.mode!=='historical'&&[0,10].includes(r)&&[0,10].includes(c)))square.className+=' special';
   if(selected&&selected[0]===r&&selected[1]===c)square.className+=' selected';
   if(available(r,c))square.className+=' legal';
+  if(captureDestinations.some(pos=>pos[0]===r&&pos[1]===c))square.className+=' capture';
   const piece=game.board[r][c];
   if(piece!=='.'){
    const shape=document.createElement('span');shape.className='piece '+piece;
    shape.textContent=piece==='N'?'ᚦ':piece==='E'?'ᛟ':'♛';square.append(shape);
   }
   square.setAttribute('aria-label',`Case ${String.fromCharCode(65+c)}${11-r} ${piece}`);
-  square.onclick=()=>clickSquare(r,c);board.append(square);
+  square.onclick=()=>clickSquare(r,c);
+  square.onkeydown=event=>{
+   const offsets={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+   if(offsets[event.key]){
+    event.preventDefault();const [dr,dc]=offsets[event.key];
+    focusGameSquare([Math.max(0,Math.min(10,r+dr)),Math.max(0,Math.min(10,c+dc))]);
+   }else if(event.key==='Home'||event.key==='End'){
+    event.preventDefault();focusGameSquare([event.ctrlKey?(event.key==='Home'?0:10):r,event.key==='Home'?0:10]);
+   }
+  };
+  board.append(square);
  }
+ if(focused&&focused.every(Number.isInteger)&&!gameBusy)focusGameSquare(focused);
  renderClocks();renderConnection();renderHostControls();
  $('moves').replaceChildren();
  for(const move of game.history){
@@ -150,14 +205,21 @@ function render(){
 }
 async function load(){
  if(!gameId)return;
+ const requestedGame=gameId,requestedSession=session,request=++loadRevision;
+ const currentRequest=()=>request>=appliedLoadRevision&&requestedGame===gameId&&requestedSession===session;
  try{
-  const state=await api('state?game='+encodeURIComponent(gameId)+'&session='+encodeURIComponent(session));
+  const state=await api('state?game='+encodeURIComponent(requestedGame)+'&session='+encodeURIComponent(requestedSession));
+  if(!currentRequest())return;
+  appliedLoadRevision=request;
+  const before=positionKey();
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};
   clockReceivedAt=performance.now();serverTimeReceivedAt=state.server_now||Date.now()/1000;
-  if(!myTurn()){selected=null;legalDestinations=[];}
+  if(before!==positionKey()||!myTurn())invalidateBoardInteraction();
   render();
   if(state.invites&&isHost){
-   const addr=await api('address');const origin='http://'+addr.address+':'+addr.port;
+   const addr=await api('address');
+   if(!currentRequest())return;
+   const origin='http://'+addr.address+':'+addr.port;
    const panel=$('invitations');
    if(!addr.lan_enabled){panel.hidden=true;return;}
    $('hostmsg').textContent=`Identifiant : ${gameId}`;
@@ -173,33 +235,76 @@ async function load(){
    panel.hidden=false;
   }else if(isHost){$('invitations').hidden=true;}
  }catch(error){
+  if(!currentRequest())return;
   if(session&&error.message==='Unauthorized'){
    clearDevice(gameId);
    session='';
    sessionStorage.removeItem('alfastafl.session');
+   you=null;invalidateBoardInteraction();render();
   }
   say(error.message);
  }
 }
+async function selectGamePiece(r,c){
+ if(!canDragGamePiece(r,c))return false;
+ const context=positionKey(),token=++boardRevision;
+ const returnToFlat=$('board').contains(document.activeElement);
+ gameBusy=true;render();
+ try{
+  const reply=await api('legal?game='+encodeURIComponent(gameId)+
+   '&session='+encodeURIComponent(session)+'&row='+r+'&col='+c);
+  if(token!==boardRevision||context!==positionKey()||!myTurn())return false;
+  selected=[r,c];legalDestinations=reply.moves;captureDestinations=reply.captures||[];gameKeyboardSquare=[r,c];
+  return true;
+ }catch(error){if(token===boardRevision&&context===positionKey())say(error.message);return false;}
+ finally{
+  if(token===boardRevision){gameBusy=false;render();if(returnToFlat)focusGameSquare([r,c]);}
+ }
+}
+async function sendGameMove(from,to){
+ if(gameBusy||!myTurn())return;
+ const requestedGame=gameId,requestedSession=session,token=++boardRevision;
+ gameBusy=true;gameDrag=null;render();
+ const sameSession=()=>requestedGame===gameId&&requestedSession===session;
+ try{
+  await api('move',{game:requestedGame,session:requestedSession,'from':from,'to':to});
+  if(!sameSession()||token!==boardRevision)return;
+  selected=null;legalDestinations=[];captureDestinations=[];say('');await load();
+ }catch(error){if(sameSession()&&token===boardRevision){say(error.message);await load();}}
+ finally{if(token===boardRevision){gameBusy=false;render();}}
+}
 async function clickSquare(r,c){
- if(!game||!myTurn())return;
- const piece=game.board[r][c];
+ if(!game||!myTurn()||gameBusy)return;
+ gameDrag=null;
  if(selected&&available(r,c)){
-  try{
-   await api('move',{game:gameId,session,'from':selected,'to':[r,c]});
-   selected=null;legalDestinations=[];say('');await load();
-  }catch(error){say(error.message);await load();}
+  await sendGameMove([...selected],[r,c]);
   return;
  }
- if(piece!=='.'&&(piece==='N'?'dwarf':'elf')===you.camp){
-  try{
-   const reply=await api('legal?game='+encodeURIComponent(gameId)+
-    '&session='+encodeURIComponent(session)+'&row='+r+'&col='+c);
-   selected=[r,c];legalDestinations=reply.moves;render();
-  }catch(error){say(error.message);}
+ if(ownsGamePiece(r,c)){
+  await selectGamePiece(r,c);
  }else{
-  selected=null;legalDestinations=[];render();
+  const returnToFlat=$('board').contains(document.activeElement);
+  boardRevision++;selected=null;legalDestinations=[];captureDestinations=[];render();
+  if(returnToFlat)focusGameSquare([r,c]);
  }
+}
+function beginGameDrag(r,c){
+ if(!canDragGamePiece(r,c)||!gameBoardView.active)return;
+ const drag={from:[r,c],context:positionKey(),promise:null};
+ gameDrag=drag;drag.promise=selectGamePiece(r,c);
+ return drag.promise;
+}
+async function dropGamePiece(from,to){
+ const drag=gameDrag;
+ if(!drag||drag.from[0]!==from[0]||drag.from[1]!==from[1])return;
+ const selectedSuccessfully=await drag.promise;
+ if(gameDrag!==drag)return;
+ gameDrag=null;
+ if(!selectedSuccessfully||!gameBoardView.active||drag.context!==positionKey()||gameBusy||!myTurn()||
+    !selected||selected[0]!==from[0]||selected[1]!==from[1])return;
+ if(!to||from[0]===to[0]&&from[1]===to[1])return;
+ if(!available(to[0],to[1])){say('Cette destination n’est pas autorisée pour la pièce sélectionnée.');return;}
+ await sendGameMove([...from],[...to]);
 }
 $('create').onclick=async()=>{
  try{
@@ -211,14 +316,14 @@ $('create').onclick=async()=>{
   const created=await api('create',{mode:$('mode').value,settings:{
    time_control:{mode:timeMode,seconds},reconnect_timeout_seconds:reconnect
   }});
-  gameId=created.game;session='';selected=null;legalDestinations=[];
+  gameId=created.game;session='';invalidateBoardInteraction();render();
   sessionStorage.setItem('alfastafl.game',gameId);
   await load();await listGames(true);
  }catch(error){say(error.message);}
 
 };
 $('request').onclick=async()=>{
- try{gameId=$('gid').value;requestId=(await api('join',{
+ try{gameId=$('gid').value;invalidateBoardInteraction();requestId=(await api('join',{
   game:gameId,invite:$('invite').value,name:$('name').value})).request;
   $('joinmsg').textContent='Demande envoyee, en attente de validation.';
  }catch(error){$('joinmsg').textContent=error.message;}
@@ -288,7 +393,7 @@ async function tick(){
   try{
    const reply=await api('request?id='+encodeURIComponent(requestId));
    if(reply.status==='approved'){
-    session=reply.session;sessionStorage.setItem('alfastafl.session',session);
+    session=reply.session;invalidateBoardInteraction();sessionStorage.setItem('alfastafl.session',session);
     rememberDevice(gameId,session);
     sessionStorage.setItem('alfastafl.game',gameId);
     $('joinmsg').textContent='Connexion autorisee';await load();
@@ -299,6 +404,8 @@ async function tick(){
  await listGames();
 }
 if(q.has('invite')){$('gid').value=q.get('game')||'';$('invite').value=q.get('invite')||'';}
+$('mode').addEventListener('change',()=>{if(!game)syncGameBoard();});
+render();
 setInterval(tick,1800);
 setInterval(()=>{renderClocks();renderConnection();},250);
 tick();

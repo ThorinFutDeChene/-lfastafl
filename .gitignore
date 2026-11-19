@@ -3,5 +3,6 @@ __pycache__/
 *.deb
 dist/
 test-results/
+node_modules/
 .env
 *.egg-info/

@@ -139,6 +139,24 @@ class Game:
             return []
         return self._moves_for(start, self.turn)
 
+    def capture_destinations(self, start, destinations=None):
+        """Preview captures through the rule engine without changing this game.
+
+        Optional destinations are the already-authorized legal list from the
+        server. Only board-dependent capture outcomes are needed; live history,
+        clocks, player sessions and saved games never enter these fresh boards.
+        """
+        legal = self.legal(start)
+        choices = legal if destinations is None else [p for p in destinations if p in legal]
+        captures = []
+        for destination in choices:
+            preview = Game(mode=self.mode, board=[row[:] for row in self.board],
+                           turn=self.turn)
+            event = preview.move(start, destination)
+            if event['captured'] or event['reason'] == 'king_captured':
+                captures.append(list(destination))
+        return captures
+
     def can_move(self, side):
         return any(self._moves_for((r, c), side)
                    for r in range(SIZE) for c in range(SIZE)

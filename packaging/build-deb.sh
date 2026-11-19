@@ -22,10 +22,11 @@ trap 'rm -rf "$BUILD"' EXIT
 mkdir -p "$BUILD/DEBIAN" "$BUILD/opt/alfastafl/src" "$BUILD/opt/alfastafl/web" "$BUILD/usr/bin" "$BUILD/usr/share/applications" "$BUILD/usr/share/doc/alfastafl"
 cp -R "$ROOT/src/alfastafl" "$BUILD/opt/alfastafl/src/"
 find "$BUILD" -type d -name __pycache__ -exec rm -rf {} +
-cp "$ROOT"/web/* "$BUILD/opt/alfastafl/web/"
+cp -R "$ROOT/web/." "$BUILD/opt/alfastafl/web/"
 cp "$ROOT/VERSION" "$BUILD/opt/alfastafl/VERSION"
 cp "$ROOT/README.md" "$BUILD/usr/share/doc/alfastafl/README.md"
 cp "$ROOT/RULES.md" "$BUILD/usr/share/doc/alfastafl/RULES.md"
+cp "$ROOT/THIRD_PARTY_NOTICES.md" "$BUILD/usr/share/doc/alfastafl/THIRD_PARTY_NOTICES.md"
 cp "$ROOT/LICENSE" "$BUILD/usr/share/doc/alfastafl/copyright"
 cat > "$BUILD/DEBIAN/control" <<CTRL
 Package: alfastafl

@@ -155,6 +155,7 @@ async function main() {
   });
   await page.goto(base, {waitUntil: 'domcontentloaded'});
   await page.locator('#tutorial-open').waitFor({state: 'visible'});
+  await page.selectOption('#game-board-mode', '2d');
 
   const square = position => page.locator(`#tutorial-board button[data-row="${position[0]}"][data-col="${position[1]}"]`);
   const responseFor = (endpoint, method = 'GET', predicate = () => true) =>
@@ -191,6 +192,7 @@ async function main() {
     assert.equal(response.status(), 200);
     const state = (await response.json()).tutorial;
     await ready();
+    await page.selectOption('#tutorial-board-mode', '2d');
     assert.equal(state.mode, mode);
     assert.equal(await page.locator('#tutorial-mode-label').textContent(), state.mode_label);
     return state;
