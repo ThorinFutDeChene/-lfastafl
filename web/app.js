@@ -11,6 +11,31 @@ let session=q.get('session')||deviceSession(gameId)||sessionStorage.getItem('alf
 let selected=null,legalDestinations=[],captureDestinations=[],game=null,requestId='',you=null,reviewVotes={},hostSeats={};
 let clockReceivedAt=0,serverTimeReceivedAt=0;let gameListUpdatedAt=0;
 let gameBusy=false,boardRevision=0,loadRevision=0,appliedLoadRevision=0,gameDrag=null;
+let cinematicCue=null,seenCinematic='',skippedCinematic='',captureVisualPlaying=false;
+const soundscape=typeof AlfastaflSoundscape==='function'?new AlfastaflSoundscape():{
+ enabled:false,status:()=>({available:false,enabled:false,ready:false,music:0,effects:0}),
+ unlock:async()=>false,setEnabled:()=>{},setVolume:()=>{},setGame:()=>{},effect:()=>{}
+};
+function redrawSoundControls(){
+ const state=soundscape.status();
+ $('audio-toggle').textContent=!state.available?'Son indisponible':
+  state.enabled?(state.ready?'Couper le son':'Activer le son'):'Activer le son';
+ $('audio-toggle').setAttribute('aria-pressed',String(state.enabled&&state.ready));
+ $('audio-toggle').disabled=!state.available;
+}
+$('audio-music').value=String(Math.round(soundscape.musicVolume*100 || 0));
+$('audio-effects').value=String(Math.round(soundscape.effectsVolume*100 || 0));
+$('audio-music').oninput=event=>soundscape.setVolume('music',Number(event.target.value)/100);
+$('audio-effects').oninput=event=>soundscape.setVolume('effects',Number(event.target.value)/100);
+$('audio-toggle').onclick=async()=>{
+ soundscape.setEnabled(!soundscape.enabled||!soundscape.status().ready);
+ if(soundscape.enabled)await soundscape.unlock();
+ redrawSoundControls();
+};
+document.addEventListener('pointerdown',()=>{
+ if(soundscape.enabled)soundscape.unlock().then(redrawSoundControls).catch(()=>{});
+}, {once:true,capture:true});
+redrawSoundControls();
 let gameKeyboardSquare=[0,0];
 if(!isHost)$('host').hidden=true;
 async function api(path,data){
@@ -20,6 +45,33 @@ async function api(path,data){
  if(!response.ok)throw Error(result.error||response.status);
  return result;
 }
+function captureKey(cue){
+ const e=cue?.move;
+ return e ? [gameId,e.n,e.piece,e.from?.join(','),e.to?.join(','),
+  (e.captured||[]).map(row=>row.join(',')).join(';')].join(':') : '';
+}
+function renderCaptureOverlay() {
+ const cue=cinematicCue,key=captureKey(cue),skipped=key&&skippedCinematic===key;
+ const visible=Boolean(cue&&!skipped&&captureVisualPlaying);
+ $('capture-overlay').hidden=!visible;
+ if(visible) {
+  const label=cue.move.reason==='king_captured'?'Le roi est capturé !':
+   cue.move.captured.length>1?'Capture multiple !':'Les sculptures livrent combat…';
+  $('capture-text').textContent=label;
+ }
+}
+function clearCinematic() {
+ gameBoardView?.cancelCapture();
+ cinematicCue=null;seenCinematic='';skippedCinematic='';captureVisualPlaying=false;
+ renderCaptureOverlay();
+}
+$('capture-skip').onclick=()=>{
+ const key=captureKey(cinematicCue);
+ if(key)skippedCinematic=key;
+ gameBoardView.cancelCapture();
+ captureVisualPlaying=false;
+ renderCaptureOverlay();
+};
 function setGuestMenu(open) {
  const visible = document.body.classList.contains('guest-board-only') && Boolean(open);
  document.body.classList.toggle('guest-menu-open', visible);
@@ -66,6 +118,7 @@ function renderClocks(){
   c.mode==='move'?`Par coup : ${fmtTime(c.seconds)}`:`Total : ${fmtTime(c.seconds)} par joueur`;
  $('clock-status').textContent=game.status==='finished'?'Partie terminée':
   game.status==='paused'?'Horloges suspendues':
+  cinematicCue?'Cinématique : chronomètres suspendus':
   !c.started?'En attente des deux joueurs':'Horloge active';
 }
 function showTimeOption(){
@@ -78,6 +131,7 @@ showTimeOption();
 function clearSelectedGame(){
  // Invalidates in-flight state responses before the deleted game can repaint.
  gameId='';session='';game=null;you=null;reviewVotes={};hostSeats={};requestId='';
+ clearCinematic();soundscape.setGame(null);
  invalidateBoardInteraction();
  sessionStorage.removeItem('alfastafl.game');
  sessionStorage.removeItem('alfastafl.session');
@@ -97,6 +151,7 @@ async function listGames(force=false){
    button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
    button.title='Sélectionner cette partie';
    button.onclick=async()=>{
+    clearCinematic();
     gameId=g.id;session='';game=null;you=null;hostSeats={};invalidateBoardInteraction();render();
     sessionStorage.setItem('alfastafl.game',gameId);
     sessionStorage.removeItem('alfastafl.session');
@@ -178,7 +233,7 @@ function renderConnection(){
 }
 
 function available(r,c){return legalDestinations.some(m=>m[0]===r&&m[1]===c);}
-function myTurn(){return Boolean(game&&game.id===gameId&&you&&you.role==='player'&&you.camp===game.turn&&game.status==='active'&&
+function myTurn(){return Boolean(!cinematicCue&&game&&game.id===gameId&&you&&you.role==='player'&&you.camp===game.turn&&game.status==='active'&&
  (game.clock?.mode==='unlimited'||game.clock?.started));}
 function positionKey(){
  return game ? [gameId,session,game.id,game.turn,game.status,game.reason,
@@ -296,13 +351,47 @@ async function load(){
    throw Error('Unauthorized');
   appliedLoadRevision=request;
   const before=positionKey();
+  const previous=game&&game.id===requestedGame?game:null;
+  const previousHistoryCount=previous?.history?.length||0;
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};hostSeats=state.seats||{};
+  soundscape.setGame(game);
+  if(previous&&game.history.length===previousHistoryCount+1&&!state.cinematic)
+    soundscape.effect('move');
+  const cue=state.cinematic||null;
+  const cueKey=cue? [requestedGame,cue.move.n,cue.move.piece,cue.move.from?.join(','),
+    cue.move.to?.join(','),(cue.move.captured||[]).map(row=>row.join(',')).join(';')].join(':'):'';
+  if(!cue && cinematicCue) {
+   gameBoardView.cancelCapture();
+   captureVisualPlaying=false;
+  }
+  cinematicCue=cue;
   if(isHost&&session&&!you){
    session='';sessionStorage.removeItem('alfastafl.session');
   }
   clockReceivedAt=performance.now();serverTimeReceivedAt=state.server_now||Date.now()/1000;
   if(before!==positionKey()||!myTurn())invalidateBoardInteraction();
   render();
+  if(cue&&cueKey!==seenCinematic) {
+   seenCinematic=cueKey;
+   if(skippedCinematic!==cueKey) {
+    captureVisualPlaying=true;
+    renderCaptureOverlay();
+    const playback=gameBoardView.playCapture(cue.move,{
+     duration:cue.duration,remaining:cue.remaining,
+     onEffect:name=>soundscape.effect(name),
+     onComplete:()=>{if(captureKey(cinematicCue)===cueKey){
+      captureVisualPlaying=false;renderCaptureOverlay();}}
+    });
+    Promise.resolve(playback).then(started=>{
+     if(!started&&captureKey(cinematicCue)===cueKey) {
+      captureVisualPlaying=false;renderCaptureOverlay();
+      soundscape.effect('strike');soundscape.effect('shatter',.1);
+     }
+    }).catch(()=>{
+     captureVisualPlaying=false;renderCaptureOverlay();
+    });
+   }
+  }else renderCaptureOverlay();
   if(state.invites&&isHost){
    const addr=await api('address');
    if(!currentRequest())return;
@@ -327,7 +416,7 @@ async function load(){
    clearDevice(gameId);
    session='';
    sessionStorage.removeItem('alfastafl.session');
-   you=null;game=null;invalidateBoardInteraction();render();
+   you=null;game=null;clearCinematic();soundscape.setGame(null);invalidateBoardInteraction();render();
   }
   say(error.message);
  }
@@ -401,8 +490,10 @@ $('create').onclick=async()=>{
   if((timeMode!=='unlimited'&&(!Number.isInteger(seconds)||seconds<1||seconds>86400))||
       !Number.isInteger(reconnect)||reconnect<60||reconnect>3600){throw Error('Durée ou délai de reconnexion invalide.');}
   const created=await api('create',{mode:$('mode').value,settings:{
-   time_control:{mode:timeMode,seconds},reconnect_timeout_seconds:reconnect
+   time_control:{mode:timeMode,seconds},reconnect_timeout_seconds:reconnect,
+   capture_cinematic_seconds:Number($('capture-duration').value)
   },host_camp:$('create-host-camp').value||null});
+  clearCinematic();
   gameId=created.game;session=created.host_session||'';game=null;you=null;hostSeats={};
   invalidateBoardInteraction();render();
   sessionStorage.setItem('alfastafl.game',gameId);

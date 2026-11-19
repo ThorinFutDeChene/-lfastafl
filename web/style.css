@@ -328,3 +328,35 @@ body.guest-board-only #game > #host-game-controls {display:none!important}
 .host-player-actions button[aria-pressed="true"]{outline:2px solid #f1db9f}
 .host-player-actions button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:600px){.host-create-role{width:100%;align-items:flex-start;flex-wrap:wrap}.host-create-role select{width:100%}}
+
+/* SFX & magical-chess captures. All controls remain visible on small displays. */
+.audio-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;
+ border:1px solid #72816a;border-radius:8px;background:#16221e}
+.audio-tools button{padding:7px 10px;font-size:.86rem}
+.audio-tools label{gap:5px;margin:0;font-size:.81rem}
+.audio-tools input[type="range"]{width:82px;min-width:50px;accent-color:#e6c27c;padding:0}
+.audio-tools button[aria-pressed="true"]{background:#af935c}
+#game-board-view{position:relative}
+#capture-overlay[hidden]{display:none!important}
+.capture-overlay{
+ position:absolute;left:50%;top:64px;z-index:30;transform:translateX(-50%);
+ display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;
+ width:min(560px,calc(100% - 24px));padding:12px 15px;
+ background:#08140eea;border:1px solid #d4ad68;border-radius:12px;
+ box-shadow:0 12px 40px #000a;color:#ffe0a8;font-weight:700;text-align:center;
+ pointer-events:none;
+}
+.capture-overlay button{min-height:40px;pointer-events:auto;font-size:.88rem}
+body.guest-board-only #capture-overlay{
+ position:fixed;top:auto;bottom:calc(22px + env(safe-area-inset-bottom,0px));
+ z-index:52;
+}
+body.guest-board-only[data-guest-timed="true"] #capture-overlay{
+ bottom:calc(86px + env(safe-area-inset-bottom,0px));
+}
+@media(max-width:560px){
+ .audio-tools{width:100%;justify-content:space-between}
+ .audio-tools input[type="range"]{width:90px}
+ .capture-overlay{padding:9px;gap:6px;font-size:.84rem}
+ .capture-overlay button{min-height:40px}
+}

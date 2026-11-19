@@ -155,6 +155,17 @@
       }
     }
 
+    async playCapture(event, options) {
+      if (!this.active || this.mode !== '3d' || this.disposed) return false;
+      if (!this.renderer) await this.ensureRenderer();
+      if (this.disposed || !this.active || this.mode !== '3d' || !this.renderer) return false;
+      return this.renderer.playCapture(event, options);
+    }
+
+    cancelCapture() {
+      this.renderer?.cancelCapture();
+    }
+
     setMode(mode) {
       if (this.disposed || !['2d', '3d'].includes(mode)) return;
       this.mode = mode;

@@ -1,13 +1,23 @@
-# Álfastafl — 0.5.1-dev4 (canal DEV)
+# Álfastafl — 0.5.1-dev5 (canal DEV)
 
-La **0.5.1-dev4** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.5.1-dev5** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
-**Validation :** les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D. Le fonctionnement graphique dans Qt sur Ubuntu MATE et sur les appareils mobiles réels reste à vérifier. Les cas atypiques du moteur de règles, les cinématiques et la régie restent partiellement ou entièrement à développer.
+**Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev4` est plus récent que `0.5.1~dev3` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev5` est plus récent que `0.5.1~dev4` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## Cinématiques de capture et son (DEV 0.5.1-dev5)
+
+**Captures façon échecs magiques :** les nains de bronze, les elfes de pierre et le roi restent des **sculptures** pendant le combat. Après une capture validée par le moteur, la caméra se rapproche du lieu de l'affrontement, l'attaquant s'élance, la figurine touchée bascule et se fragmente en éclats, puis la caméra revient au cadrage initial. Les captures multiples animent plusieurs victimes. La capture du roi dispose d'un effet sonore spécifique et d'éclats dorés. Les figurines actuelles sont générées procéduralement ; **leurs membres et leurs armes ne sont pas encore articulés** comme dans une production cinématographique : cette DEV est la première passe d'animation.
+
+Dans **Héberger → Captures animées**, choisir **Rapide (4 s)**, **Classique (8 s, défaut)**, **Épique (12 s)** ou **Désactivées**. Pendant une capture active, **le serveur suspend le chronomètre et refuse les coups suivants** jusqu'à la fin de la scène ; la décision des captures reste exclusivement celle du moteur. Les invités autorisés et les spectateurs reçoivent la même capture avec le temps restant pour la voir au bon moment. Chaque appareil dispose du bouton **Passer la scène** ; il peut revenir immédiatement au plateau, mais le prochain tour attend la fin de la période commune, même si un utilisateur a passé la scène. Une partie existante créée avant ce jalon conserve son paramètre précédent (captures sans pause), sauf nouvelle partie créée avec l'option.
+
+**Sons :** les bruitages de déplacement, arme, impact, fracture et capture du roi sont générés hors ligne via Web Audio. Une musique d'ambiance nordique originale, à motifs lents, devient plus tendue après plusieurs coups. Un bouton **Activer / Couper le son** et deux curseurs indépendants **Musique** et **Effets** apparaissent parmi les commandes de la vue 3D/2D. Les réglages sont stockés localement par navigateur. Certains téléphones empêchent la lecture automatique ; il faut alors toucher **Activer le son**. Aucun téléchargement audio, aucune piste commerciale ni licence tierce de bande-son n'est nécessaire.
+
+En cas d'absence de WebGL, la **vue 2D reste jouable** et les effets sonores de capture restent disponibles. La synchronisation de l'animation dépend des actualisations HTTP régulières : un navigateur mobile en arrière-plan peut rejoindre la scène en cours sans revoir son début. Les captures ne modifient ni les règles, ni le fichier de sauvegarde.
 
 ## Jouer directement sur le PC hôte
 
@@ -45,7 +55,7 @@ Les parties et le tutoriel utilisent la **Vue 3D** par défaut. Le plateau 11×1
 - **Elfes en pierre claire** : oreilles, cape et arc.
 - **Roi en pierre claire** : couronne, épée et sceptre.
 
-Ces figurines constituent une première version. Le détail des modèles, leur préparation pour l'animation et leur rendu artistique seront affinés ensuite. Ce jalon ne contient pas encore de scène de combat, de son ni d'animation de capture.
+Les figurines restent des modèles procéduraux de première génération. La DEV 0.5.1-dev5 ajoute des **scènes de capture avec mouvements de groupes, effets d'impact et éclats de matière**, ainsi que le son. Les corps ne sont pas encore articulés en squelette et la finition artistique sera poursuivie.
 
 ### Commandes
 
@@ -132,8 +142,10 @@ par la reprise.
 
 **Limites DEV :** la détection de présence repose encore sur le rafraîchissement
 HTTP du navigateur (les navigateurs mobiles peuvent ralentir les requêtes en
-arrière-plan). Les cinématiques n'existent pas encore : leur future suspension
-du chronomètre devra être ajoutée lorsque les animations seront intégrées.
+arrière-plan). Les captures animées introduites dans la DEV 0.5.1-dev5
+suspendent désormais l'horloge **sur le serveur**, uniquement pour les parties
+créées avec l'option de cinématique activée. Les parties anciennes conservent
+leur rythme initial.
 Le protocole LAN reste du HTTP non chiffré. Usage exclusivement sur un réseau local de confiance.
 
 ## DEV 0.2.0-dev1: audit des regles (premiere passe)
@@ -169,7 +181,7 @@ La **0.5.0-dev1** est une préversion ; la [0.4.0](https://github.com/ThorinFutD
 
 **Nouveau dans cette DEV** : plateau WebGL 2, premières figurines procédurales reconnaissables, caméra libre, sélection et déplacement par clic, toucher ou glisser-déposer, repères de capture calculés par le serveur et repli en 2D. La validation graphique de ce jalon est en cours.
 
-**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, raffinement artistique des figurines et modèles destinés à l'animation, cinématiques, bandes-son, réalisation automatique, régie multi-parties et tournoi entièrement intégré à l'interface.
+**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, raffinement artistique des figurines et modèles articulés pour des combats plus réalistes, orchestration musicale avancée, réalisation automatique, régie multi-parties et tournoi entièrement intégré à l'interface.
 
 ## Tests sur Ubuntu (sans installer)
 

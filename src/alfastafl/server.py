@@ -18,6 +18,7 @@ class Store:
         self.wall_clock = wall_clock or time.time
         self._anchors = {}
         self._checkpoints = {}
+        self._cinematics = {}
         self.path=pathlib.Path(root) if root is not None else data_directory()
         self.path.mkdir(parents=True,exist_ok=True)
         self.lock=threading.RLock()
@@ -127,6 +128,7 @@ class Store:
                    for camp in ('elf','dwarf'))
 
     def _start_if_ready(self, g, now):
+        if g.id in self._cinematics:return
         if g.status=='active' and not g.clock['started'] and self._ready(g.id,now):
             g.clock['started']=True
             self._anchors[g.id]=now
@@ -157,6 +159,15 @@ class Store:
     def _tick_locked(self, now=None):
         now=self.monotonic() if now is None else now
         for g in list(self.games.values()):
+            cutscene=self._cinematics.get(g.id)
+            if cutscene:
+                if now < cutscene['deadline']:
+                    continue  # No chess clock advances or disconnects during combat.
+                del self._cinematics[g.id]
+                self._anchors.pop(g.id,None)
+                self._checkpoints.pop(g.id,None)
+                if g.status=='active':
+                    self._start_if_ready(g,now)
             if g.status=='active':
                 if not g.clock['started']:
                     self._start_if_ready(g,now)
@@ -223,6 +234,14 @@ class Store:
                     self._start_if_ready(g,now)
             return s
 
+    def cinematic_state(self, gid):
+        """Time remaining and capture event for every authenticated viewer."""
+        scene=self._cinematics.get(gid)
+        if not scene:return None
+        remaining=max(0.0,scene['deadline']-self.monotonic())
+        if remaining<=0:return None
+        return {'move':scene['move'],'duration':scene['duration'],'remaining':remaining}
+
     def delete_game(self, gid):
         """Permanently delete a paused/finished match, never a live match.
 
@@ -265,6 +284,7 @@ class Store:
             self.invites.pop(gid, None)
             self._anchors.pop(gid, None)
             self._checkpoints.pop(gid, None)
+            self._cinematics.pop(gid, None)
             self.repetition_votes.pop(gid, None)
             for sid in [key for key, item in self.sessions.items() if item['game'] == gid]:
                 del self.sessions[sid]
@@ -288,6 +308,7 @@ class Store:
             g.disconnect=None
             g.clock['started']=False
             self._anchors.pop(gid,None)
+            self._cinematics.pop(gid,None)
             for session in self.sessions.values():
                 if session['game']==gid:session['active']=False
             for pending in self.pending.values():
@@ -312,6 +333,7 @@ class Store:
             g.disconnect=None
             g.clock['started']=False
             self._anchors.pop(gid,None)
+            self._cinematics.pop(gid,None)
             for session in self.sessions.values():
                 if session['game']==gid:session['active']=False
             for pending in self.pending.values():
@@ -356,6 +378,7 @@ class Store:
         """Persist the current clocks; host closure cannot silently burn time."""
         with self.lock:
             self._tick_locked()
+            self._cinematics.clear()
             for g in self.games.values():
                 if g.status=='active' or (g.status=='paused' and
                      g.reason in ('repetition_review','draw_proposal')):
@@ -505,6 +528,8 @@ class Store:
             camp=self.player(gid,sid)
             self._tick_locked()
             g=self.games[gid]
+            if gid in self._cinematics:
+                raise ValueError('La cinématique de capture est en cours.')
             if camp!=g.turn:raise PermissionError('Not your turn')
             if g.clock['mode']!='unlimited' and not g.clock['started']:
                 raise ValueError('Waiting for both players before starting the clock')
@@ -515,6 +540,12 @@ class Store:
             if g.status=='active':
                 self._anchors[gid]=self.monotonic()
             else:
+                self._anchors.pop(gid,None)
+            duration=g.settings.get('capture_cinematic_seconds',0)
+            if duration and (event['captured'] or event.get('reason')=='king_captured'):
+                now=self.monotonic()
+                self._cinematics[gid]={'deadline':now+duration,'duration':duration,'move':event}
+                g.clock['started']=False
                 self._anchors.pop(gid,None)
             self.save(g)
             return event
@@ -534,7 +565,7 @@ class AppHandler(BaseHTTPRequestHandler):
     def static(self,path):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
         assets=('index.html','app.js','tutorial.js','style.css',
-                'board-view.js','board3d.js','figurines3d.js',
+                'board-view.js','board3d.js','figurines3d.js','cinematic3d.js','soundscape.js',
                 'vendor/three/three.module.js','vendor/three/three.core.js',
                 'vendor/three/OrbitControls.js','vendor/three/BufferGeometryUtils.js',
                 'vendor/three/LICENSE.txt')
@@ -601,6 +632,7 @@ class AppHandler(BaseHTTPRequestHandler):
                                                for camp,seat in st._seats(gid).items()}
                                                if self.admin() else None,
                                       'review_votes':st.repetition_votes.get(gid,{}),
+                                      'cinematic':st.cinematic_state(gid),
                                       'server_now':st.wall_clock()})
                 if u.path=='/api/legal':
                     gid=q.get('game',[''])[0];sid=q.get('session',[''])[0]

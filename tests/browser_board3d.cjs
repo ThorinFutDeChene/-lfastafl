@@ -64,11 +64,27 @@ for camp in ('dwarf', 'elf'):
     sessions[camp] = store.approve(request, camp)
 request = store.request(game.id, store.invites[game.id]['spectator'], '3D spectator')
 sessions['spectator'] = store.approve(request)
+# Dedicated tiny legal capture, with a timed 8-second cinematic.
+from alfastafl.core import EMPTY
+battle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
+    'capture_cinematic_seconds':8})
+battle.board = [[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(5,1,'N'),(5,4,'E'),(5,5,'N'),(8,8,'R')]:
+    battle.board[row][col] = piece
+battle.positions=[battle.signature()]
+store.save(battle)
+battle_sessions={}
+for camp in ('dwarf', 'elf'):
+    request=store.request(battle.id,store.invites[battle.id]['player'],'cinema '+camp)
+    battle_sessions[camp]=store.approve(request,camp)
+request=store.request(battle.id,store.invites[battle.id]['spectator'],'cinema viewer')
+battle_sessions['spectator']=store.approve(request)
 server = run('127.0.0.1', 0, store)
 def interrupt(*_):
     raise KeyboardInterrupt
 signal.signal(signal.SIGTERM, interrupt)
-print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions}), flush=True)
+print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions,
+    'battle': {'game':battle.id, 'sessions':battle_sessions}}), flush=True)
 try:
     server.serve_forever()
 except KeyboardInterrupt:
@@ -160,7 +176,9 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
   });
   context.on('response', response => {
     const url = new URL(response.url());
-    if (url.pathname.startsWith('/vendor/') || ['/board3d.js', '/figurines3d.js', '/board-view.js'].includes(url.pathname)) {
+    if (url.pathname.startsWith('/vendor/') ||
+      ['/board3d.js', '/figurines3d.js', '/board-view.js', '/cinematic3d.js',
+       '/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
   });
@@ -948,8 +966,73 @@ async function main() {
     } finally { await manager.close(); failurePage = page; }
   });
 
+  await scenario('Magical-chess 3D capture shatters sculptures, pauses clock and can be skipped', async () => {
+    const capture=fixture.battle;
+    assert(capture.game && capture.sessions.dwarf && capture.sessions.elf && capture.sessions.spectator);
+    const host=await context.newPage();
+    const guestContext=await makeContext({}, {guest:true});
+    let spectator;
+    try {
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(capture.game)+
+        '&session='+encodeURIComponent(capture.sessions.dwarf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',4);
+      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
+      const setup=await (await context.request.get(base+'/api/state?game='+capture.game+
+        '&session='+encodeURIComponent(capture.sessions.elf))).json();
+      assert.equal(setup.game.clock.started,true,'Both players must be present to start the clock');
+      spectator=await guestContext.newPage();
+      failurePage=spectator;
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(capture.game)+
+        '&session='+encodeURIComponent(capture.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',4);
+      await expectImmersiveGuest(spectator,'spectator');
+      const confirmed=await context.request.post(base+'/api/move',{data:{
+        game:capture.game,session:capture.sessions.dwarf,
+        'from':[5,1],'to':[5,3],
+      }});
+      assert.equal(confirmed.status(),200);
+      const record=(await confirmed.json()).event;
+      assert.deepEqual(record.captured,[[5,4,'E']]);
+      const cut=await (await context.request.get(base+'/api/state?game='+capture.game)).json();
+      assert.equal(cut.cinematic.duration,8);
+      assert.equal(cut.game.clock.started,false,'Clock must be paused by server during combat');
+      const refused=await context.request.post(base+'/api/move',{data:{
+        game:capture.game,session:capture.sessions.elf,
+        'from':[8,8],'to':[8,7],
+      }});
+      assert.equal(refused.status(),400,'No next move until cinematic window ends');
+      await Promise.all([host,spectator].map(p=>p.waitForFunction(() =>
+        document.getElementById('game-board-3d').board3d?.getDiagnostics().cinematic.active)));
+      assert.equal(await host.locator('#capture-overlay').isVisible(),true);
+      assert.equal(await spectator.locator('#capture-overlay').isVisible(),true);
+      assert.equal(await spectator.locator('#host').isVisible(),false);
+      const beforeCamera=await diagnostics(host);
+      assert.equal(beforeCamera.cinematic.shardCount,12);
+      await host.waitForFunction(() => document.getElementById('game-board-3d').board3d
+        ?.getDiagnostics().cinematic.progress > .58);
+      await capture(host,'capture-sculpture-shatter.png','#game-board-view');
+      assert.equal(await host.locator('#audio-music').count(),1);
+      assert.equal(await host.locator('#audio-effects').count(),1);
+      assert.equal(await host.locator('#capture-skip').isVisible(),true);
+      await host.locator('#capture-skip').click();
+      await host.waitForFunction(() => !document.getElementById('game-board-3d').board3d
+        ?.getDiagnostics().cinematic.active);
+      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
+      assert.equal(await host.locator('#game-board-3d canvas').isVisible(),true);
+      assert.equal((await diagnostics(host)).pieceCount,3);
+      await spectator.locator('#capture-skip').click();
+      assert.equal(await spectator.locator('#capture-overlay').isVisible(),false);
+    } finally {
+      await guestContext.close();
+      await host.close();
+      failurePage=page;
+    }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
+      '/cinematic3d.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);

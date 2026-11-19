@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from './vendor/three/OrbitControls.js';
 import {createFigurine} from './figurines3d.js';
+import {CaptureCinematic} from './cinematic3d.js';
 
 const SIZE = 11;
 const SURFACE = 0.12;
@@ -45,6 +46,7 @@ export class Board3D {
     this._piecePools = {N: [], E: [], R: []};
     this._visiblePieces = [];
     this._pieceCounts = {N: 0, E: 0, R: 0};
+    this.captureCinematic = new CaptureCinematic(this);
     this._raycaster = new THREE.Raycaster();
     this._pointer = new THREE.Vector2();
     this._boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -SURFACE);
@@ -401,6 +403,7 @@ export class Board3D {
       changed = true;
     }
     const boardKey = board.map(row => row.join('')).join('');
+    if (this.captureCinematic.active && this._boardKey && boardKey !== this._boardKey) this.captureCinematic.cancel();
     if (boardKey !== this._boardKey) {
       this._boardKey = boardKey;
       const used = {N: 0, E: 0, R: 0};
@@ -690,8 +693,17 @@ export class Board3D {
     this._requestDraw();
   }
 
+  playCapture(record, options) {
+    return this.captureCinematic.start(record, options);
+  }
+
+  cancelCapture() {
+    this.captureCinematic.cancel();
+  }
+
   setActive(value) {
     if (this.disposed) return;
+    if (!value) this.captureCinematic.cancel();
     this.active = Boolean(value) && !this.lost;
     if (this.controls) this.controls.enabled = this.active;
     if (!this.active) {
@@ -724,6 +736,7 @@ export class Board3D {
 
   _fail(error) {
     if (this.disposed || this.lost) return;
+    this.captureCinematic.cancel();
     this.lost = true;
     this.active = false;
     this._cancelGesture();
@@ -749,6 +762,9 @@ export class Board3D {
       mode: this._view.mode, selected: this._view.selected ? [...this._view.selected] : null,
       legalCount: (this._view.legal || []).length, captureCount: (this._view.captures || []).length, quality: this.quality,
       active: this.active, disposed: this.disposed, renders: this.renderCount,
+      cinematic: {active: this.captureCinematic.active,progress: this.captureCinematic.progress,
+        key: this.captureCinematic.key, shardCount: this.captureCinematic.actors?.reduce(
+          (sum, actor) => sum + actor.shards.length, 0) || 0},
       camera: {position: this.camera.position.toArray(), target: this.controls?.target.toArray() || [0, 0, 0]},
       resolution: {width: this.width, height: this.height, pixelRatio: this.renderer?.getPixelRatio() || 1},
       graphics: this.renderer ? {calls: this.renderer.info.render.calls,
@@ -758,6 +774,7 @@ export class Board3D {
 
   dispose() {
     if (this.disposed) return;
+    this.captureCinematic.cancel();
     this.disposed = true;
     this.active = false;
     this._cancelFrame();
