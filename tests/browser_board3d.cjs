@@ -433,29 +433,31 @@ async function main() {
   });
 
   await scenario('An authorized player makes a real server-validated move by clicking 3D', async () => {
-    const player = await context.newPage();
-    failurePage = player;
-    await player.goto(base + '/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.dwarf),
-      {waitUntil: 'domcontentloaded'});
-    await ready3D(player, 'game', 37);
-    await expectImmersiveGuest(player, 'player');
-    await player.locator('#guest-menu-toggle').click();
-    assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), true);
-    assert.equal(await player.locator('#player-controls').isVisible(), true);
-    await player.locator('#game-camera-top').click();
-    await player.locator('#guest-menu-toggle').click();
-    await nextPaint(player);
-    const [from, to] = expected.fetlar.first_move;
-    const answer = await clickMove(player, 'game', from, to);
-    assert.deepEqual(answer.event.from, from);
-    assert.deepEqual(answer.event.to, to);
-    const state = await context.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
-    const game = (await state.json()).game;
-    assert.equal(game.history.length, 1);
-    assert.equal(game.board[from[0]][from[1]], '.');
-    assert.equal(game.board[to[0]][to[1]], 'N');
-    await player.close();
-    failurePage = page;
+    // Real guest origin, not loopback: the host must keep its management UI.
+    const playerContext = await makeContext({}, {guest: true});
+    try {
+      const player = await playerContext.newPage();
+      failurePage = player;
+      await player.goto('http://guest.test/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.dwarf),
+        {waitUntil: 'domcontentloaded'});
+      await ready3D(player, 'game', 37);
+      await expectImmersiveGuest(player, 'player');
+      await player.locator('#guest-menu-toggle').click();
+      assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), true);
+      assert.equal(await player.locator('#player-controls').isVisible(), true);
+      await player.locator('#game-camera-top').click();
+      await player.locator('#guest-menu-toggle').click();
+      await nextPaint(player);
+      const [from, to] = expected.fetlar.first_move;
+      const answer = await clickMove(player, 'game', from, to);
+      assert.deepEqual(answer.event.from, from);
+      assert.deepEqual(answer.event.to, to);
+      const state = await context.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
+      const game = (await state.json()).game;
+      assert.equal(game.history.length, 1);
+      assert.equal(game.board[from[0]][from[1]], '.');
+      assert.equal(game.board[to[0]][to[1]], 'N');
+    } finally { await playerContext.close(); failurePage = page; }
   });
 
   await scenario('Each rule variant is playable through actual 3D tutorial clicks', async () => {
