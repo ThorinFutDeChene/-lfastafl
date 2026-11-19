@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {OrbitControls} from './vendor/three/OrbitControls.js';
 import {createFigurine} from './figurines3d.js';
 import {CaptureCinematic} from './cinematic3d.js';
+import {MoveAnimation} from './move3d.js';
 
 const SIZE = 11;
 const SURFACE = 0.12;
@@ -47,6 +48,7 @@ export class Board3D {
     this._visiblePieces = [];
     this._pieceCounts = {N: 0, E: 0, R: 0};
     this.captureCinematic = new CaptureCinematic(this);
+    this.moveAnimation = new MoveAnimation(this);
     this._raycaster = new THREE.Raycaster();
     this._pointer = new THREE.Vector2();
     this._boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -SURFACE);
@@ -404,6 +406,7 @@ export class Board3D {
     }
     const boardKey = board.map(row => row.join('')).join('');
     if (this.captureCinematic.active && this._boardKey && boardKey !== this._boardKey) this.captureCinematic.cancel();
+    if (this.moveAnimation.active && this._boardKey && boardKey !== this._boardKey) this.moveAnimation.cancel();
     if (boardKey !== this._boardKey) {
       this._boardKey = boardKey;
       const used = {N: 0, E: 0, R: 0};
@@ -487,7 +490,7 @@ export class Board3D {
   }
 
   _canStartPiece(position) {
-    return Boolean(position && this._view.interactive && !this._view.disabled &&
+    return Boolean(position && !this.moveAnimation.active && this._view.interactive && !this._view.disabled &&
       this._view.board[position[0]][position[1]] !== '.' &&
       this.callbacks.canDrag && this.callbacks.canDrag(...position));
   }
@@ -547,7 +550,7 @@ export class Board3D {
     if (gesture.kind === 'piece' && gesture.started) {
       const to = this._pick(event.clientX, event.clientY, true);
       if (to && !sameSquare(to, gesture.from)) this._invoke('onDrop', [...gesture.from], to);
-    } else if (!gesture.moved && !this._view.disabled && this._view.interactive) {
+    } else if (!gesture.moved && !this.moveAnimation.active && !this._view.disabled && this._view.interactive) {
       const square = this._pick(event.clientX, event.clientY);
       if (square && sameSquare(square, gesture.from)) this._invoke('onClick', ...square);
     }
@@ -693,7 +696,17 @@ export class Board3D {
     this._requestDraw();
   }
 
+  playMove(record, options) {
+    if (this.captureCinematic.active) return false;
+    return this.moveAnimation.start(record, options);
+  }
+
+  cancelMove() {
+    this.moveAnimation.cancel();
+  }
+
   playCapture(record, options) {
+    this.moveAnimation.cancel();
     return this.captureCinematic.start(record, options);
   }
 
@@ -703,7 +716,10 @@ export class Board3D {
 
   setActive(value) {
     if (this.disposed) return;
-    if (!value) this.captureCinematic.cancel();
+    if (!value) {
+      this.captureCinematic.cancel();
+      this.moveAnimation.cancel();
+    }
     this.active = Boolean(value) && !this.lost;
     if (this.controls) this.controls.enabled = this.active;
     if (!this.active) {
@@ -737,6 +753,7 @@ export class Board3D {
   _fail(error) {
     if (this.disposed || this.lost) return;
     this.captureCinematic.cancel();
+    this.moveAnimation.cancel();
     this.lost = true;
     this.active = false;
     this._cancelGesture();
@@ -762,6 +779,9 @@ export class Board3D {
       mode: this._view.mode, selected: this._view.selected ? [...this._view.selected] : null,
       legalCount: (this._view.legal || []).length, captureCount: (this._view.captures || []).length, quality: this.quality,
       active: this.active, disposed: this.disposed, renders: this.renderCount,
+      motion: {active: this.moveAnimation.active, key: this.moveAnimation.key,
+        progress: this.moveAnimation.progress,from: this.moveAnimation.from,
+        to: this.moveAnimation.to},
       cinematic: {active: this.captureCinematic.active,progress: this.captureCinematic.progress,
         key: this.captureCinematic.key, shardCount: this.captureCinematic.actors?.reduce(
           (sum, actor) => sum + actor.shards.length, 0) || 0},
@@ -775,6 +795,7 @@ export class Board3D {
   dispose() {
     if (this.disposed) return;
     this.captureCinematic.cancel();
+    this.moveAnimation.cancel();
     this.disposed = true;
     this.active = false;
     this._cancelFrame();

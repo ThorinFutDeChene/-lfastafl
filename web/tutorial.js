@@ -305,6 +305,12 @@
       captures = [];
       keyboardSquare = state.completed ? [r, c] : origin;
       render();
+      if (state.completed && state.last_move) {
+        // Only a successful, server-confirmed practice move changes the board.
+        // Failed objectives reset to the original position and do not animate.
+        boardView.playMove(state.last_move).catch(()=>{});
+        document.dispatchEvent(new CustomEvent('alfastafl-tutorial-move'));
+      }
     } catch (error) {
       if (current(token)) feedback(error.message, 'error');
     } finally {

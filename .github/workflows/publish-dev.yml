@@ -41,6 +41,8 @@ jobs:
           node-version: '22'
       - name: Check delayed move responses
         run: node tests/ui_move_race.cjs
+      - name: Verify generated audio and independent volume controls
+        run: node tests/ui_audio.cjs
       - name: Install tutorial browser test dependencies
         timeout-minutes: 10
         run: |

@@ -189,6 +189,8 @@ async function makeHarness() {
       flat.hidden = true; // This scenario represents the 3D drag/drop callbacks.
     }
     update(state) { this.state = clone(state); }
+    // Presentation-only client animation must never change the legal move race.
+    async playMove() { return false; }
   }
   const context = vm.createContext({
     document, fetch, URLSearchParams,

@@ -32,10 +32,14 @@ $('audio-toggle').onclick=async()=>{
  if(soundscape.enabled)await soundscape.unlock();
  redrawSoundControls();
 };
-document.addEventListener('pointerdown',()=>{
+document.addEventListener('pointerdown',event=>{
+ // Do not unlock on the audio toggle's pointerdown: its own click handler
+ // must decide whether to enable or mute, avoiding an inverted action.
+ if(event.target.closest?.('#audio-toggle'))return;
  if(soundscape.enabled)soundscape.unlock().then(redrawSoundControls).catch(()=>{});
 }, {once:true,capture:true});
 redrawSoundControls();
+document.addEventListener('alfastafl-tutorial-move',()=>soundscape.effect('move'));
 let gameKeyboardSquare=[0,0];
 if(!isHost)$('host').hidden=true;
 async function api(path,data){
@@ -355,8 +359,10 @@ async function load(){
   const previousHistoryCount=previous?.history?.length||0;
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};hostSeats=state.seats||{};
   soundscape.setGame(game);
-  if(previous&&game.history.length===previousHistoryCount+1&&!state.cinematic)
-    soundscape.effect('move');
+  // Only animate a newly confirmed server move, never a restored snapshot or
+  // a backlog of moves received after reconnecting a sleeping phone.
+  const newestMove=previous&&game.history.length===previousHistoryCount+1
+    ? game.history[game.history.length-1] : null;
   const cue=state.cinematic||null;
   const cueKey=cue? [requestedGame,cue.move.n,cue.move.piece,cue.move.from?.join(','),
     cue.move.to?.join(','),(cue.move.captured||[]).map(row=>row.join(',')).join(';')].join(':'):'';
@@ -371,6 +377,12 @@ async function load(){
   clockReceivedAt=performance.now();serverTimeReceivedAt=state.server_now||Date.now()/1000;
   if(before!==positionKey()||!myTurn())invalidateBoardInteraction();
   render();
+  if(newestMove&&!cue){
+   soundscape.effect('move');
+   // A hidden/2D client still receives the authoritative board immediately.
+   // The interpolated motion is entirely local and never delays a turn.
+   gameBoardView.playMove(newestMove).catch(()=>{});
+  }
   if(cue&&cueKey!==seenCinematic) {
    seenCinematic=cueKey;
    if(skippedCinematic!==cueKey) {

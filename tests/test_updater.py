@@ -99,7 +99,7 @@ class ReleaseSelectionTests(TestCase):
             u.parse_releases([], 'inconnu')
 
     def test_current_source_version(self):
-        self.assertEqual(u.local_version(), '0.5.1~dev5')
+        self.assertEqual(u.local_version(), '0.6.0~dev1')
 
 
 class PackageTests(TestCase):

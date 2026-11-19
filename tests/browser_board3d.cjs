@@ -191,7 +191,7 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
   context.on('response', response => {
     const url = new URL(response.url());
     if (url.pathname.startsWith('/vendor/') ||
-      ['/board3d.js', '/figurines3d.js', '/board-view.js', '/cinematic3d.js',
+      ['/board3d.js', '/figurines3d.js', '/board-view.js', '/move3d.js', '/cinematic3d.js',
        '/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
@@ -604,6 +604,12 @@ async function main() {
       const answer = await clickMove(page, 'tutorial', ...expected[mode].capture);
       assert.equal(answer.tutorial.completed, true, mode);
       assert.equal(answer.tutorial.last_move.captured.length, 1, mode);
+      await page.waitForFunction(() => document.getElementById('tutorial-board-3d')
+        .board3d?.getDiagnostics().motion.key.startsWith('1:'));
+      await page.waitForFunction(() => !document.getElementById('tutorial-board-3d')
+        .board3d?.getDiagnostics().motion.active);
+      assert.equal((await diagnostics(page, 'tutorial')).motion.progress, 1,
+        'Even tutorial figures must move fluidly after a successful exercise');
       report.solved.push({mode, lesson: 'capture', input: 'mouse'});
     }
   });
@@ -1057,9 +1063,139 @@ async function main() {
     }
   });
 
+  await scenario('An authorized host and remote spectator see the same smoothly animated move', async () => {
+    const created=await context.request.post(base+'/api/create',{data:{
+      mode:'fetlar',host_camp:'dwarf',settings:{time_control:{mode:'unlimited'}},
+    }});
+    assert.equal(created.status(),200);
+    const data=await created.json();
+    assert(data.host_session);
+    const request=await context.request.post(base+'/api/join',{data:{
+      game:data.game,invite:data.invites.spectator,name:'Public 3D',
+    }});
+    assert.equal(request.status(),200);
+    const approved=await context.request.post(base+'/api/approve',{data:{
+      request:(await request.json()).request,camp:null,
+    }});
+    assert.equal(approved.status(),200);
+    const spectatorSession=(await approved.json()).session;
+    const watcherContext=await makeContext({}, {guest:true});
+    const host=await context.newPage();
+    const spectator=await watcherContext.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(data.game)+
+        '&session='+encodeURIComponent(data.host_session),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',37);
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(data.game)+
+        '&session='+encodeURIComponent(spectatorSession),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',37);
+      await expectImmersiveGuest(spectator,'spectator');
+      const initialCamera=(await diagnostics(host)).camera;
+      const from=[0,3],to=[1,3];
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:data.game,session:data.host_session,from,to,
+      }});
+      assert.equal(move.status(),200);
+      const record=(await move.json()).event;
+      assert.equal(record.n,1);
+      await Promise.all([host.evaluate(()=>load()),spectator.evaluate(()=>load())]);
+      await Promise.all([
+        host.waitForFunction(()=>document.getElementById('game-board-3d')
+          .board3d?.getDiagnostics().motion.active),
+        spectator.waitForFunction(()=>document.getElementById('game-board-3d')
+          .board3d?.getDiagnostics().motion.active),
+      ]);
+      const first=(await diagnostics(host)).motion;
+      assert.deepEqual(first.from,from);
+      assert.deepEqual(first.to,to);
+      const position=await host.evaluate(()=>document.getElementById('game-board-3d')
+        .board3d.moveAnimation.actor.position.z);
+      assert(position>=-5.01&&position<-3.999,
+        'A moved sculpture must travel from its original square: '+position);
+      await host.waitForFunction(()=>!document.getElementById('game-board-3d')
+        .board3d?.getDiagnostics().motion.active);
+      await spectator.waitForFunction(()=>!document.getElementById('game-board-3d')
+        .board3d?.getDiagnostics().motion.active);
+      const final=await diagnostics(host);
+      assert.equal(final.motion.progress,1);
+      assert(sameCamera(final.camera,initialCamera),'Moving a figure must not move the camera');
+      const figure=await host.evaluate(()=> {
+        const board=document.getElementById('game-board-3d').board3d;
+        const piece=board._visiblePieces.find(f=>f.userData.square?.[0]===1&&
+          f.userData.square?.[1]===3);
+        return piece&&{kind:piece.userData.piece,
+          pos:[piece.position.x,piece.position.y,piece.position.z]};
+      });
+      assert.deepEqual(figure,{kind:'N',pos:[-2,.12,-4]});
+      await host.evaluate(()=>load());
+      assert.equal((await diagnostics(host)).motion.active,false,
+        'Polling the same server snapshot must not replay a move');
+      await host.emulateMedia({reducedMotion:'reduce'});
+      const reduced=await host.evaluate(record=>document.getElementById('game-board-3d')
+        .board3d.playMove(record),record);
+      assert.equal(reduced,false,'Respect accessibility preferences for reduced motion');
+      await host.emulateMedia({reducedMotion:'no-preference'});
+      const repeated=await host.evaluate(record=>document.getElementById('game-board-3d')
+        .board3d.playMove(record),record);
+      assert.equal(repeated,true,'Animation remains reusable after a completed move');
+      await host.selectOption('#game-board-mode','2d');
+      assert.equal((await diagnostics(host)).motion.active,false,
+        'Switching to accessible 2D must restore the exact final piece position');
+      await host.selectOption('#game-board-mode','3d');
+      await ready3D(host,'game',37);
+      assert.deepEqual((await diagnostics(host)).camera,initialCamera);
+      const history=(await (await context.request.get(base+'/api/state?game='+data.game)).json()).game.history;
+      assert.equal(history.length,1,'The presentation must never emit a second server move');
+      await capture(host,'host-fluid-movement.png','#game-board-view');
+    }finally{
+      await host.close();await watcherContext.close();failurePage=page;
+    }
+  });
+
+  await scenario('Original offline soundtrack obeys user gestures, mute and independent sliders',async()=>{
+    const listener=await context.newPage();
+    try{
+      failurePage=listener;
+      await listener.goto(base+'/?game='+encodeURIComponent(hostGame),{waitUntil:'domcontentloaded'});
+      await ready3D(listener,'game',37);
+      assert.equal(await listener.locator('#audio-toggle').isVisible(),true);
+      await listener.locator('#audio-toggle').click();
+      await listener.waitForFunction(()=>soundscape.status().ready);
+      const playing=await listener.evaluate(()=>soundscape.status());
+      assert.equal(playing.available,true);
+      assert.equal(playing.enabled,true);
+      await listener.locator('#audio-music').evaluate(input=>{
+        input.value='23';input.dispatchEvent(new Event('input',{bubbles:true}));
+      });
+      await listener.locator('#audio-effects').evaluate(input=>{
+        input.value='67';input.dispatchEvent(new Event('input',{bubbles:true}));
+      });
+      const volumes=await listener.evaluate(()=>({
+        music:soundscape.musicVolume,effects:soundscape.effectsVolume,
+        storedMusic:localStorage.getItem('alfastafl.music-volume'),
+        storedEffects:localStorage.getItem('alfastafl.effects-volume'),
+      }));
+      assert.equal(volumes.music,.23);
+      assert.equal(volumes.effects,.67);
+      assert.equal(volumes.storedMusic,'0.23');
+      assert.equal(volumes.storedEffects,'0.67');
+      await listener.locator('#audio-toggle').click();
+      assert.equal(await listener.evaluate(()=>soundscape.enabled),false);
+      assert.equal(await listener.evaluate(()=>soundscape.status().ready),true,
+        'Muted audio context remains available for enabling later');
+      await listener.reload({waitUntil:'domcontentloaded'});
+      assert.equal(await listener.evaluate(()=>soundscape.enabled),false);
+      assert.equal(await listener.locator('#audio-music').inputValue(),'23');
+      assert.equal(await listener.locator('#audio-effects').inputValue(),'67');
+    }finally{
+      await listener.close();failurePage=page;
+    }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
-      '/cinematic3d.js', '/soundscape.js',
+      '/move3d.js', '/cinematic3d.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);
