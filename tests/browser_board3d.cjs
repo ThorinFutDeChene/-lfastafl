@@ -977,6 +977,7 @@ async function main() {
       await host.goto(base+'/?game='+encodeURIComponent(battle.game)+
         '&session='+encodeURIComponent(battle.sessions.dwarf),{waitUntil:'domcontentloaded'});
       await ready3D(host,'game',4);
+      const originalCamera=(await diagnostics(host)).camera;
       assert.equal(await host.locator('#capture-overlay').isVisible(),false);
       const setup=await (await context.request.get(base+'/api/state?game='+battle.game+
         '&session='+encodeURIComponent(battle.sessions.elf))).json();
@@ -1011,7 +1012,15 @@ async function main() {
       assert.equal(beforeCamera.cinematic.shardCount,12);
       await host.waitForFunction(() => document.getElementById('game-board-3d').board3d
         ?.getDiagnostics().cinematic.progress > .58);
-      await capture(host,'capture-sculpture-shatter.png');
+      const fragments=await host.evaluate(() => {
+        const animation=document.getElementById('game-board-3d').board3d.captureCinematic;
+        return {shown:animation.actors.reduce((sum, actor)=>
+          sum+actor.shards.filter(shard=>shard.visible).length,0),
+          progress:animation.progress};
+      });
+      assert(fragments.shown > 0, 'Shattered sculpture must produce visible 3D fragments');
+      assert(!sameCamera(originalCamera,(await diagnostics(host)).camera),
+        'Cinematic must change the personal camera viewpoint');
       assert.equal(await host.locator('#audio-music').count(),1);
       assert.equal(await host.locator('#audio-effects').count(),1);
       assert.equal(await host.locator('#capture-skip').isVisible(),true);
@@ -1020,7 +1029,9 @@ async function main() {
         ?.getDiagnostics().cinematic.active);
       assert.equal(await host.locator('#capture-overlay').isVisible(),false);
       assert.equal(await host.locator('#game-board-3d canvas').isVisible(),true);
-      assert.equal((await diagnostics(host)).pieceCount,3);
+      const restored=(await diagnostics(host));
+      assert.equal(restored.pieceCount,3);
+      assert(sameCamera(originalCamera,restored.camera),'Skipping must restore the exact camera view');
       await spectator.locator('#capture-skip').click();
       assert.equal(await spectator.locator('#capture-overlay').isVisible(),false);
     } finally {
