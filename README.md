@@ -1,10 +1,10 @@
-# Álfastafl — 0.3.1-dev1 (canal DEV)
+# Álfastafl — 0.3.1 (canal stable)
 
-La **0.3.1-dev1** reprend la base **0.3.0 stable** et rend l'accès LAN volontaire à chaque lancement. Le bouton **Activer accès LAN** démarre décoché et reste cliquable ; le partage s'arrête automatiquement à la fermeture et n'est jamais réactivé au lancement suivant.
+La **0.3.1 stable** reprend la **0.3.1-dev1** et succède à la [stable 0.3.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.0). L'accès LAN est volontaire à chaque lancement : le bouton **Activer accès LAN** démarre décoché et reste cliquable. Le partage s'arrête automatiquement à la fermeture normale et n'est jamais réactivé au lancement suivant.
 
-**Validation en environnement réel :** l'utilisateur a confirmé sur sa configuration Ubuntu MATE le cycle normal d'apparition/disparition de la règle UFW et la connexion des joueurs avec la 0.3.0. Le démarrage manuel de cette DEV reste à confirmer sur son poste. Le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier. Le réseau local fonctionne en HTTP non chiffré ; ne pas exposer l'application sur Internet. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
+**Validation :** la 0.3.1 a passé 147 tests automatisés, dont les contrôles du démarrage local, de l'activation par clic, de la fermeture et du relancement avec le LAN désactivé. L'utilisateur a confirmé sur sa configuration Ubuntu MATE le cycle normal d'apparition/disparition de la règle UFW et la connexion des joueurs avec la 0.3.0. Le nouveau démarrage manuel reste à confirmer sur son poste. Le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier. Le réseau local fonctionne en HTTP non chiffré ; ne pas exposer l'application sur Internet. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Les installations existantes conservent leur choix de canal ; pour recevoir les préversions, utiliser **Mises à jour → Développement (DEV)**. La version **0.3.0** reste la publication stable de référence.
+**Canaux de mise à jour :** les nouvelles installations de cette version choisissent `Stable` par défaut. Les installations existantes conservent leur choix de canal ; pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**. Le numéro Debian `0.3.1` est plus récent que `0.3.1~dev1` et `0.3.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
@@ -87,7 +87,7 @@ Les deux QR codes d’invitation sont maintenant séparés : joueur à gauche, i
 
 ## État réel
 
-Il s'agit d'un **prototype technique jouable**, pas d'une version stable complète.
+Le jeu est publié sur le **canal stable**, avec un périmètre fonctionnel encore incomplet.
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 
