@@ -1,10 +1,10 @@
-# Álfastafl — 0.4.0-dev1 (canal DEV)
+# Álfastafl — 0.4.0 (canal stable)
 
-La **0.4.0-dev1** ajoute un **tutoriel interactif sur le PC hôte**, accessible à côté de **Créer une partie**. Cette préversion reprend la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1), qui reste la version de référence du canal stable.
+La **0.4.0 stable** reprend le tutoriel interactif de **0.4.0-dev1**, accessible sur le PC hôte à côté de **Créer une partie**. Elle succède à la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1). L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
-**Validation :** les tests automatisés du moteur du tutoriel et de son API ont réussi, notamment pour les positions proposées, les coups attendus et le refus des accès depuis un autre appareil. Le parcours visuel du tutoriel dans l'application Ubuntu MATE reste à vérifier sur le poste réel. L'utilisateur a confirmé le cycle normal UFW et la connexion des joueurs avec la 0.3.0 ; le démarrage manuel du LAN introduit ensuite, le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier sur son poste. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
+**Validation de la version source :** la DEV **0.4.0-dev1** a passé **168 tests Python** et **11 scénarios Chromium**, couvrant notamment les **28 exercices** du tutoriel ([exécution CI](https://github.com/ThorinFutDeChene/-lfastafl/actions/runs/44497542210)). Le parcours visuel dans l'application Qt sur Ubuntu MATE reste à vérifier sur le poste réel. L'utilisateur a confirmé le cycle normal UFW et la connexion des joueurs avec la 0.3.0 ; le démarrage manuel du LAN introduit ensuite, le déroulement complet d'une partie, la reprise après déconnexion et l'arrêt brutal restent à vérifier sur son poste. Les règles de jeu atypiques, la 3D, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Les installations existantes conservent leur choix de canal ; pour recevoir cette version, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.4.0~dev1` est plus récent que `0.3.1`.
+**Canaux de mise à jour :** les nouvelles installations de cette version choisissent `Stable` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**. Le numéro Debian `0.4.0` est plus récent que `0.4.0~dev1` et `0.3.1`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
@@ -99,7 +99,7 @@ Les deux QR codes d’invitation sont maintenant séparés : joueur à gauche, i
 
 ## État réel
 
-La **0.4.0-dev1** est une préversion ; la [0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1) reste la référence du **canal stable**. Le périmètre fonctionnel reste incomplet.
+La **0.4.0** est la version de référence du **canal stable**. Le périmètre fonctionnel reste incomplet.
 
 **Implémenté et testé** : plateau 11×11 et 37 pièces selon deux dispositions, trois variantes de base, déplacement orthogonal, captures usuelles, conditions de victoire principales, serveur HTTP multijoueur, invitation joueur/spectateur avec validation depuis le PC hôte, plusieurs parties, sauvegardes atomiques `.alfastafl`, reprise, historique des coups, génération de QR, infrastructure préliminaire des trois formats de tournoi et équilibrage des camps.
 

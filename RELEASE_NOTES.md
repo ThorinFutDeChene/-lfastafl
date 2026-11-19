@@ -1,6 +1,6 @@
-# Álfastafl 0.4.0-dev1 — tutoriel interactif sur le PC hôte
+# Álfastafl 0.4.0 — canal stable
 
-Cette préversion reprend la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1) et ajoute un parcours pour apprendre les coups et les règles.
+Cette version stable reprend le tutoriel de **0.4.0-dev1**, sans changement fonctionnel, et succède à la [stable 0.3.1](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.3.1).
 
 ## Nouveau : Tutoriel
 
@@ -14,10 +14,10 @@ La progression n'est pas persistée. Le tutoriel propose des exercices ciblés ;
 
 ## Validation
 
-Les tests automatisés du moteur et de l'API du tutoriel ont réussi. Le parcours visuel dans l'application Ubuntu MATE reste à vérifier sur le poste réel.
+La DEV **0.4.0-dev1** dont est issue cette version a passé **168 tests Python** et **11 scénarios Chromium**, couvrant notamment les **28 exercices** ([exécution CI](https://github.com/ThorinFutDeChene/-lfastafl/actions/runs/44497542210)). Le parcours visuel dans l'application Qt sur Ubuntu MATE reste à vérifier sur le poste réel.
 
 Les limites du moteur concernant les forteresses complexes, certains nuls de Fetlar et les interprétations historiques restent documentées dans le mémo et dans [RULES.md](RULES.md). Le comportement LAN de la 0.3.1 est conservé : démarrage désactivé, activation par clic et fermeture automatique du partage.
 
 ## Distribution
 
-Version Debian : `0.4.0~dev1`, plus récente que `0.3.1`. La **0.3.1** reste la stable de référence. Les nouvelles installations de cette préversion choisissent **DEV** par défaut ; les installations existantes conservent leur canal. Pour recevoir cette version, sélectionner **Mises à jour → Développement (DEV)**. Les sauvegardes et paramètres utilisateurs sont conservés.
+Version Debian : `0.4.0`, plus récente que `0.4.0~dev1` et `0.3.1`. Les nouvelles installations choisissent **Stable** par défaut ; le choix de canal enregistré est conservé. Le canal DEV reçoit également les versions stables. Pour recevoir uniquement les versions stables, sélectionner **Mises à jour → Stable**. Les sauvegardes et paramètres utilisateurs sont conservés.
