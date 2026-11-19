@@ -28,9 +28,10 @@ class UpdateController(QObject):
     downloaded = pyqtSignal(object, object)
     installed = pyqtSignal(bool, object)
 
-    def __init__(self, window, toolbar):
+    def __init__(self, window, toolbar, restart_callback=None):
         super().__init__(window)
         self.window = window
+        self.restart_callback = restart_callback
         self.busy = False
         self.cancel_event = threading.Event()
         self.temp_folder = None
@@ -198,7 +199,9 @@ class UpdateController(QObject):
             self.window, 'Installer la mise à jour ?',
             'Le paquet ' + self._pending_release.tag + ' a été téléchargé et vérifié (SHA-256 et métadonnées Debian).\n\n'
             'L’installation exige une autorisation administrateur Linux.\n'
-            'La partie en cours doit être sauvegardée avant de redémarrer l’application.\n\n'
+            'Après installation, Álfastafl sera fermé puis relancé automatiquement.\n'
+            'Les parties seront sauvegardées et mises en pause ;\n'
+            'l’accès LAN sera coupé et devra être réactivé volontairement.\n\n'
             'Installer maintenant ?',
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No)
@@ -234,11 +237,19 @@ class UpdateController(QObject):
         self._set_busy(False)
         self._clean_download()
         if success:
-            self.window.statusBar().showMessage('Mise à jour installée : redémarrage nécessaire')
-            QMessageBox.information(self.window, 'Mise à jour installée',
-                                    'La mise à jour a été installée.\n'
-                                    'Fermez puis relancez Álfastafl pour utiliser la nouvelle version.\n'
-                                    'Vos sauvegardes personnelles sont conservées.')
+            try:
+                if self.restart_callback is None:
+                    raise RuntimeError('Commande de redémarrage indisponible')
+                self.restart_callback()
+            except Exception as exc:
+                # The package was installed, but never quit a working session
+                # when the detached restart could not be scheduled.
+                self.window.statusBar().showMessage(
+                    'Mise à jour installée — relance manuelle nécessaire', 10000)
+                QMessageBox.warning(self.window, 'Redémarrage impossible',
+                                    'Le paquet a été installé, mais la relance automatique a échoué : '
+                                    + str(exc) + '\n\n'
+                                    'Enregistrez votre partie puis relancez Álfastafl manuellement.')
         else:
             QMessageBox.critical(self.window, 'Installation impossible',
                                  str(error) + '\n\nVous pouvez continuer à jouer avec la version actuelle.')

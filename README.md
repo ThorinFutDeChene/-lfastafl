@@ -1,13 +1,23 @@
-# Álfastafl — 0.5.1-dev1 (canal DEV)
+# Álfastafl — 0.5.1-dev2 (canal DEV)
 
-La **0.5.1-dev1** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.5.1-dev2** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D. Le fonctionnement graphique dans Qt sur Ubuntu MATE et sur les appareils mobiles réels reste à vérifier. Les cas atypiques du moteur de règles, les cinématiques et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev1` est plus récent que `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.1~dev2` est plus récent que `0.5.1~dev1` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## Redémarrage automatique après une mise à jour
+
+Après accord explicite et installation réussie d'un paquet vérifié par SHA-256 via APT/pkexec, l'application **se ferme et se relance automatiquement**, sans boîte de dialogue finale demandant une relance manuelle. Un processus auxiliaire, détaché et exécuté **sans privilèges administrateur**, attend la disparition de l'ancienne instance avant d'ouvrir la nouvelle version installée. Il reconnaît également les états *zombie* et les identifiants de processus réutilisés, évitant les relances multiples.
+
+À la fermeture, les parties en cours sont **sauvegardées et mises en pause**, les horloges sont suspendues et les règles UFW temporaires ainsi que le serveur LAN sont fermés. Pour éviter toute ouverture réseau involontaire, le **LAN doit être réactivé volontairement** après redémarrage ; la partie sauvegardée peut alors être reprise et les joueurs réinvités.
+
+Un refus d'installation, une erreur de téléchargement ou un échec APT ne déclenche **aucun redémarrage**. Si l'installation aboutit mais que le processus de relance ne peut pas être programmé, l'application reste ouverte et indique la relance manuelle nécessaire. Le processus auxiliaire expire sans rien lancer si l'ancienne instance ne s'est pas fermée.
+
+**Première activation :** cette fonction ne peut être exécutée que par une version qui la contient déjà. Lors de l'installation de la **0.5.1-dev2 depuis la 0.5.1-dev1 (ou la 0.5.0)**, la version déjà ouverte ne connaît pas encore cette procédure : une dernière relance manuelle reste nécessaire. À partir de la version dev2 installée et redémarrée, les mises à jour suivantes seront automatiquement suivies d'un redémarrage.
 
 ## Plateau 3D et figurines
 

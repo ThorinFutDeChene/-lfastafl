@@ -2,6 +2,7 @@
 import threading
 
 from .server import run, Store, PORT
+from .relauncher import schedule_restart
 
 
 def show_main_window(window):
@@ -169,7 +170,19 @@ def main():
 
     controller = LanController()
     lan_action.toggled.connect(controller.toggle)
-    win.updates = UpdateController(win, bar)
+    restart_pending = [False]
+
+    def restart_after_update():
+        if restart_pending[0]:
+            return
+        # Launch only a local, unprivileged watcher. It starts the new binary
+        # after the old Qt process has finished its on-exit Store/LAN cleanup.
+        schedule_restart()
+        restart_pending[0] = True
+        win.statusBar().showMessage('Mise à jour installée — redémarrage automatique…')
+        QTimer.singleShot(0, app.quit)
+
+    win.updates = UpdateController(win, bar, restart_callback=restart_after_update)
 
     def shutdown():
         controller.quit()
