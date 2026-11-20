@@ -378,21 +378,8 @@ async function dragMove(page, from, to) {
 
 async function capture(page, filename, locator = null) {
   const destination = path.join(output, filename);
-  if (locator) {
-    const target=page.locator(locator);
-    await target.waitFor({state:'visible'});
-    const box=await target.boundingBox();
-    assert(box && box.width>2 && box.height>2,
-      'Screenshot target must be visible: '+locator);
-    // locator.screenshot waits for layout stability, which an active WebGL
-    // board does not promise. Capture the current viewport area directly.
-    const vp=page.viewportSize();
-    const x=Math.max(0,Math.floor(box.x)),y=Math.max(0,Math.floor(box.y));
-    const width=Math.min(Math.ceil(box.width),vp.width-x);
-    const height=Math.min(Math.ceil(box.height),vp.height-y);
-    assert(width>1 && height>1,'Screenshot target is outside the viewport: '+locator);
-    await page.screenshot({path:destination,clip:{x,y,width,height}});
-  } else await page.screenshot({path: destination});
+  if (locator) await page.locator(locator).screenshot({path: destination});
+  else await page.screenshot({path: destination});
   report.screenshots.push(path.relative(root, destination));
 }
 
@@ -1089,7 +1076,10 @@ async function main() {
       assert.deepEqual((await diagnostics(host)).camera,initialCamera);
       const history=(await (await context.request.get(base+'/api/state?game='+data.game)).json()).game.history;
       assert.equal(history.length,1,'The presentation must never emit a second server move');
-      await capture(host,'host-fluid-movement.png','#game-board-view');
+      // This optional screenshot is taken after a live WebGL motion test.
+      // A page snapshot does not require the animated board wrapper to stay
+      // layout-stable for Playwright's locator.screenshot action.
+      await capture(host,'host-fluid-movement.png');
     }finally{
       await host.close();await watcherContext.close();failurePage=page;
     }
