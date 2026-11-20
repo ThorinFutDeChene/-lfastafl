@@ -174,7 +174,11 @@
      this._noise(now,.31,.13,360,'bandpass');
      this._voice(145,now,.42,.15,'triangle',null,70);
      this._voice(480,now+.02,.30,.038,'triangle',null,290);
-    }else if(name==='strike'){
+    }else if(name==='counter'){
+    this._noise(now,.17,.074,900,'bandpass');
+    this._voice(390,now,.19,.063,'triangle',null,190);
+    this._voice(134,now+.065,.18,.028,'square',null,77);
+   }else if(name==='strike'){
     this._noise(now,.35,.16,260,'lowpass');
     this._voice(95,now,.67,.17,'triangle',null,40);
     this._voice(810,now,.32,.04,'square',null,170);

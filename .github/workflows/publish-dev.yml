@@ -43,6 +43,8 @@ jobs:
         run: node tests/ui_move_race.cjs
       - name: Verify generated audio and independent volume controls
         run: node tests/ui_audio.cjs
+      - name: Verify deterministic cinematic fight choreography
+        run: node tests/ui_combat_motion.cjs
       - name: Install tutorial browser test dependencies
         timeout-minutes: 10
         run: |

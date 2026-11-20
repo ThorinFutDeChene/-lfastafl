@@ -787,7 +787,12 @@ export class Board3D {
           (sum, actor) => sum + actor.shards.length, 0) || 0,
         articulated: this.captureCinematic.active &&
           Boolean(this.captureCinematic.attackerRig?.right),
-        victims: this.captureCinematic.actors?.length || 0},
+        victims: this.captureCinematic.actors?.length || 0,
+        style: this.captureCinematic.active ? 'combo' : null,
+        duel: this.captureCinematic.duel ?? -1,
+        stage: this.captureCinematic.stage || '',
+        sparkCount: this.captureCinematic.actors?.reduce((sum, actor) =>
+          sum + (actor.sparks?.filter(spark => spark.visible).length || 0), 0) || 0},
       camera: {position: this.camera.position.toArray(), target: this.controls?.target.toArray() || [0, 0, 0]},
       resolution: {width: this.width, height: this.height, pixelRatio: this.renderer?.getPixelRatio() || 1},
       graphics: this.renderer ? {calls: this.renderer.info.render.calls,

@@ -4,11 +4,12 @@
  * No external meshes, textures, soundtracks or animation services are loaded. */
 import * as THREE from 'three';
 import {createFigurine} from './figurines3d.js';
+import {duelWindow,combatVariant,duelMotion,smooth} from './combat-motion.js';
 
 const SURFACE=.12;
 const clamp=x=>Math.max(0,Math.min(1,x));
 const ease=x=>{const t=clamp(x);return t*t*(3-2*t);};
-const phase=(time,from,to)=>ease((time-from)/(to-from));
+const phase=(time,from,to)=>smooth(time,from,to);
 const good=p=>Array.isArray(p)&&p.length===2&&
  p.every(v=>Number.isInteger(v)&&v>=0&&v<11);
 const world=p=>new THREE.Vector3(p[1]-5,SURFACE,p[0]-5);
@@ -65,6 +66,7 @@ export class CaptureCinematic {
   this.effectsPlayed=new Set();
   this.originalCamera=board.camera.position.clone();
   this.originalTarget=board.controls.target.clone();
+  this.originalQuaternion=board.camera.quaternion.clone();
   this.controlsPreviouslyEnabled=board.controls.enabled;
   board.controls.enabled=false;
   board._cancelGesture();
@@ -114,7 +116,9 @@ export class CaptureCinematic {
   ];
   this._resources.push(...shapes);
   const count=victims.length;
-  const slot=(.79-.25)/count;
+  const sparkGeometry=new THREE.OctahedronGeometry(.027,0);
+  const sparkMaterial=new THREE.MeshBasicMaterial({color:0xffd18c,transparent:true,opacity:.92,depthWrite:false});
+  this._resources.push(sparkGeometry,sparkMaterial);
   this.actors=victims.map((victim,index)=>{
    const figure=sculpture(victim.kind);
    figure.position.copy(victim.place);
@@ -140,20 +144,31 @@ export class CaptureCinematic {
     this.scene.add(shard);
     shards.push(shard);
    }
-   return {...victim,index,figure,rig:parts(figure),shards,
-    start:.25+index*slot,end:.25+(index+1)*slot};
+   const sparks=[];
+   for(let j=0;j<10;j++) {
+    const spark=new THREE.Mesh(sparkGeometry,sparkMaterial);
+    spark.userData.angle=j*2.399963+index*.71;
+    spark.visible=false;
+    this.scene.add(spark);
+    sparks.push(spark);
+   }
+   return {...victim,index,figure,rig:parts(figure),shards,sparks,
+    ...duelWindow(index,count),variant:combatVariant(event,index)};
   });
   this.soundCues=[['move',.025,'move']];
   for(const victim of this.actors) {
    const width=victim.end-victim.start;
-   this.soundCues.push(['swing-'+victim.index,victim.start+width*.12,
-    event.piece==='E'?'arrow':'swing']);
-   this.soundCues.push(['guard-'+victim.index,victim.start+width*.33,'guard']);
-   this.soundCues.push(['strike-'+victim.index,victim.start+width*.52,
-    victim.kind==='N'?'shield':'strike']);
-   this.soundCues.push(['break-'+victim.index,victim.start+width*.62,'shatter']);
-   if(victim.kind==='R')this.soundCues.push(['king-'+victim.index,
-    victim.start+width*.72,'king']);
+   const beat=(name,point,effect)=>this.soundCues.push(
+    [name+'-'+victim.index,victim.start+width*point,effect]);
+   beat('feint',.12,event.piece==='E'?'arrow':'swing');
+   if(count<=4) {
+    beat('parry',.25,victim.kind==='N'?'shield':'guard');
+    beat('counter',.44,'counter');
+   }
+   beat('finisher',.67,event.piece==='E'?'arrow':'swing');
+   beat('impact',.77,'strike');
+   beat('fracture',.82,'shatter');
+   if(victim.kind==='R')beat('king',.89,'king');
   }
   const elapsed=(duration-remaining)/duration;
   for(const [tag,time] of this.soundCues)if(elapsed>=time)this.effectsPlayed.add(tag);
@@ -167,6 +182,26 @@ export class CaptureCinematic {
   this.ring=new THREE.Mesh(this.ringGeometry,this.ringMaterial);
   this.ring.rotation.x=-Math.PI/2;
   this.scene.add(this.ring);
+  // Shared cinematic assets: translucent swing trail and optional arrow.
+  this.trailMaterial=new THREE.MeshBasicMaterial({
+   color:event.piece==='N'?0xffca70:event.piece==='R'?0xd7f2ff:0xcdf1d0,
+   transparent:true,opacity:.65,side:THREE.DoubleSide,depthWrite:false,
+  });
+  this.trailGeometry=new THREE.TorusGeometry(.40,.018,5,40,Math.PI*1.2);
+  this._resources.push(this.trailGeometry,this.trailMaterial);
+  this.trail=new THREE.Mesh(this.trailGeometry,this.trailMaterial);
+  this.trail.visible=false;this.scene.add(this.trail);
+  this.projectile=null;
+  if(event.piece==='E'){
+   const shaft=new THREE.CylinderGeometry(.012,.012,.41,6);
+   const tip=new THREE.ConeGeometry(.057,.13,6);
+   const material=new THREE.MeshStandardMaterial({color:0xd2cfad,metalness:.2,roughness:.56});
+   this._resources.push(shaft,tip,material);
+   const arrow=new THREE.Group();
+   arrow.add(new THREE.Mesh(shaft,material));
+   const point=new THREE.Mesh(tip,material);point.position.y=.25;arrow.add(point);
+   arrow.visible=false;this.scene.add(arrow);this.projectile=arrow;
+  }
 
   const center=destination.clone();
   for(const victim of this.actors)center.add(victim.place);
@@ -188,61 +223,99 @@ export class CaptureCinematic {
  _loop() {
   if(!this.active)return;
   const board=this.board;
-  if(board.disposed||board.lost||!board.active||document.hidden) {
+  if(board.disposed||board.lost||!board.active||document.hidden){
    this.cancel();return;
   }
   const t=this.progress=clamp((performance.now()-this.startTime)/(this.duration*1000));
-  const travel=phase(t,0,.24);
+  const travel=phase(t,0,.20);
   const attacker=this.attacker;
-  attacker.position.copy(this.fromPosition).lerp(this.destination,travel);
-  attacker.position.y=SURFACE+Math.sin(Math.PI*travel)*.20;
-
+  // Every client derives poses from the server's remaining-time timeline.
   const index=Math.min(this.actors.length-1,
-   Math.max(0,Math.floor((t-.25)/(.54/this.actors.length))));
+   Math.max(0,Math.floor((t-.17)/(.61/this.actors.length))));
   const opponent=this.actors[index];
-  const local=clamp((t-opponent.start)/(opponent.end-opponent.start));
-  const attack=Math.sin(Math.PI*local);
-  const attackHeading=heading(this.destination,opponent.place);
-  attacker.rotation.y=lerpAngle(this.initialHeading,attackHeading,phase(t,.12,.31));
-  attacker.rotation.z=-.13*attack;
-  attacker.position.x+=(opponent.place.x-this.destination.x)*.23*attack;
-  attacker.position.z+=(opponent.place.z-this.destination.z)*.23*attack;
-  if(this.attackerRig.right) {
-   this.attackerRig.right.rotation.z=.95*attack;
-   this.attackerRig.right.rotation.x=-1.05*attack;
-  }
-  if(this.attackerRig.left) {
-   this.attackerRig.left.rotation.z=-.37*attack;
-   this.attackerRig.left.rotation.x=-.34*attack;
-  }
-  if(this.attackerRig.head)this.attackerRig.head.rotation.y=.24*Math.sin(Math.PI*local);
-  if(this.attackerRig.leftLeg)this.attackerRig.leftLeg.rotation.x=.22*attack;
-  if(this.attackerRig.rightLeg)this.attackerRig.rightLeg.rotation.x=-.26*attack;
+  const m=duelMotion(t,opponent.start,opponent.end,opponent.variant);
+  this.duel=index;
+  this.stage=m.fracture>=.99?'fracture':
+   m.finish>.20?'attaque finale':m.counter>.18?'riposte':
+   m.guard>.18?'parade':m.feint>.18?'feinte':'approche';
 
-  for(const victim of this.actors) {
-   const p=clamp((t-victim.start)/(victim.end-victim.start));
-   const anticipation=Math.sin(Math.PI*phase(p,.10,.47));
-   const impact=phase(p,.45,.65);
-   const fracture=phase(p,.56,.88);
-   const guard=Math.max(0,anticipation)*(1-fracture);
-   if(victim.rig.left) {
-    victim.rig.left.rotation.z=-.77*guard;
-    victim.rig.left.rotation.x=-.31*guard;
+  const direction=opponent.place.clone().sub(this.destination);
+  direction.y=0;
+  if(direction.lengthSq()<.001)direction.set(0,0,1);
+  direction.normalize();
+  const lateral=new THREE.Vector3(-direction.z,0,direction.x);
+  attacker.position.copy(this.fromPosition).lerp(this.destination,travel);
+  attacker.position.addScaledVector(direction,.15*m.feint+.27*m.finish-.075*m.counter);
+  attacker.position.addScaledVector(lateral,-m.direction*.11*m.dodge);
+  attacker.position.y=SURFACE+.16*Math.sin(Math.PI*travel)+
+   .085*Math.max(m.feint,m.finish)+.05*Math.abs(m.footwork);
+  const desiredHeading=heading(this.destination,opponent.place);
+  attacker.rotation.y=lerpAngle(this.initialHeading,desiredHeading,phase(t,.075,.25))+
+   .11*m.direction*m.dodge-.075*m.counter;
+  attacker.rotation.z=.06*m.feint-.19*m.finish+.08*m.counter;
+  attacker.rotation.x=.12*m.counter-.09*m.finish;
+
+  // Axe-and-shield, bow-and-arrow and sword poses use the same stone joints.
+  const bow=attacker.userData.kind==='E';
+  const king=attacker.userData.kind==='R';
+  const right=this.attackerRig.right,left=this.attackerRig.left;
+  if(right){
+   right.rotation.x=(bow?-.85:-.65)*m.feint+
+    (bow?.44:.6)*m.counter-(bow?.85:king?1.23:1.1)*m.finish;
+   right.rotation.z=(bow?.40:1.02)*m.feint-.32*m.counter+
+    (bow?.22:.94)*m.finish;
+  }
+  if(left){
+   left.rotation.x=-(bow?.82:.32)*(m.feint+m.finish)+.12*m.counter;
+   left.rotation.z=(bow?-.30:-.45)*m.feint+.29*m.counter-
+    (bow?.24:.33)*m.finish;
+  }
+  if(this.attackerRig.head)this.attackerRig.head.rotation.y=
+   .27*m.direction*m.feint-.20*m.counter+.19*m.finish;
+  if(this.attackerRig.leftLeg)this.attackerRig.leftLeg.rotation.x=
+   .32*m.footwork+.19*m.finish;
+  if(this.attackerRig.rightLeg)this.attackerRig.rightLeg.rotation.x=
+   -.35*m.footwork-.26*m.finish;
+
+  // Defender gets a visible block, sidestep and counter before the final hit.
+  for(const victim of this.actors){
+   const v=duelMotion(t,victim.start,victim.end,victim.variant);
+   const away=victim.place.clone().sub(this.destination);
+   away.y=0;
+   if(away.lengthSq()<.001)away.set(0,0,-1);
+   away.normalize();
+   const sidestep=new THREE.Vector3(-away.z,0,away.x);
+   victim.figure.position.copy(victim.place)
+    .addScaledVector(sidestep,.20*v.direction*v.dodge)
+    .addScaledVector(away,-.11*v.counter+.07*v.recoil);
+   victim.figure.position.y=SURFACE+.12*v.dodge+
+    .075*v.counter+.18*v.recoil*(1-v.fracture);
+   victim.figure.rotation.y=heading(victim.place,this.destination)+
+    .20*v.direction*v.dodge-.16*v.counter;
+   victim.figure.rotation.z=-.11*v.guard+.22*v.counter-
+    .70*v.recoil*(1-v.fracture);
+   victim.figure.rotation.x=.14*v.dodge-.17*v.recoil;
+   const guard=v.guard+v.clash*.35;
+   if(victim.rig.left){
+    victim.rig.left.rotation.x=-.42*guard+.34*v.counter;
+    victim.rig.left.rotation.z=-.90*guard+.44*v.counter;
    }
-   if(victim.rig.right)victim.rig.right.rotation.x=-.45*guard;
-   if(victim.rig.head)victim.rig.head.rotation.y=-.3*guard+.34*impact;
-   if(victim.rig.leftLeg)victim.rig.leftLeg.rotation.x=-.12*impact;
-   if(victim.rig.rightLeg)victim.rig.rightLeg.rotation.x=.16*impact;
-   victim.figure.rotation.z=-.68*impact*(1-fracture);
-   victim.figure.position.y=SURFACE+.14*Math.sin(Math.PI*impact)*(1-fracture);
-   victim.figure.scale.setScalar(Math.max(.001,1-fracture));
-   victim.figure.visible=fracture<.99;
-   for(const shard of victim.shards) {
-    shard.visible=p>=.58&&t<.985;
+   if(victim.rig.right){
+    victim.rig.right.rotation.x=-.50*guard+1.06*v.counter;
+    victim.rig.right.rotation.z=.27*guard-.50*v.counter;
+   }
+   if(victim.rig.head)victim.rig.head.rotation.y=
+    -.28*v.direction*v.dodge+.28*v.recoil;
+   if(victim.rig.leftLeg)victim.rig.leftLeg.rotation.x=.30*v.dodge-.18*v.recoil;
+   if(victim.rig.rightLeg)victim.rig.rightLeg.rotation.x=-.29*v.dodge+.14*v.recoil;
+   victim.figure.scale.setScalar(Math.max(.001,1-v.fracture));
+   victim.figure.visible=v.fracture<.99;
+
+   for(const shard of victim.shards){
+    shard.visible=v.p>=.80&&t<.985;
     if(!shard.visible)continue;
-    // Ballistic shards from several different body heights, with a grounded
-    // rebound. The positions are pure functions of the shared elapsed time.
-    const age=Math.min(1.30,Math.max(0,(p-.58)*(victim.end-victim.start)*this.duration));
+    const age=Math.min(1.3,Math.max(0,(v.p-.80)*
+     (victim.end-victim.start)*this.duration));
     const velocity=shard.userData.velocity;
     const ground=SURFACE+.022;
     const y=SURFACE+shard.userData.startHeight+velocity.y*age-2.1*age*age;
@@ -250,29 +323,71 @@ export class CaptureCinematic {
      Math.max(ground,y),victim.place.z+velocity.z*age);
     shard.rotation.set(age*velocity.y*4.1,age*velocity.x*6.3,age*velocity.z*7.4);
     const fade=1-.76*phase(t,.90,.99);
-    shard.scale.setScalar((.63+((victim.index+shard.userData.startHeight*100)%7)*.14)*fade);
+    shard.scale.setScalar((.63+((victim.index+
+     shard.userData.startHeight*100)%7)*.14)*fade);
+   }
+
+   // Two deterministic bursts: first at parry, second at decisive impact.
+   const sparkle=Math.max(v.clash,v.burst);
+   const beginning=v.clash>=v.burst ? .24 : .75;
+   const age=clamp((v.p-beginning)/.20);
+   for(const spark of victim.sparks){
+    spark.visible=sparkle>.06&&victim.index===index;
+    if(!spark.visible)continue;
+    const a=spark.userData.angle;
+    spark.position.set(victim.place.x+Math.cos(a)*age*.46,
+     SURFACE+.69+Math.sin(a*2.7)*.15+age*.3,
+     victim.place.z+Math.sin(a)*age*.46);
+    spark.scale.setScalar(Math.max(.01,sparkle)*(.5+age*.5));
    }
   }
-  // Impact follows the current duel, not always the attacker's destination.
-  const ringProgress=phase(local,.45,.73);
+
+  const trailPower=Math.max(m.feint*.62,m.finish);
+  this.trail.visible=trailPower>.10;
+  if(this.trail.visible){
+   this.trail.position.copy(attacker.position);
+   this.trail.position.y+=attacker.userData.kind==='N'?.72:1.0;
+   this.trail.rotation.set(Math.PI/2,attacker.rotation.y,-.6+
+    .55*Math.sin(m.p*Math.PI*4));
+   this.trail.scale.setScalar(.75+.30*trailPower);
+   this.trailMaterial.opacity=.48*trailPower;
+  }
+  if(this.projectile){
+   this.projectile.visible=m.p>.63&&m.p<.78;
+   if(this.projectile.visible){
+    const origin=attacker.position.clone().add(new THREE.Vector3(0,.92,0));
+    const target=opponent.place.clone().add(new THREE.Vector3(0,.82,0));
+    this.projectile.position.copy(origin).lerp(target,phase(m.p,.63,.78));
+    this.projectile.quaternion.setFromUnitVectors(
+     new THREE.Vector3(0,1,0),target.sub(origin).normalize());
+   }
+  }
+  const ringPower=Math.max(m.clash,m.burst);
   this.ring.position.copy(opponent.place);
   this.ring.position.y+=.11;
-  this.ring.visible=local>.45&&local<.76;
-  this.ring.scale.setScalar(.7+ringProgress*4.7);
-  this.ringMaterial.opacity=.73*(1-ringProgress);
+  this.ring.visible=ringPower>.04;
+  this.ring.scale.setScalar(.67+(1-ringPower)*2.4);
+  this.ringMaterial.opacity=.70*ringPower;
 
-  // Choreographed camera on each device: identical combat timeline, but
-  // spectators retain their own initial perspective and get it back on skip.
-  const focus=phase(t,0,.18)*(1-phase(t,.82,1));
-  const sweep=.24*Math.sin(t*Math.PI*2);
+  // Independent camera on each client: sweep, close shot and small bounded
+  // impact shake. Exact pre-combat viewpoint restored by cancel().
+  const focus=phase(t,0,.15)*(1-phase(t,.84,1));
+  const shotTarget=this.destination.clone().lerp(opponent.place,.51);
+  shotTarget.y=.60;
+  const center=this.combatTarget.clone().lerp(shotTarget,.72);
+  const orbit=.32*Math.sin(t*Math.PI*2.4)+m.direction*.15*m.dodge;
+  const distance=8.15-1.25*m.finish-.88*m.burst+.35*m.counter;
   const offset=this.cameraVector.clone()
-   .applyAxisAngle(new THREE.Vector3(0,1,0),sweep)
-   .multiplyScalar(8.7-1.1*Math.sin(Math.PI*t));
-  const camera=this.combatTarget.clone().add(offset);
-  camera.y=Math.max(3.8,camera.y);
-  board.controls.target.copy(this.originalTarget).lerp(this.combatTarget,focus);
-  board.camera.position.copy(this.originalCamera).lerp(camera,focus);
+   .applyAxisAngle(new THREE.Vector3(0,1,0),orbit).multiplyScalar(distance);
+  const shotCamera=center.clone().add(offset);
+  shotCamera.y=Math.max(3.65,shotCamera.y);
+  const shake=m.clash*.027+m.burst*.075;
+  shotCamera.x+=shake*Math.sin(t*240);
+  shotCamera.y+=shake*.50*Math.sin(t*178);
+  board.controls.target.copy(this.originalTarget).lerp(center,focus);
+  board.camera.position.copy(this.originalCamera).lerp(shotCamera,focus);
   board.camera.lookAt(board.controls.target);
+  board.camera.rotateZ(focus*(m.clash*.018+m.burst*.038)*Math.sin(t*150));
   this._sounds();
   board._requestDraw();
   if(t>=1){this.cancel();return;}
@@ -292,10 +407,13 @@ export class CaptureCinematic {
    board.camera.position.copy(this.originalCamera);
    board.controls.target.copy(this.originalTarget);
    board.controls.enabled=this.controlsPreviouslyEnabled;
-   board.camera.lookAt(board.controls.target);
+   if(this.originalQuaternion)board.camera.quaternion.copy(this.originalQuaternion);
+   else board.camera.lookAt(board.controls.target);
    board._requestDraw();
   }
   this.attacker=null;this.attackerRig=null;this.actors=[];
+  this.trail=null;this.trailMaterial=null;this.projectile=null;
+  this.ring=null;this.ringMaterial=null;this.stage='';this.duel=-1;
   this.fromPosition=null;this.destination=null;
   if(this.onComplete){const done=this.onComplete;this.onComplete=null;try{done();}catch(_){}}
  }

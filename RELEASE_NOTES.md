@@ -1,38 +1,33 @@
-# Álfastafl 0.7.0-dev1 — combats de sculptures articulées
-
-Cette préversion prolonge la 0.6.0-dev1 : le plateau 3D, les déplacements
-fluides, le réseau local et l'ambiance sonore restent inchangés.
+# Álfastafl 0.7.0-dev2 — chorégraphies de combat plus dynamiques
 
 ## Nouveautés
-- Les **sculptures de combat** ont désormais des bras, jambes et têtes articulés.
-  Les armes sont rattachées à leur bras : hache et bouclier du nain,
-  arc de l'elfe, épée et sceptre du roi.
-- Mise en scène locale synchronisée : déplacement, orientation vers la victime,
-  attaque, garde, impact, fracture et retour de la caméra.
-- Captures multiples en plusieurs affrontements successifs au sein de la
-  fenêtre cinématique confirmée par le serveur.
-- **18 fragments 3D** par victime, avec trajectoires et retombée sur le plateau.
-- Trois bruitages supplémentaires générés hors ligne : arc, parade et bouclier.
-- Les pièces en jeu utilisent toujours les modèles fusionnés d'origine :
-  l'articulation coûteuse n'est créée que pour les cinématiques.
+- Les captures sont désormais de vrais **enchaînements courts** : approche,
+  feinte, parade, esquive latérale, riposte, coup final et fracture.
+- Les trois camps conservent leurs figurines sculptées et articulations :
+  le nain frappe à la hache et pare au bouclier, l'elfe vise et projette
+  une flèche 3D, le roi attaque à l'épée.
+- **Étincelles locales**, traînées lumineuses d'armes, impact défensif puis
+  impact final, et mouvements de caméra rapprochés avec secousses limitées.
+- **Effet sonore de riposte** original synthétisé hors ligne.
+- Petites variations déterministes des duels pour éviter les séquences
+  strictement identiques, sans hasard au moment du rendu.
+- Les captures multiples enchaînent tous les combats dans la même fenêtre
+  de temps serveur, sans ajouter de coups ni retarder artificiellement un tour.
+- Nouveau test des enveloppes de mouvement (feinte/parade/esquive/riposte/
+  frappe), vérification de la reproductibilité et contrôles Chromium.
 
-## Comportement et garanties
-- Les règles Tafl, les permissions LAN, les sauvegardes et les chronomètres
-  restent ceux du serveur. Aucune frappe n'ajoute un coup de jeu.
-- Les scènes suivent le temps restant envoyé par le serveur ; une reconnexion
-  tardive n'entraîne pas la répétition des effets précédents.
-- L'hôte, les joueurs et les spectateurs disposent de scènes locales et
-  d'options de passage indépendantes.
-- La vue 2D et les préférences système de réduction des animations
-  restent respectées. Aucune ressource externe n'est téléchargée.
-
-## Vérifications
-- Tests de compatibilité Python et JavaScript attendus dans GitHub Actions.
-- Les tests WebGL vérifient désormais l'existence d'articulations, la
-  conservation des modèles fusionnés et les 18 fragments.
-- **Non validé sur matériel physique à ce stade** : rendu QtWebEngine sous
-  Ubuntu MATE, fluidité et son sur téléphones et tablettes.
+## Compatibilité
+- Aucun changement des règles, sauvegardes, autorisations LAN et chronomètres.
+- Temps de scène inchangés : 4 s (rapide), 8 s (classique), 12 s (épique).
+- Animation calculée localement à partir du temps restant du serveur :
+  reprise en cours de scène sans rejouer les effets précédents.
+- « Passer la scène », la vue 2D et « Réduire les animations » restent
+  disponibles. Pas de téléchargement de médias.
+- Les pièces de jeu restent des sculptures optimisées ; seuls les combattants
+  cinématographiques sont articulés.
+- **À vérifier sur du matériel réel** : fluidité et effets sous QtWebEngine
+  (Ubuntu MATE), Safari mobile et Chrome Android.
 
 ## Distribution
-- Version Debian **0.7.0~dev1**, canal de mises à jour **DEV**.
-- La branche stable et ses paquets ne sont pas modifiés.
+- Paquet Debian **0.7.0~dev2**, canal **Développement (DEV)**.
+- La stable n'est pas modifiée.

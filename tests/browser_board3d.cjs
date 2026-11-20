@@ -192,7 +192,7 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
     const url = new URL(response.url());
     if (url.pathname.startsWith('/vendor/') ||
       ['/board3d.js', '/figurines3d.js', '/board-view.js', '/move3d.js', '/cinematic3d.js',
-       '/soundscape.js'].includes(url.pathname)) {
+       '/combat-motion.js', '/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
   });
@@ -1164,6 +1164,8 @@ async function main() {
       assert.equal(beforeCamera.cinematic.articulated,true,
         'The cinematic attacker must have a real articulated rig');
       assert.equal(beforeCamera.cinematic.victims,1);
+      assert.equal(beforeCamera.cinematic.style,'combo');
+      assert.equal(beforeCamera.cinematic.duel,0);
       const rig=await host.evaluate(()=>{
         const scene=document.getElementById('game-board-3d').board3d.captureCinematic;
         const check=figure=>['left-arm','right-arm','head','left-leg','right-leg']
@@ -1177,6 +1179,14 @@ async function main() {
       assert.equal(rig.defender,true,'Elf defender has articulated carved bow and limbs');
       assert.equal(rig.boardHasJoints,false,
         'Ordinary pieces must retain the low-draw-call rigid mesh');
+      await host.waitForFunction(()=>{
+        const cut=document.getElementById('game-board-3d').board3d?.captureCinematic;
+        return cut?.active && cut.progress>.26 &&
+          Math.abs(cut.actors[0]?.rig?.left?.rotation?.z || 0)>.2;
+      });
+      const defense=(await diagnostics(host)).cinematic;
+      assert(defense.sparkCount>=0,'Parry and impact particles are available');
+      assert(['parade','riposte','feinte','attaque finale'].includes(defense.stage));
       // Skip the host view early, before awaiting the fragment effects that
       // occur much later in the shared 12-second cinematic window. Playwright
       // click stability checks can otherwise wait until the overlay disappears.
@@ -1241,7 +1251,7 @@ async function main() {
 
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
-      '/move3d.js', '/cinematic3d.js', '/soundscape.js',
+      '/move3d.js', '/cinematic3d.js', '/combat-motion.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);
