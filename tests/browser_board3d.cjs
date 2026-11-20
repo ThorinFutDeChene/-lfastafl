@@ -111,6 +111,31 @@ for camp in ('dwarf','elf'):
     royal_sessions[camp]=store.approve(request,camp)
 request=store.request(royal.id,store.invites[royal.id]['spectator'],'royal viewer')
 royal_sessions['spectator']=store.approve(request)
+# King-last-stand fixtures. Both the 2-dwarf historical pair and 4-dwarf
+# Fetlar encirclement are server-confirmed legal winning moves.
+sieges={}
+for name,mode,neighbors in [
+  ('two','historical',[(4,3)]),
+  ('four','fetlar',[(4,3),(3,4),(5,4)]),
+]:
+    match=store.create(mode,{'time_control':{'mode':'unlimited'},
+        'capture_cinematic_seconds':12})
+    match.board=[[EMPTY]*11 for _ in range(11)]
+    for row,col,piece in [(4,4,'R'),(4,7,'N'),(0,8,'E')]+[
+        (r,c,'N') for r,c in neighbors]:
+        match.board[row][col]=piece
+    match.turn='dwarf'
+    match.positions=[match.signature()]
+    store.save(match)
+    seats={}
+    for camp in ('dwarf','elf'):
+        req=store.request(match.id,store.invites[match.id]['player'],
+            'siege '+name+' '+camp)
+        seats[camp]=store.approve(req,camp)
+    req=store.request(match.id,store.invites[match.id]['spectator'],
+        'siege spectator '+name)
+    seats['spectator']=store.approve(req)
+    sieges[name]={'game':match.id,'sessions':seats}
 server = run('127.0.0.1', 0, store)
 def interrupt(*_):
     raise KeyboardInterrupt
@@ -118,7 +143,8 @@ signal.signal(signal.SIGTERM, interrupt)
 print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions,
     'battle': {'game':battle.id, 'sessions':battle_sessions},
     'elfbattle': {'game':elfbattle.id, 'sessions':elf_sessions},
-    'royal': {'game':royal.id,'sessions':royal_sessions}}), flush=True)
+    'royal': {'game':royal.id,'sessions':royal_sessions},
+    'sieges':sieges}), flush=True)
 try:
     server.serve_forever()
 except KeyboardInterrupt:
@@ -227,7 +253,8 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
     if (url.pathname.startsWith('/vendor/') ||
       ['/board3d.js', '/figurines3d.js', '/board-view.js', '/move3d.js', '/cinematic3d.js',
        '/combat-motion.js', '/flank-capture.js', '/flank-cinematic3d.js',
-       '/escape-motion.js','/king-escape3d.js','/soundscape.js'].includes(url.pathname)) {
+       '/escape-motion.js','/king-escape3d.js','/king-siege-motion.js',
+       '/king-siege3d.js','/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
   });
@@ -1499,11 +1526,126 @@ async function main() {
     }
   });
 
+  await scenario('King captured by two historical dwarves or four Fetlar dwarves: both have a true final stand',async()=>{
+    assert(fixture.sieges?.two&&fixture.sieges?.four);
+    // Two-dwarf variant: verify the two opposed axes, crown, clash, state
+    // integrity and restored camera without depending on transient RAF frames.
+    for(const [name,expected] of [['two',2],['four',4]]){
+      const match=fixture.sieges[name];
+      const host=await context.newPage();
+      const guestContext=name==='four'?await makeContext({}, {guest:true}):null;
+      const spectator=guestContext?await guestContext.newPage():null;
+      try{
+        failurePage=host;
+        await host.goto(base+'/?game='+encodeURIComponent(match.game)+
+          '&session='+encodeURIComponent(match.sessions.dwarf),{waitUntil:'domcontentloaded'});
+        await ready3D(host,'game',expected+2);
+        const oldCamera=(await diagnostics(host)).camera;
+        if(spectator){
+          await spectator.goto('http://guest.test/?game='+encodeURIComponent(match.game)+
+            '&session='+encodeURIComponent(match.sessions.spectator),
+            {waitUntil:'domcontentloaded'});
+          await ready3D(spectator,'game',expected+2);
+          await expectImmersiveGuest(spectator,'spectator');
+        }
+        const reply=await context.request.post(base+'/api/move',{data:{
+          game:match.game,session:match.sessions.dwarf,from:[4,7],to:[4,5]
+        }});
+        assert.equal(reply.status(),200);
+        const event=(await reply.json()).event;
+        assert.equal(event.reason,'king_captured');
+        assert.equal(event.winner,'dwarf');
+        assert.equal(event.status,'finished');
+        assert.deepEqual(event.captured,[]);
+        const final=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+        assert.equal(final.game.history.length,1);
+        assert.equal(final.game.board[4][4],'R','The king remains server-owned on the board');
+        assert.equal(final.game.board[4][5],'N');
+        assert.equal(final.cinematic.duration,12);
+        assert.equal(final.cinematic.move.reason,'king_captured');
+        await host.waitForFunction(()=>
+          document.getElementById('game-board-3d')?.board3d?.getDiagnostics().siege.active);
+        if(spectator)await spectator.waitForFunction(()=>
+          document.getElementById('game-board-3d')?.board3d?.getDiagnostics().siege.active);
+        const d=await diagnostics(host);
+        assert.equal(d.cinematic.style,'king-last-stand');
+        assert.equal(d.siege.configuration,expected===2?'two':'four');
+        assert.equal(d.siege.attackers,expected);
+        assert.equal(d.siege.movedDwarves,1);
+        assert.equal(d.siege.originalHidden,expected+1);
+        assert.equal(d.siege.fragments,30);
+        assert.deepEqual(d.siege.king,[4,4]);
+        assert.equal(await host.locator('#capture-overlay').isVisible(),true);
+        assert.match(await host.locator('#capture-text').textContent(),/dernier combat/);
+        const sampled=await host.evaluate(()=>{
+          const board=document.getElementById('game-board-3d').board3d;
+          const cut=board.siegeCinematic;
+          cut._pose(.175);
+          const moving=cut.dwarves[0];
+          const moveAt=moving.figure.position.clone();
+          const destination=moving.target.clone();
+          cut._pose(.31);
+          const guard=cut.kingRight.rotation.x;
+          const firstAxe=cut.dwarves[0].axe.rotation.z;
+          cut._pose(.735);
+          const finalAxes=cut.dwarves.map(d=>({
+            angle:d.axe.rotation.x,near:Math.abs(d.figure.position.x-d.target.x)+
+              Math.abs(d.figure.position.z-d.target.z)
+          }));
+          cut._pose(.92);
+          const fragments=cut.shards.filter(s=>s.visible).length;
+          return {moved:moveAt.distanceTo(destination),
+            guard,firstAxe,finalAxes,fragments,
+            crown:cut.crown.visible,
+            originalKingHidden:cut._hidden.some(p=>p.userData.piece==='R'&&!p.visible),
+            figureHasHead:!!cut.king.getObjectByName('combat-head')};
+        });
+        assert(sampled.moved<.01,'Melee dwarf must arrive on final square before striking');
+        assert(Math.abs(sampled.guard)>.20,'The king must fight back with his sword');
+        assert(Number.isFinite(sampled.firstAxe));
+        assert.equal(sampled.finalAxes.length,expected);
+        assert(sampled.finalAxes.every(axe=>Number.isFinite(axe.angle)&&
+          Math.abs(axe.angle)>1.0),'Every trapping dwarf must join the synchronized blow');
+        assert.equal(sampled.fragments,30,'The stone king must explode into real 3D pieces');
+        assert.equal(sampled.crown,true,'The crown must visibly fly from the king');
+        assert.equal(sampled.originalKingHidden,true);
+        assert.equal(sampled.figureHasHead,true);
+        if(spectator){
+          const view=await diagnostics(spectator);
+          assert.equal(view.cinematic.style,'king-last-stand');
+          assert.equal(view.siege.attackers,4);
+          assert.equal(view.siege.fragments,30);
+          const skipped=await spectator.evaluate(()=>{
+            const board=document.getElementById('game-board-3d').board3d;
+            document.getElementById('capture-skip').click();
+            return {active:board.siegeCinematic.active,
+              kingVisible:board._visiblePieces.some(p=>p.userData.piece==='R'&&p.visible)};
+          });
+          assert.equal(skipped.active,false);
+          assert.equal(skipped.kingVisible,true);
+        }
+        await host.evaluate(()=>document.getElementById('capture-skip').click());
+        const restored=await diagnostics(host);
+        assert.equal(restored.siege.active,false);
+        assert.equal(restored.pieceCount,expected+2);
+        assert(sameCamera(oldCamera,restored.camera),
+          'King defeat must restore precise camera orientation after skip');
+        const check=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+        assert.equal(check.game.history.length,1);
+        assert.equal(check.game.board[4][4],'R');
+      }finally{
+        if(guestContext)await guestContext.close();
+        await host.close();failurePage=page;
+      }
+    }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
       '/move3d.js', '/cinematic3d.js', '/combat-motion.js',
       '/flank-capture.js', '/flank-cinematic3d.js',
-      '/escape-motion.js', '/king-escape3d.js', '/soundscape.js',
+      '/escape-motion.js', '/king-escape3d.js',
+      '/king-siege-motion.js', '/king-siege3d.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);

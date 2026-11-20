@@ -49,6 +49,8 @@ jobs:
         run: node tests/ui_flank_capture.cjs
       - name: Verify the historical and corner royal escape choreography
         run: node tests/ui_king_escape.cjs
+      - name: Verify rule-specific king defeat choreography (2, 3, 4 dwarves)
+        run: node tests/ui_king_siege.cjs
       - name: Install tutorial browser test dependencies
         timeout-minutes: 10
         run: |

@@ -196,6 +196,25 @@
    }else if(name==='king'){
     [196,246.94,293.66,392].forEach((pitch,i)=>
      this._voice(pitch,now+i*.075,2.2,.042,'triangle'));
+   }else if(name==='king-defiance'){
+    // Crown and sword against the first encircling axe.
+    [196,261.63,392].forEach((pitch,i)=>
+     this._voice(pitch,now+i*.10,.72,.064,'triangle',null,pitch*.83));
+    this._noise(now+.08,.26,.076,980,'bandpass');
+   }else if(name==='dwarven-axe'){
+    this._noise(now,.28,.12,330,'lowpass');
+    this._voice(148,now,.33,.12,'sawtooth',null,55);
+    this._voice(520,now+.08,.21,.047,'triangle',null,183);
+   }else if(name==='royal-crown-fall'){
+    [1046.5,784,587.3,392].forEach((pitch,i)=>
+     this._voice(pitch,now+i*.074,.37,.032,'triangle',null,pitch*.58));
+   }else if(name==='dwarven-victory'){
+    // Distinct darker victorious fanfare for the attackers.
+    [110,146.83,174.61,220,293.66,220].forEach((pitch,i)=>{
+     const at=now+i*.15;
+     this._voice(pitch,at,.58,.058,'sawtooth',null,pitch*.96);
+     this._voice(pitch*2,at+.016,.39,.020,'triangle');
+    });
    }else if(name==='royal-horns'){
     // Dorian ceremonial brass flourish, synthesised offline, not sampled.
     [196,293.66,392,493.88,587.33,783.99].forEach((pitch,i)=>{

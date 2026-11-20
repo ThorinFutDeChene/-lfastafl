@@ -61,7 +61,8 @@ function renderCaptureOverlay() {
  if(visible) {
   const label=cue.move.reason==='escape'?
    'Victoire des Elfes — le roi s’échappe à cheval !':
-   cue.move.reason==='king_captured'?'Le roi est capturé !':
+   cue.move.reason==='king_captured'?
+    'Victoire des Nains — le roi livre son dernier combat !':
    cue.move.captured.length>1?'Capture multiple !':'Les sculptures livrent combat…';
   $('capture-text').textContent=label;
  }

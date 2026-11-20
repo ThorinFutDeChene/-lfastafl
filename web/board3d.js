@@ -4,6 +4,7 @@ import {OrbitControls} from './vendor/three/OrbitControls.js';
 import {createFigurine} from './figurines3d.js';
 import {CaptureCinematic} from './cinematic3d.js';
 import {KingEscapeCinematic} from './king-escape3d.js';
+import {KingSiegeCinematic} from './king-siege3d.js';
 import {MoveAnimation} from './move3d.js';
 
 const SIZE = 11;
@@ -50,6 +51,7 @@ export class Board3D {
     this._pieceCounts = {N: 0, E: 0, R: 0};
     this.captureCinematic = new CaptureCinematic(this);
     this.escapeCinematic = new KingEscapeCinematic(this);
+    this.siegeCinematic = new KingSiegeCinematic(this);
     this.moveAnimation = new MoveAnimation(this);
     this._raycaster = new THREE.Raycaster();
     this._pointer = new THREE.Vector2();
@@ -409,6 +411,7 @@ export class Board3D {
     const boardKey = board.map(row => row.join('')).join('');
     if (this.captureCinematic.active && this._boardKey && boardKey !== this._boardKey) this.captureCinematic.cancel();
     if (this.escapeCinematic.active && this._boardKey && boardKey !== this._boardKey) this.escapeCinematic.cancel();
+    if (this.siegeCinematic.active && this._boardKey && boardKey !== this._boardKey) this.siegeCinematic.cancel();
     if (this.moveAnimation.active && this._boardKey && boardKey !== this._boardKey) this.moveAnimation.cancel();
     if (boardKey !== this._boardKey) {
       this._boardKey = boardKey;
@@ -700,7 +703,7 @@ export class Board3D {
   }
 
   playMove(record, options) {
-    if (this.captureCinematic.active || this.escapeCinematic.active) return false;
+    if (this.captureCinematic.active || this.escapeCinematic.active || this.siegeCinematic.active) return false;
     return this.moveAnimation.start(record, options);
   }
 
@@ -712,6 +715,9 @@ export class Board3D {
     this.moveAnimation.cancel();
     this.captureCinematic.cancel();
     this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
+    if (record?.reason === 'king_captured' && record?.winner === 'dwarf' &&
+        record?.piece === 'N') return this.siegeCinematic.start(record, options);
     if (record?.reason === 'escape' && record?.piece === 'R' &&
         record?.winner === 'elf') return this.escapeCinematic.start(record, options);
     return this.captureCinematic.start(record, options);
@@ -720,6 +726,7 @@ export class Board3D {
   cancelCapture() {
     this.captureCinematic.cancel();
     this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
   }
 
   setActive(value) {
@@ -727,6 +734,7 @@ export class Board3D {
     if (!value) {
       this.captureCinematic.cancel();
       this.escapeCinematic.cancel();
+      this.siegeCinematic.cancel();
       this.moveAnimation.cancel();
     }
     this.active = Boolean(value) && !this.lost;
@@ -763,6 +771,7 @@ export class Board3D {
     if (this.disposed || this.lost) return;
     this.captureCinematic.cancel();
     this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
     this.moveAnimation.cancel();
     this.lost = true;
     this.active = false;
@@ -792,15 +801,18 @@ export class Board3D {
       motion: {active: this.moveAnimation.active, key: this.moveAnimation.key,
         progress: this.moveAnimation.progress,from: this.moveAnimation.from,
         to: this.moveAnimation.to},
-      cinematic: {active: this.captureCinematic.active || this.escapeCinematic.active,
-        progress: this.escapeCinematic.active ?
-          this.escapeCinematic.progress : this.captureCinematic.progress,
+      cinematic: {active: this.captureCinematic.active || this.escapeCinematic.active ||
+          this.siegeCinematic.active,
+        progress: this.siegeCinematic.active ? this.siegeCinematic.progress :
+          this.escapeCinematic.active ? this.escapeCinematic.progress :
+          this.captureCinematic.progress,
         key: this.captureCinematic.key, shardCount: this.captureCinematic.actors?.reduce(
           (sum, actor) => sum + actor.shards.length, 0) || 0,
         articulated: this.captureCinematic.active &&
           Boolean(this.captureCinematic.attackerRig?.right),
         victims: this.captureCinematic.actors?.length || 0,
-        style: this.escapeCinematic.active ? 'royal-cavalry' :
+        style: this.siegeCinematic.active ? 'king-last-stand' :
+          this.escapeCinematic.active ? 'royal-cavalry' :
           this.captureCinematic.active
           ? (this.captureCinematic.flank?.style || 'combo') : null,
         flank: this.captureCinematic.flank ? {
@@ -816,6 +828,16 @@ export class Board3D {
         stage: this.captureCinematic.stage || '',
         sparkCount: this.captureCinematic.actors?.reduce((sum, actor) =>
           sum + (actor.sparks?.filter(spark => spark.visible).length || 0), 0) || 0},
+      siege: {active: this.siegeCinematic.active,
+        configuration: this.siegeCinematic.plan?.configuration || null,
+        king: this.siegeCinematic.plan?.king || null,
+        attackers: this.siegeCinematic.dwarves?.length || 0,
+        movedDwarves: this.siegeCinematic.dwarves?.filter(d => d.entry.moved).length || 0,
+        stage: this.siegeCinematic.stage || '',
+        fragments: this.siegeCinematic.shards?.length || 0,
+        crownVisible: Boolean(this.siegeCinematic.crown?.visible),
+        originalHidden: this.siegeCinematic._hidden?.length || 0,
+        progress: this.siegeCinematic.progress},
       escape: {active: this.escapeCinematic.active,
         stage: this.escapeCinematic.stage,
         horses: this.escapeCinematic.horses?.length || 0,
@@ -836,6 +858,7 @@ export class Board3D {
     if (this.disposed) return;
     this.captureCinematic.cancel();
     this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
     this.moveAnimation.cancel();
     this.disposed = true;
     this.active = false;

@@ -1,13 +1,43 @@
-# Álfastafl — 0.7.0-dev4 (canal DEV)
+# Álfastafl — 0.7.0-dev5 (canal DEV)
 
-La **0.7.0-dev4** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev5** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev4` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev5` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev5 : dernier combat du roi, 2, 3 ou 4 nains
+
+**Cinématique de victoire des Nains**, uniquement après
+`status=finished`, `winner=dwarf`, `reason=king_captured`
+confirmés par le serveur. Le roi, qui reste sur sa vraie case dans le plateau
+sauvegardé, est remplacé temporairement par sa sculpture articulée :
+il se défend à l'épée, les nains ayant réellement fermé la prise
+arrivent au contact et portent chacun un coup de hache, puis
+**tous assènent une frappe collective**. La statue royale s'effondre,
+la **couronne est projetée en 3D** et la sculpture vole en éclats.
+Caméra rapprochée et effets originaux de cliquetis de lame, impact,
+chute de couronne et fanfare grave des nains.
+
+Le nombre d'attaquants est calculé sur le **plateau réel après le coup**,
+suivant la règle réellement appliquée :
+- **2 nains** : prise historique par deux côtés opposés, hors du trône ;
+- **4 nains** : encerclement complet (Fetlar/Copenhague ; roi sur le trône
+  historique) ;
+- **3 nains** : exception du trône vide ou hostile dans les variantes qui
+  prévoient cet étau. **Aucun quatrième nain fictif ne surgit du trône.**
+
+Le nain qui vient de jouer termine son déplacement avant de frapper :
+les nains déjà sur place restent sur leurs cases et bougent seulement
+leurs sculptures, pas les pièces de jeu. Durées existantes 4/8/12 s,
+commande « Passer la scène », respect des animations réduites et
+restitution du plateau et de la caméra. Tous les spectateurs et joueurs
+voient une chorégraphie locale fondée sur le même événement temporel.
+Pas de modification du moteur Tafl, de l'historique, des tours ou des
+sauvegardes. Tests Python, Node, WebAudio et Chromium dédiés.
 
 ## DEV 0.7.0-dev4 : fuite royale à cheval et coup de hache au contact
 

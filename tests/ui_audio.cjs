@@ -114,6 +114,10 @@ test('Music and effect levels have independent immediate controls and persist ac
  audio.effect('royal-hooves');
  audio.effect('royal-horns');
  audio.effect('royal-mount');
+ audio.effect('king-defiance');
+ audio.effect('dwarven-axe');
+ audio.effect('royal-crown-fall');
+ audio.effect('dwarven-victory');
  audio.effect('strike');
  audio.effect('shatter');
  assert(h.stats.oscillators>before,'Confirmed moves/captures generate effects');

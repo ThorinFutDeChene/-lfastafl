@@ -1,50 +1,49 @@
-# Álfastafl 0.7.0-dev4 — fuite royale à cheval et combat nain au contact
+# Álfastafl 0.7.0-dev5 — Le dernier combat du Roi
 
-## Nouvelle scène de victoire du roi (option C)
+## Cinématique de victoire des Nains
 
-Lorsque le **serveur confirme** un coup de roi gagnant (`reason=escape`,
-`winner=elf` et `status=finished`), même en l'absence de capture :
-1. Le roi atteint la case de sortie historique (bord) ou la case
-   d'évasion d'une autre variante (coin).
-2. Trois **chevaux 3D originaux, articulés, sellés et bridés** émergent
-   au-delà du plateau. Deux cavaliers elfes accompagnent le roi.
-3. Le roi monte en selle ; les elfes présents le saluent et les nains
-   survivants protestent avec leurs armes.
-4. Les trois cavaliers s'enfuient au galop, avec poursuite de caméra,
-   particules lumineuses, bruits de sabots et fanfare originale
-   synthétisée localement.
-5. **« Victoire des Elfes — le roi s'échappe à cheval ! »** est affiché
-   pendant la scène. La caméra revient exactement à sa position de
-   départ et la partie reste terminée sur son plateau réel.
+Déclenchement : coup de nain **validé par le serveur** avec
+`reason=king_captured`, `winner=dwarf`, `status=finished`.
 
-## Correction des combats
+- Le nain qui vient de jouer **achève son déplacement** sur la case
+  définitive avant de porter un coup de hache au contact.
+- Le roi se retourne, pare plusieurs coups avec son épée et tente
+  une ultime résistance.
+- Les nains **réellement positionnés** autour de lui frappent à tour de
+  rôle, puis enchaînent une attaque coordonnée.
+- Leur nombre est dicté par les règles effectivement appliquées :
+  **deux nains** en prise historique sur un axe, **quatre nains**
+  en encerclement complet, ou **trois nains** dans les configurations
+  spéciales avec trône. Aucun combattant fictif n'est ajouté.
+- La sculpture du roi s'affaisse puis se brise en **30 fragments 3D**.
+  Sa **couronne sculptée est projetée**. Onde de choc et éclats
+  lumineux accompagnent les haches.
+- Caméra mobile et petite secousse au coup final, sons d'épée, haches,
+  couronne et **fanfare de victoire des nains** composée par synthèse
+  locale sans téléchargement.
+- Affichage : **« Victoire des Nains — le roi livre son dernier combat ! »**
 
-- **Nain (corps-à-corps) :** le nain arrive obligatoirement sur sa case
-  de destination avant de donner le premier coup de hache, paré par
-  l'elfe avec son bras portant l'arc ; l'autre nain porte la frappe finale.
-- **Elfe (à distance) :** conserve son arrêt une case avant la destination,
-  tire une flèche parée par le nain, puis son allié découpe celui-ci
-  à l'épée avant que l'archer termine son coup.
+## Garanties techniques
 
-## Invariants et compatibilité
-
-- Le roi est déclaré vainqueur **uniquement par le moteur Tafl du serveur**.
-  Aucun cheval ni escorte n'existe dans l'état de jeu.
-- La cinématique de fuite conserve les durées 4/8/12 s déjà proposées.
-  L'option Désactivées empêche également la scène.
-- Les joueurs et spectateurs utilisent les mêmes délais serveur ; l'hôte
-  ne concède aucun nouveau droit, la victoire reste enregistrée une
-  seule fois dans l'historique et les sauvegardes.
-- Assets (chevaux, cavaliers, poussière) et sons produits **hors ligne** ;
-  le bouton « Passer » et la préférence système Réduire les animations
-  restent pris en charge.
-- Tests Python de victoire et d'expiration de scène, tests Node sur
-  les portes de sortie et phases, test Chromium du cortège hôte/spectateur
-  et de la remise en état du plateau.
-- Rendu et fluidité **à vérifier sur Ubuntu MATE et appareils mobiles
-  réels** avant promotion stable.
+- Le moteur de règles est inchangé. Le plateau réel conserve le roi sur sa
+  case (le moteur définit cette victoire par immobilisation/encerclement) ;
+  les sculptures animées n'affectent jamais l'historique ni les sauvegardes.
+- Les nains de soutien restent à leur case, aucun mouvement de plateau
+  supplémentaire. Le jeu et les horloges restent arrêtés une fois la victoire
+  constatée par le serveur.
+- Les scènes de victoire des Elfes à cheval et les captures ordinaires
+  restent inchangées.
+- Durées **4, 8 ou 12 secondes**, option Désactivées, vue 2D, préférences
+  de réduction des animations et bouton **Passer** maintenus.
+- Les clients LAN et spectateurs reçoivent le même événement de victoire,
+  et les scènes locales suivent le même temps serveur.
+- Tests : six configurations de capture du roi en Python, planificateur
+  2/3/4 nains et phases de combat en Node, cas historiques et Fetlar réels
+  dans Chromium, et bruitages synthétiques hors ligne.
+- **Tests physiques Ubuntu MATE et appareils mobiles recommandés** avant
+  toute promotion de cette version en stable.
 
 ## Distribution
 
-- Paquet Debian **0.7.0~dev4**, canal **DEV**.
+- Paquet Debian **0.7.0~dev5**, canal **Développement (DEV)**.
 - Stable 0.5.0 inchangée.
