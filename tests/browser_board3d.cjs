@@ -1016,6 +1016,17 @@ async function main() {
       await expectImmersiveGuest(spectator,'spectator');
       const initialCamera=(await diagnostics(host)).camera;
       const from=[0,3],to=[1,3];
+      // Observe animation *before* making the move. The default interpolation
+      // may last just 500ms: waiting for two network responses first can miss
+      // the whole motion on a slow software-WebGL CI runner.
+      const observe=p=>p.waitForFunction(()=>{
+        const board=document.getElementById('game-board-3d')?.board3d;
+        const moving=board?.moveAnimation;
+        if(!moving?.active||!moving.actor)return false;
+        return {from:[...moving.from],to:[...moving.to],
+          z:moving.actor.position.z,progress:moving.progress};
+      });
+      const seenHost=observe(host),seenSpectator=observe(spectator);
       const move=await context.request.post(base+'/api/move',{data:{
         game:data.game,session:data.host_session,from,to,
       }});
@@ -1023,19 +1034,14 @@ async function main() {
       const record=(await move.json()).event;
       assert.equal(record.n,1);
       await Promise.all([host.evaluate(()=>load()),spectator.evaluate(()=>load())]);
-      await Promise.all([
-        host.waitForFunction(()=>document.getElementById('game-board-3d')
-          .board3d?.getDiagnostics().motion.active),
-        spectator.waitForFunction(()=>document.getElementById('game-board-3d')
-          .board3d?.getDiagnostics().motion.active),
-      ]);
-      const first=(await diagnostics(host)).motion;
-      assert.deepEqual(first.from,from);
-      assert.deepEqual(first.to,to);
-      const position=await host.evaluate(()=>document.getElementById('game-board-3d')
-        .board3d.moveAnimation.actor.position.z);
-      assert(position>=-5.01&&position<-3.999,
-        'A moved sculpture must travel from its original square: '+position);
+      const [hostHandle,spectatorHandle]=await Promise.all([seenHost,seenSpectator]);
+      const first=await hostHandle.jsonValue(),other=await spectatorHandle.jsonValue();
+      assert.deepEqual(first.from,from);assert.deepEqual(other.from,from);
+      assert.deepEqual(first.to,to);assert.deepEqual(other.to,to);
+      assert(first.z>=-5.01&&first.z<-3.999,
+        'A moved sculpture must travel from its original square: '+first.z);
+      assert(other.z>=-5.01&&other.z<-3.999,
+        'A spectator must observe the same fluid movement: '+other.z);
       await host.waitForFunction(()=>!document.getElementById('game-board-3d')
         .board3d?.getDiagnostics().motion.active);
       await spectator.waitForFunction(()=>!document.getElementById('game-board-3d')
