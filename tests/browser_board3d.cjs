@@ -1209,15 +1209,20 @@ async function main() {
       assert.equal(rig.defender,true,'Elf defender has articulated carved bow and limbs');
       assert.equal(rig.boardHasJoints,false,
         'Ordinary pieces must retain the low-draw-call rigid mesh');
-      await host.waitForFunction(()=>{
-        const cut=document.getElementById('game-board-3d').board3d?.captureCinematic;
-        return cut?.active && cut.progress>.26 &&
-          Math.abs(cut.actors[0]?.rig?.left?.rotation?.z || 0)>.2;
+      // Sample the short parry interval deterministically: waiting for a
+      // physical 1-second pose in software WebGL can miss it entirely.
+      const defense=await host.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        const cut=board.captureCinematic;
+        const v=cut.actors[0];
+        cut.flank.update(v.start+(v.end-v.start)*.38);
+        return {angle:v.rig.left.rotation.z,stage:cut.stage,
+          style:board.getDiagnostics().cinematic.style};
       });
-      const defense=(await diagnostics(host)).cinematic;
-      assert(defense.sparkCount>=0,'Parry and impact particles are available');
-      assert(['hache et arc','arme de l’allié','hache décisive',
-        'sculpture brisée'].includes(defense.stage));
+      assert(Math.abs(defense.angle)>1.0,
+        'Elf must raise the bow-protected arm to parry the first dwarf axe');
+      assert.equal(defense.stage,'hache et arc');
+      assert.equal(defense.style,'dwarf-double-axe');
       // The previous guard-position test has already proven progress. Never
       // wait a second time for an active timed scene: a 12-second deadline can
       // expire while a software-WebGL runner services both browser tabs.
@@ -1309,12 +1314,9 @@ async function main() {
       assert.equal(first.cinematic.flank.splitHalves,2);
       assert.equal(first.cinematic.flank.sword,true);
       // Arrival [5,2] is one full legal square short of the final [5,3].
-      await host.waitForFunction(()=>{
-        const cut=document.getElementById('game-board-3d')?.board3d?.captureCinematic;
-        return cut?.flank&&cut.progress>.27&&cut.progress<.61;
-      });
       const stop=await host.evaluate(()=>{
         const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        cut.flank.update(.30);
         return {x:cut.attacker.position.x,z:cut.attacker.position.z,
           stop:cut.flank.pauseAt.toArray(),final:cut.destination.toArray(),
           ally:cut.flank.supporter.position.toArray(),
@@ -1326,37 +1328,36 @@ async function main() {
       assert.equal(stop.split,2,'Bronze dwarf must have two distinct clipped halves');
       assert(!sameCamera(initial,(await diagnostics(host)).camera));
       // Dwarf's shield blocks a real 3D arrow, then the ally draws a sword.
-      await host.waitForFunction(()=>{
-        const cut=document.getElementById('game-board-3d')?.board3d?.captureCinematic;
-        return cut?.flank&&cut.flank.phase>.53&&cut.flank.sword?.visible;
-      });
       const swordState=await host.evaluate(()=>{
         const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        cut.flank.update(cut.actors[0].start+
+          (cut.actors[0].end-cut.actors[0].start)*.57);
         return {sword:cut.flank.sword.getObjectByName('elf-sword-blade')?.isMesh,
+          swordDrawn:cut.flank.sword.visible,
           originalAllyHidden:cut.flank.allyBody?.visible===false,
           cutActive:cut.flank.split.parts.length===2,
           allyRight:cut.flank.allyRight.rotation.x};
       });
       assert.equal(swordState.sword,true,'The rear elf must have a modeled 3D sword');
+      assert.equal(swordState.swordDrawn,true,'The sword is drawn after the arrow parry');
       assert.equal(swordState.originalAllyHidden,true,'No doubled ally on the board');
       assert(Number.isFinite(swordState.allyRight));
       // The complete dissection is visible on the local spectator as well.
-      await spectator.waitForFunction(()=>{
-        const cut=document.getElementById('game-board-3d')?.board3d?.captureCinematic;
-        return cut?.flank?.split?.parts?.every(x=>x.root.visible) &&
-          cut.flank.phase>.79;
-      });
       const bronze=await spectator.evaluate(()=>{
         const board=document.getElementById('game-board-3d').board3d;
         const cut=board.captureCinematic;
+        cut.flank.update(cut.actors[0].start+
+          (cut.actors[0].end-cut.actors[0].start)*.97);
         return {halves:cut.flank.split.parts.length,
           spread:cut.flank.split.parts[0].root.position.distanceTo(
            cut.flank.split.parts[1].root.position),
-          localClipping:board.renderer.localClippingEnabled};
+          localClipping:board.renderer.localClippingEnabled,
+          halvesVisible:cut.flank.split.parts.every(x=>x.root.visible)};
       });
       assert.equal(bronze.halves,2);
       assert(bronze.spread>.01,'Sword cleave must physically separate the two bronze halves');
       assert.equal(bronze.localClipping,true);
+      assert.equal(bronze.halvesVisible,true);
       const skipped=await spectator.evaluate(()=>{
         const board=document.getElementById('game-board-3d').board3d;
         document.getElementById('capture-skip').click();
