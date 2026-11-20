@@ -1299,6 +1299,12 @@ async function main() {
         '&session='+encodeURIComponent(battle.sessions.spectator),{waitUntil:'domcontentloaded'});
       await ready3D(spectator,'game',5);
       await expectImmersiveGuest(spectator,'spectator');
+      // Both opposing player sessions must be seen before a timed match can
+      // start; a spectator does not count as the dwarf's heartbeat.
+      const readyDwarf=await context.request.get(base+'/api/state?game='+
+        battle.game+'&session='+encodeURIComponent(battle.sessions.dwarf));
+      assert.equal(readyDwarf.status(),200);
+      assert.equal((await readyDwarf.json()).game.clock.started,true);
       const move=await context.request.post(base+'/api/move',{data:{
         game:battle.game,session:battle.sessions.elf,from:[5,1],to:[5,3],
       }});
