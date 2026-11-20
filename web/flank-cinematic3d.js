@@ -2,7 +2,7 @@
  * engine: the spectator/host both use the post-move board and server's cue. */
 import * as THREE from 'three';
 import {createFigurine} from './figurines3d.js';
-import {flankPhases} from './flank-capture.js';
+import {flankPhases,attackAnchor} from './flank-capture.js';
 import {clamp01,smooth,pulse} from './combat-motion.js';
 
 const SURFACE=.12;
@@ -129,6 +129,9 @@ export class FlankCinematic {
   this.source=cut.fromPosition.clone();
   this.destination=cut.destination.clone();
   this.pauseAt=at(this.plan.pause);
+  // Contact attack: the dwarf stops on the final square before swinging.
+  // Only the elf archer can halt at the penultimate square.
+  this.contactAt=at(attackAnchor(this.plan,this.event.to));
   this.allyAt=at(this.plan.supporter);
   this.allyBody=board._visiblePieces.find(piece=>
    piece.userData.square?.[0]===this.plan.supporter[0]&&
@@ -177,15 +180,17 @@ export class FlankCinematic {
   if(this.sword)this.sword.visible=p>=.42;
   const front=cut.attacker,back=this.supporter;
   const victim=v.figure;
-  const frontYaw=face(this.pauseAt,v.place);
-  const victimYaw=face(v.place,this.pauseAt);
-  // Approach stops exactly one legal square before the confirmed destination.
-  // It remains stationary there until the second combatant finishes the kill.
+  const frontYaw=face(this.contactAt,v.place);
+  const victimYaw=face(v.place,this.contactAt);
+  // Melee dwarf: first move fully to the confirmed destination, then
+  // strike and trigger the bow-arm parry. Elf archers remain one square
+  // short for the shot, then finish their move after the supporter's sword.
   const arrival=smooth(t,0,begin+.055);
-  const finish=smooth(t,.81,.97);
-  front.position.copy(this.source).lerp(this.pauseAt,arrival)
-   .lerp(this.destination,finish);
-  front.position.y=SURFACE+.13*Math.sin(Math.PI*arrival)+.12*Math.sin(Math.PI*finish);
+  const finish=elf?smooth(t,.81,.97):0;
+  front.position.copy(this.source).lerp(this.contactAt,arrival);
+  if(elf)front.position.lerp(this.destination,finish);
+  front.position.y=SURFACE+.13*Math.sin(Math.PI*arrival)+
+   (elf?.12*Math.sin(Math.PI*finish):0);
   front.rotation.y=this.frontYaw+(frontYaw-this.frontYaw)*smooth(t,.05,.22);
   front.rotation.x=-.19*m.incoming+.05*m.parry;
   front.rotation.z=-.07*m.incoming;
@@ -308,7 +313,7 @@ export class FlankCinematic {
    cut.ringMaterial.opacity=.48*m.parry+.73*m.cleave;
   }
   const cameraFocus=smooth(t,0,.16)*(1-smooth(t,.86,1));
-  const sceneTarget=this.pauseAt.clone().add(v.place).add(this.allyAt).divideScalar(3);
+  const sceneTarget=this.contactAt.clone().add(v.place).add(this.allyAt).divideScalar(3);
   sceneTarget.y=.64;
   const viewVector=cut.cameraVector.clone();
   const turn=.21*Math.sin(t*Math.PI*2.3);

@@ -95,13 +95,30 @@ for camp in ('dwarf','elf'):
     elf_sessions[camp]=store.approve(request,camp)
 request=store.request(elfbattle.id,store.invites[elfbattle.id]['spectator'],'elf cinema viewer')
 elf_sessions['spectator']=store.approve(request)
+# Independent legal king escape by a historical border square (not a corner).
+# The event has NO captures, but still triggers an 8-second victory cinematic.
+royal = store.create('historical', {'time_control':{'mode':'unlimited'},
+    'capture_cinematic_seconds':12})
+royal.board = [[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(1,2,'R'),(4,3,'E'),(8,8,'E'),(3,3,'N'),(9,4,'N')]:
+    royal.board[row][col]=piece
+royal.turn='elf'
+royal.positions=[royal.signature()]
+store.save(royal)
+royal_sessions={}
+for camp in ('dwarf','elf'):
+    request=store.request(royal.id,store.invites[royal.id]['player'],'royal '+camp)
+    royal_sessions[camp]=store.approve(request,camp)
+request=store.request(royal.id,store.invites[royal.id]['spectator'],'royal viewer')
+royal_sessions['spectator']=store.approve(request)
 server = run('127.0.0.1', 0, store)
 def interrupt(*_):
     raise KeyboardInterrupt
 signal.signal(signal.SIGTERM, interrupt)
 print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions,
     'battle': {'game':battle.id, 'sessions':battle_sessions},
-    'elfbattle': {'game':elfbattle.id, 'sessions':elf_sessions}}), flush=True)
+    'elfbattle': {'game':elfbattle.id, 'sessions':elf_sessions},
+    'royal': {'game':royal.id,'sessions':royal_sessions}}), flush=True)
 try:
     server.serve_forever()
 except KeyboardInterrupt:
@@ -209,7 +226,8 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
     const url = new URL(response.url());
     if (url.pathname.startsWith('/vendor/') ||
       ['/board3d.js', '/figurines3d.js', '/board-view.js', '/move3d.js', '/cinematic3d.js',
-       '/combat-motion.js', '/flank-capture.js', '/flank-cinematic3d.js', '/soundscape.js'].includes(url.pathname)) {
+       '/combat-motion.js', '/flank-capture.js', '/flank-cinematic3d.js',
+       '/escape-motion.js','/king-escape3d.js','/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
   });
@@ -1217,11 +1235,16 @@ async function main() {
         const v=cut.actors[0];
         cut.flank.update(v.start+(v.end-v.start)*.38);
         return {angle:v.rig.left.rotation.z,stage:cut.stage,
+          front:cut.attacker.position.toArray(),
+          final:cut.destination.toArray(),
           style:board.getDiagnostics().cinematic.style};
       });
       assert(Math.abs(defense.angle)>1.0,
         'Elf must raise the bow-protected arm to parry the first dwarf axe');
       assert.equal(defense.stage,'hache et arc');
+      assert(Math.abs(defense.front[0]-defense.final[0])<.001 &&
+        Math.abs(defense.front[2]-defense.final[2])<.001,
+        'Melee dwarf must fully reach the final square before his axe is parried');
       assert.equal(defense.style,'dwarf-double-axe');
       // The previous guard-position test has already proven progress. Never
       // wait a second time for an active timed scene: a 12-second deadline can
@@ -1381,10 +1404,106 @@ async function main() {
     }
   });
 
+  await scenario('King escapes on horseback with two escort riders and spectators see the victory',async()=>{
+    const royal=fixture.royal;
+    assert(royal.game&&royal.sessions.elf&&royal.sessions.spectator);
+    const host=await context.newPage();
+    const guests=await makeContext({}, {guest:true});
+    const spectator=await guests.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(royal.game)+
+        '&session='+encodeURIComponent(royal.sessions.elf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',5);
+      const initial=(await diagnostics(host)).camera;
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(royal.game)+
+        '&session='+encodeURIComponent(royal.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',5);
+      await expectImmersiveGuest(spectator,'spectator');
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:royal.game,session:royal.sessions.elf,from:[1,2],to:[0,2],
+      }});
+      assert.equal(move.status(),200);
+      const event=(await move.json()).event;
+      assert.equal(event.piece,'R');assert.equal(event.reason,'escape');
+      assert.equal(event.status,'finished');assert.equal(event.winner,'elf');
+      assert.deepEqual(event.captured,[]);
+      const state=(await (await context.request.get(base+'/api/state?game='+royal.game)).json());
+      assert.equal(state.game.status,'finished');
+      assert.equal(state.game.board[0][2],'R');
+      assert.equal(state.game.history.length,1,'A galloping king must not create extra moves');
+      assert.equal(state.cinematic.move.reason,'escape',
+        'A victory with zero captures still has a server-authoritative scene');
+      await Promise.all([host,spectator].map(p=>p.waitForFunction(()=>
+        document.getElementById('game-board-3d')?.board3d?.getDiagnostics().escape.active)));
+      const first=(await diagnostics(host));
+      assert.equal(first.cinematic.active,true);
+      assert.equal(first.cinematic.style,'royal-cavalry');
+      assert.equal(first.escape.horses,3);
+      assert.equal(first.escape.escortCount,2);
+      assert.equal(first.escape.mountedKing,'king-mounted');
+      assert.deepEqual(first.escape.exit,[0,2]);
+      assert(first.escape.saluteCount>0,'Existing elf statuettes salute their king');
+      assert(first.escape.protestCount>0,'Existing dwarves protest the escape');
+      assert.equal(await host.locator('#capture-overlay').isVisible(),true);
+      assert.match(await host.locator('#capture-text').textContent(),/roi s’échappe à cheval/);
+      const riding=await host.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        const royal=board.escapeCinematic;
+        royal._pose(.58);
+        const near=royal.horses[0].root.position.clone();
+        const king=royal.horses[0];
+        const before={
+          horses:royal.horses.length,
+          rider:king.rider.name,
+          legs:king.legs.length,
+          localScene:!!royal.scene,
+          mount:king.rider.scale.x,
+          first:near.toArray(),
+          oldKingHidden:royal._hidden.some(piece=>piece.userData.piece==='R'&&!piece.visible)
+        };
+        royal._pose(.95);
+        return {...before,after:king.root.position.toArray(),
+          escortLeft:royal.horses[1].root.position.toArray(),
+          escortRight:royal.horses[2].root.position.toArray()};
+      });
+      assert.equal(riding.horses,3);
+      assert.equal(riding.legs,4,'Each modeled horse has four articulated legs');
+      assert(riding.mount>.05,'The royal statuette mounts its own horse');
+      assert.equal(riding.oldKingHidden,true,'No duplicated king on the board');
+      assert(Math.abs(riding.after[2]-riding.first[2])>1.0,
+        'The mounted king gallops off the historical north edge');
+      assert.notDeepEqual(riding.escortLeft,riding.escortRight,
+        'Two distinct riders flank the king');
+      // The spectator has the same fully local cavalcade, without gaining
+      // any player permission. Skipping restores its own camera and board.
+      const spectatorView=await diagnostics(spectator);
+      assert.equal(spectatorView.escape.horses,3);
+      assert.equal(spectatorView.cinematic.style,'royal-cavalry');
+      const guestSkip=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        document.getElementById('capture-skip').click();
+        return {active:board.escapeCinematic.active,count:board.getDiagnostics().pieceCount};
+      });
+      assert.equal(guestSkip.active,false);
+      assert.equal(guestSkip.count,5);
+      await host.evaluate(()=>document.getElementById('capture-skip').click());
+      assert.equal((await diagnostics(host)).escape.active,false);
+      assert(sameCamera(initial,(await diagnostics(host)).camera),
+        'The host keeps the exact camera viewpoint after skipping the royal escape');
+      const later=(await (await context.request.get(base+'/api/state?game='+royal.game)).json());
+      assert.equal(later.game.board[0][2],'R','King stays on the legal winning square');
+      assert.equal(later.game.history.length,1);
+    }finally{
+      await guests.close();await host.close();failurePage=page;
+    }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
       '/move3d.js', '/cinematic3d.js', '/combat-motion.js',
-      '/flank-capture.js', '/flank-cinematic3d.js', '/soundscape.js',
+      '/flank-capture.js', '/flank-cinematic3d.js',
+      '/escape-motion.js', '/king-escape3d.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);

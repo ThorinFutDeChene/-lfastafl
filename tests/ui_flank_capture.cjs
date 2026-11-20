@@ -24,12 +24,18 @@ test('Elf arrow and rear sword require two confirmed elf statues across a dwarf'
   supporter:[5,5],pause:[5,2],victim:[5,4],
   victimKind:'N',style:'elf-arrow-sword'});
  assert.equal(board[5][4],'.','The soldier must already be removed by server');
+ const {attackAnchor}=await load();
+ assert.deepEqual(attackAnchor(flankPlan(record,board,record.captured[0]),record.to),
+  [5,2],'Elf may remain a square short before shooting');
 });
 test('Dwarf arriving with axe uses rear allied dwarf as decisive axe',async()=>{
  const {flankPlan}=await load();
  const {board,record}=fixture('N','E');
  assert.equal(flankPlan(record,board,record.captured[0]).style,'dwarf-double-axe');
  assert.deepEqual(flankPlan(record,board,record.captured[0]).supporter,[5,5]);
+ const {attackAnchor}=await load();
+ assert.deepEqual(attackAnchor(flankPlan(record,board,record.captured[0]),record.to),
+  [5,3],'Dwarf must be on its final square before a melee axe swing');
 });
 test('No fictional participant for a corner, the throne or a wrong camp',async()=>{
  const {flankPlan}=await load();

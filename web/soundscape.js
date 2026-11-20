@@ -196,6 +196,23 @@
    }else if(name==='king'){
     [196,246.94,293.66,392].forEach((pitch,i)=>
      this._voice(pitch,now+i*.075,2.2,.042,'triangle'));
+   }else if(name==='royal-horns'){
+    // Dorian ceremonial brass flourish, synthesised offline, not sampled.
+    [196,293.66,392,493.88,587.33,783.99].forEach((pitch,i)=>{
+     const at=now+i*.115;
+     this._voice(pitch,at,.68,.061,'sawtooth',null,pitch*.996);
+     this._voice(pitch*2,at+.015,.42,.015,'triangle');
+    });
+   }else if(name==='royal-hooves'){
+    for(let i=0;i<4;i++){
+     const at=now+i*.10;
+     this._noise(at,.085,.059,170,'lowpass');
+     this._voice(i%2===0?112:145,at,.11,.051,'triangle',null,64);
+    }
+   }else if(name==='royal-mount'){
+    this._noise(now,.31,.032,1250,'bandpass');
+    [523.25,659.25,783.99,1046.5].forEach((pitch,i)=>
+     this._voice(pitch,now+i*.055,.56,.031,'triangle'));
    }
   }
   dispose() {

@@ -59,7 +59,9 @@ function renderCaptureOverlay() {
  const visible=Boolean(cue&&!skipped&&captureVisualPlaying);
  $('capture-overlay').hidden=!visible;
  if(visible) {
-  const label=cue.move.reason==='king_captured'?'Le roi est capturé !':
+  const label=cue.move.reason==='escape'?
+   'Victoire des Elfes — le roi s’échappe à cheval !':
+   cue.move.reason==='king_captured'?'Le roi est capturé !':
    cue.move.captured.length>1?'Capture multiple !':'Les sculptures livrent combat…';
   $('capture-text').textContent=label;
  }
@@ -397,7 +399,8 @@ async function load(){
     Promise.resolve(playback).then(started=>{
      if(!started&&captureKey(cinematicCue)===cueKey) {
       captureVisualPlaying=false;renderCaptureOverlay();
-      soundscape.effect('strike');soundscape.effect('shatter',.1);
+      if(cue.move.reason==='escape')soundscape.effect('royal-horns');
+      else{soundscape.effect('strike');soundscape.effect('shatter',.1);}
      }
     }).catch(()=>{
      captureVisualPlaying=false;renderCaptureOverlay();

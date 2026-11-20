@@ -27,6 +27,13 @@ export function flankPlan(event, board, captured) {
   return {supporter,pause,victim:[vr,vc],victimKind:kind,
     style:attacking==='E'?'elf-arrow-sword':'dwarf-double-axe'};
 }
+/* Dwarven axes require contact. The moving dwarf reaches its authorized
+ * destination before raising its axe; only the ranged elf may stop early. */
+export function attackAnchor(plan,destination){
+ if(!plan||!good(destination)||!good(plan.pause))return null;
+ return plan.style==='dwarf-double-axe'?[...destination]:
+  plan.style==='elf-arrow-sword'?[...plan.pause]:null;
+}
 /* A single local timeline for the incoming attacker, the defending statue
  * and the supporting ally. Fractions are relative to this victim's duel slot.
  * No animation property is accumulated from frame to frame. */
