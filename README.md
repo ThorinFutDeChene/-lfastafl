@@ -1,13 +1,45 @@
-# Álfastafl — 0.7.0-dev2 (canal DEV)
+# Álfastafl — 0.7.0-dev3 (canal DEV)
 
-La **0.7.0-dev2** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev3** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev2` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev3` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev3 : scènes de capture par encadrement à deux combattants
+
+Pour une **capture ordinaire réellement encadrée par deux pièces alliées**,
+les deux figurines participent à la scène. Le programme identifie la pièce
+d'appui dans le plateau **après validation serveur**, sans inventer d'allié
+pour une capture contre le trône, les coins ou un mur de boucliers.
+
+**Elfes contre nain :** l'elfe mobile s'arrête une case avant sa destination,
+vise et décoche une flèche. Le nain la pare avec son bouclier. L'elfe situé
+de l'autre côté dégaine une **épée elfique en 3D**, prend son élan et fend la
+sculpture de bronze en **deux moitiés géométriquement découpées**, qui
+s'écartent et tombent. L'elfe mobile termine alors son déplacement jusqu'à
+la case sélectionnée.
+
+**Nains contre elfe :** le nain mobile marque une pause avant sa destination
+et assène un coup de hache. L'elfe tente une parade avec le bras portant
+l'arc. Le **second nain**, déjà en place derrière l'elfe, arme sa hache
+et fait éclater la sculpture, avant que le premier nain termine son coup.
+
+Les deux attaques bénéficient d'un cadrage autour des trois personnages,
+de bruitages distincts (flèche, bouclier, lame, taille, fracture) et
+de traînées d'armes. Les déplacements de support sont purement graphiques
+et aucune pièce alliée ne quitte sa case réelle.
+
+**Garanties :** les règles, l'historique, les sauvegardes, l'horloge,
+les autorisations et les coups légaux sont toujours déterminés par le serveur.
+Les scènes restent locales et synchronisées au temps du même événement.
+Les captures ne réunissant pas strictement ces conditions utilisent les
+animations précédentes. La vue 2D et le mode Réduire les animations restent
+disponibles. Tests Chromium dédiés aux prises par étau, au spectateur et
+au retour à l'état graphique normal.
 
 ## DEV 0.7.0-dev2 : combats plus dynamiques
 La préversion **0.7.0-dev2** transforme les captures en échanges animés : approche

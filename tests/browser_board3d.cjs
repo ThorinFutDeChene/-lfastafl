@@ -79,12 +79,29 @@ for camp in ('dwarf', 'elf'):
     battle_sessions[camp]=store.approve(request,camp)
 request=store.request(battle.id,store.invites[battle.id]['spectator'],'cinema viewer')
 battle_sessions['spectator']=store.approve(request)
+# Independent elf capture: the arriving archer and the rear sword-bearing
+# ally must bracket a dwarf, which shields the first arrow.
+elfbattle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
+    'capture_cinematic_seconds':12})
+elfbattle.board = [[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(5,1,'E'),(5,4,'N'),(5,5,'E'),(8,8,'R'),(1,8,'N')]:
+    elfbattle.board[row][col] = piece
+elfbattle.turn='elf'
+elfbattle.positions=[elfbattle.signature()]
+store.save(elfbattle)
+elf_sessions={}
+for camp in ('dwarf','elf'):
+    request=store.request(elfbattle.id,store.invites[elfbattle.id]['player'],'elf cinema '+camp)
+    elf_sessions[camp]=store.approve(request,camp)
+request=store.request(elfbattle.id,store.invites[elfbattle.id]['spectator'],'elf cinema viewer')
+elf_sessions['spectator']=store.approve(request)
 server = run('127.0.0.1', 0, store)
 def interrupt(*_):
     raise KeyboardInterrupt
 signal.signal(signal.SIGTERM, interrupt)
 print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions,
-    'battle': {'game':battle.id, 'sessions':battle_sessions}}), flush=True)
+    'battle': {'game':battle.id, 'sessions':battle_sessions},
+    'elfbattle': {'game':elfbattle.id, 'sessions':elf_sessions}}), flush=True)
 try:
     server.serve_forever()
 except KeyboardInterrupt:
@@ -192,7 +209,7 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
     const url = new URL(response.url());
     if (url.pathname.startsWith('/vendor/') ||
       ['/board3d.js', '/figurines3d.js', '/board-view.js', '/move3d.js', '/cinematic3d.js',
-       '/combat-motion.js', '/soundscape.js'].includes(url.pathname)) {
+       '/combat-motion.js', '/flank-capture.js', '/flank-cinematic3d.js', '/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
   });
@@ -1173,7 +1190,11 @@ async function main() {
       assert.equal(beforeCamera.cinematic.articulated,true,
         'The cinematic attacker must have a real articulated rig');
       assert.equal(beforeCamera.cinematic.victims,1);
-      assert.equal(beforeCamera.cinematic.style,'combo');
+      assert.equal(beforeCamera.cinematic.style,'dwarf-double-axe');
+      assert.deepEqual(beforeCamera.cinematic.flank.supporter,[5,5]);
+      assert.deepEqual(beforeCamera.cinematic.flank.pause,[5,2]);
+      assert.equal(beforeCamera.cinematic.flank.supportAnimated,true);
+      assert.equal(beforeCamera.cinematic.flank.sword,false);
       assert.equal(beforeCamera.cinematic.duel,0);
       const rig=await host.evaluate(()=>{
         const scene=document.getElementById('game-board-3d').board3d.captureCinematic;
@@ -1195,12 +1216,11 @@ async function main() {
       });
       const defense=(await diagnostics(host)).cinematic;
       assert(defense.sparkCount>=0,'Parry and impact particles are available');
-      assert(['parade','riposte','feinte','attaque finale'].includes(defense.stage));
-      // Skip the host view early, before awaiting the fragment effects that
-      // occur much later in the shared 12-second cinematic window. Playwright
-      // click stability checks can otherwise wait until the overlay disappears.
-      await host.waitForFunction(() => document.getElementById('game-board-3d')
-        .board3d?.getDiagnostics().cinematic.progress > .22);
+      assert(['hache et arc','arme de l’allié','hache décisive',
+        'sculpture brisée'].includes(defense.stage));
+      // The previous guard-position test has already proven progress. Never
+      // wait a second time for an active timed scene: a 12-second deadline can
+      // expire while a software-WebGL runner services both browser tabs.
       assert(!sameCamera(originalCamera,(await diagnostics(host)).camera),
         'Cinematic must change the personal camera viewpoint');
       assert.equal(await host.locator('#audio-music').count(),1);
@@ -1258,9 +1278,112 @@ async function main() {
     }
   });
 
+  await scenario('Elf archer stops short, dwarf blocks arrow, and allied elven sword splits the dwarf', async()=>{
+    const battle=fixture.elfbattle;
+    assert(battle.game && battle.sessions.elf && battle.sessions.dwarf && battle.sessions.spectator);
+    const host=await context.newPage();
+    const watchers=await makeContext({}, {guest:true});
+    const spectator=await watchers.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.elf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',5);
+      const initial=(await diagnostics(host)).camera;
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',5);
+      await expectImmersiveGuest(spectator,'spectator');
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:battle.game,session:battle.sessions.elf,from:[5,1],to:[5,3],
+      }});
+      assert.equal(move.status(),200);
+      const record=(await move.json()).event;
+      assert.deepEqual(record.captured,[[5,4,'N']]);
+      await Promise.all([host,spectator].map(p=>p.waitForFunction(()=>
+        document.getElementById('game-board-3d')?.board3d?.getDiagnostics().cinematic.active)));
+      const first=await diagnostics(host);
+      assert.equal(first.cinematic.style,'elf-arrow-sword');
+      assert.deepEqual(first.cinematic.flank.supporter,[5,5]);
+      assert.deepEqual(first.cinematic.flank.pause,[5,2]);
+      assert.equal(first.cinematic.flank.splitHalves,2);
+      assert.equal(first.cinematic.flank.sword,true);
+      // Arrival [5,2] is one full legal square short of the final [5,3].
+      await host.waitForFunction(()=>{
+        const cut=document.getElementById('game-board-3d')?.board3d?.captureCinematic;
+        return cut?.flank&&cut.progress>.27&&cut.progress<.61;
+      });
+      const stop=await host.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        return {x:cut.attacker.position.x,z:cut.attacker.position.z,
+          stop:cut.flank.pauseAt.toArray(),final:cut.destination.toArray(),
+          ally:cut.flank.supporter.position.toArray(),
+          blocker:cut.actors[0].figure.userData.kind,
+          split:cut.flank.split.parts.length};
+      });
+      assert(Math.abs(stop.x-stop.stop[0])<.01,'Archer must pause at one full square before final');
+      assert.equal(stop.blocker,'N');
+      assert.equal(stop.split,2,'Bronze dwarf must have two distinct clipped halves');
+      assert(!sameCamera(initial,(await diagnostics(host)).camera));
+      // Dwarf's shield blocks a real 3D arrow, then the ally draws a sword.
+      await host.waitForFunction(()=>{
+        const cut=document.getElementById('game-board-3d')?.board3d?.captureCinematic;
+        return cut?.flank&&cut.flank.phase>.53&&cut.flank.sword?.visible;
+      });
+      const swordState=await host.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        return {sword:cut.flank.sword.getObjectByName('elf-sword-blade')?.isMesh,
+          originalAllyHidden:cut.flank.allyBody?.visible===false,
+          cutActive:cut.flank.split.parts.length===2,
+          allyRight:cut.flank.allyRight.rotation.x};
+      });
+      assert.equal(swordState.sword,true,'The rear elf must have a modeled 3D sword');
+      assert.equal(swordState.originalAllyHidden,true,'No doubled ally on the board');
+      assert(Number.isFinite(swordState.allyRight));
+      // The complete dissection is visible on the local spectator as well.
+      await spectator.waitForFunction(()=>{
+        const cut=document.getElementById('game-board-3d')?.board3d?.captureCinematic;
+        return cut?.flank?.split?.parts?.every(x=>x.root.visible) &&
+          cut.flank.phase>.79;
+      });
+      const bronze=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        const cut=board.captureCinematic;
+        return {halves:cut.flank.split.parts.length,
+          spread:cut.flank.split.parts[0].root.position.distanceTo(
+           cut.flank.split.parts[1].root.position),
+          localClipping:board.renderer.localClippingEnabled};
+      });
+      assert.equal(bronze.halves,2);
+      assert(bronze.spread>.01,'Sword cleave must physically separate the two bronze halves');
+      assert.equal(bronze.localClipping,true);
+      const skipped=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        document.getElementById('capture-skip').click();
+        return {active:board.captureCinematic.active,
+          clipping:board.renderer.localClippingEnabled};
+      });
+      assert.equal(skipped.active,false);
+      assert.equal(skipped.clipping,false,'Local clipping must be restored on skip');
+      await host.evaluate(()=>document.getElementById('capture-skip').click());
+      assert(sameCamera(initial,(await diagnostics(host)).camera),
+        'Host camera returns to its original position after scene skip');
+      const state=await (await context.request.get(base+'/api/state?game='+battle.game)).json();
+      assert.equal(state.game.board[5][3],'E','Only the server-confirmed final position persists');
+      assert.equal(state.game.board[5][4],'.');
+      assert.equal(state.game.board[5][5],'E','The sword-wielding ally never moves');
+      assert.equal(state.game.history.length,1,'Cinematic must not issue extra moves');
+    }finally {
+      await watchers.close();
+      await host.close();
+      failurePage=page;
+    }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
-      '/move3d.js', '/cinematic3d.js', '/combat-motion.js', '/soundscape.js',
+      '/move3d.js', '/cinematic3d.js', '/combat-motion.js',
+      '/flank-capture.js', '/flank-cinematic3d.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);

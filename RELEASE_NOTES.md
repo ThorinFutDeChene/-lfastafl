@@ -1,33 +1,39 @@
-# Álfastafl 0.7.0-dev2 — chorégraphies de combat plus dynamiques
+# Álfastafl 0.7.0-dev3 — combats en étau, façon échecs magiques
 
-## Nouveautés
-- Les captures sont désormais de vrais **enchaînements courts** : approche,
-  feinte, parade, esquive latérale, riposte, coup final et fracture.
-- Les trois camps conservent leurs figurines sculptées et articulations :
-  le nain frappe à la hache et pare au bouclier, l'elfe vise et projette
-  une flèche 3D, le roi attaque à l'épée.
-- **Étincelles locales**, traînées lumineuses d'armes, impact défensif puis
-  impact final, et mouvements de caméra rapprochés avec secousses limitées.
-- **Effet sonore de riposte** original synthétisé hors ligne.
-- Petites variations déterministes des duels pour éviter les séquences
-  strictement identiques, sans hasard au moment du rendu.
-- Les captures multiples enchaînent tous les combats dans la même fenêtre
-  de temps serveur, sans ajouter de coups ni retarder artificiellement un tour.
-- Nouveau test des enveloppes de mouvement (feinte/parade/esquive/riposte/
-  frappe), vérification de la reproductibilité et contrôles Chromium.
+## Nouvelles scènes 3D
 
-## Compatibilité
-- Aucun changement des règles, sauvegardes, autorisations LAN et chronomètres.
-- Temps de scène inchangés : 4 s (rapide), 8 s (classique), 12 s (épique).
-- Animation calculée localement à partir du temps restant du serveur :
-  reprise en cours de scène sans rejouer les effets précédents.
-- « Passer la scène », la vue 2D et « Réduire les animations » restent
-  disponibles. Pas de téléchargement de médias.
-- Les pièces de jeu restent des sculptures optimisées ; seuls les combattants
-  cinématographiques sont articulés.
-- **À vérifier sur du matériel réel** : fluidité et effets sous QtWebEngine
-  (Ubuntu MATE), Safari mobile et Chrome Android.
+**Capture elfe → nain (deux elfes en étau)**
+1. L'elfe ayant joué avance jusqu'à la case **précédant** la case confirmée.
+2. Il décoche une flèche visible. Le nain la pare avec son bouclier.
+3. L'elfe déjà présent derrière le nain dégaine une véritable épée elfique
+   sculptée, puis porte un coup de taille.
+4. Le nain de bronze se fend en **deux moitiés découpées par clipping 3D**,
+   qui se séparent. L'elfe mobile termine enfin son déplacement.
+
+**Capture nain → elfe (deux nains en étau)**
+1. Le nain mobile s'arrête avant sa destination et attaque à la hache.
+2. L'elfe pare avec le bras protégé par son arc.
+3. Le nain allié de l'autre côté assène le coup de hache final : la statue
+   d'elfe se fracture en éclats. Le nain mobile termine sa course.
+
+## Sécurité et compatibilité
+
+- **Aucun changement de règles.** La pièce alliée de soutien est recherchée
+  uniquement dans le plateau final confirmé par le serveur, et uniquement
+  pour une prise adjacente ordinaire en étau. Rien n'est inventé pour les
+  captures spéciales ni pour celles impliquant le roi.
+- La cinématique conserve le même temps serveur et n'ajoute aucune action
+  ni aucun tour. Les commandes des joueurs et les sauvegardes restent intactes.
+- Le spectateur voit la même scène, sans droit de jeu.
+- Le passage de scène restaure toutes les pièces réelles, les matériaux,
+  le clipping et la caméra d'origine.
+- L'ensemble des assets, flèches, armes, particules et sons sont générés
+  localement, sans téléchargement, et restent compatibles hors ligne.
+- Nouvelles assertions sur les pièces d'appui, les poses, la séparation
+  en deux moitiés, les chronomètres et l'absence de coups supplémentaires.
+- Essais physiques Ubuntu MATE et appareils mobiles encore nécessaires.
 
 ## Distribution
-- Paquet Debian **0.7.0~dev2**, canal **Développement (DEV)**.
-- La stable n'est pas modifiée.
+
+- Paquet Debian **0.7.0~dev3**, canal **DEV**.
+- La stable 0.5.0 reste inchangée.

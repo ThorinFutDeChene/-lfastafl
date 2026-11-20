@@ -45,6 +45,8 @@ jobs:
         run: node tests/ui_audio.cjs
       - name: Verify deterministic cinematic fight choreography
         run: node tests/ui_combat_motion.cjs
+      - name: Verify flank combat storyboards and supporting allies
+        run: node tests/ui_flank_capture.cjs
       - name: Install tutorial browser test dependencies
         timeout-minutes: 10
         run: |

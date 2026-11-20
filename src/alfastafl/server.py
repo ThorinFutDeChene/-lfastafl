@@ -565,7 +565,8 @@ class AppHandler(BaseHTTPRequestHandler):
     def static(self,path):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
         assets=('index.html','app.js','tutorial.js','style.css',
-                'board-view.js','board3d.js','figurines3d.js','move3d.js','cinematic3d.js','combat-motion.js','soundscape.js',
+                'board-view.js','board3d.js','figurines3d.js','move3d.js','cinematic3d.js','combat-motion.js','flank-capture.js',
+                'flank-cinematic3d.js','soundscape.js',
                 'vendor/three/three.module.js','vendor/three/three.core.js',
                 'vendor/three/OrbitControls.js','vendor/three/BufferGeometryUtils.js',
                 'vendor/three/LICENSE.txt')

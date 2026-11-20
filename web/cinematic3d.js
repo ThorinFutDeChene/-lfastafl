@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import {createFigurine} from './figurines3d.js';
 import {duelWindow,combatVariant,duelMotion,smooth} from './combat-motion.js';
+import {flankPlan} from './flank-capture.js';
+import {FlankCinematic} from './flank-cinematic3d.js';
 
 const SURFACE=.12;
 const clamp=x=>Math.max(0,Math.min(1,x));
@@ -45,6 +47,7 @@ export class CaptureCinematic {
   this._resources=[];
   this._hidden=[];
   this.actors=[];
+  this.flank=null;
   this.progress=0;
   this.key='';
  }
@@ -84,6 +87,10 @@ export class CaptureCinematic {
    }
   }
   if(!victims.length){this.cancel();return false;}
+  // Only an ordinary single-piece sandwich capture qualifies. A corner,
+  // hostile throne, king or shieldwall may not invent an allied executioner.
+  const plan=event.captured.length===1&&victims.length===1
+   ?flankPlan(event,board._view.board,event.captured[0]):null;
   this._hidden=[];
   const squares=[event.to,...victims.map(v=>v.at)];
   for(const figure of board._visiblePieces) {
@@ -156,7 +163,16 @@ export class CaptureCinematic {
     ...duelWindow(index,count),variant:combatVariant(event,index)};
   });
   this.soundCues=[['move',.025,'move']];
-  for(const victim of this.actors) {
+  if(plan) {
+   const [victim]=this.actors;
+   const cue=(tag,phase,name)=>this.soundCues.push([
+    tag,victim.start+(victim.end-victim.start)*phase,name]);
+   cue('opening',.25,plan.style==='elf-arrow-sword'?'arrow':'swing');
+   cue('parry',.38,plan.style==='elf-arrow-sword'?'shield':'guard');
+   cue('support-draw',.54,plan.style==='elf-arrow-sword'?'blade':'swing');
+   cue('support-hit',.74,plan.style==='elf-arrow-sword'?'slice':'strike');
+   cue('shatter',.82,'shatter');
+  } else for(const victim of this.actors) {
    const width=victim.end-victim.start;
    const beat=(name,point,effect)=>this.soundCues.push(
     [name+'-'+victim.index,victim.start+width*point,effect]);
@@ -209,6 +225,10 @@ export class CaptureCinematic {
   this.combatTarget=center;
   this.combatTarget.y=.46;
   this.cameraVector=this.originalCamera.clone().sub(this.originalTarget).normalize();
+  if(plan) {
+   const flanking=new FlankCinematic(this,plan,event);
+   if(flanking.start())this.flank=flanking;
+  }
   this._loop();
   return true;
  }
@@ -227,6 +247,14 @@ export class CaptureCinematic {
    this.cancel();return;
   }
   const t=this.progress=clamp((performance.now()-this.startTime)/(this.duration*1000));
+  if(this.flank) {
+   this.flank.update(t);
+   this._sounds();
+   board._requestDraw();
+   if(t>=1){this.cancel();return;}
+   this._frame=requestAnimationFrame(()=>this._loop());
+   return;
+  }
   const travel=phase(t,0,.20);
   const attacker=this.attacker;
   // Every client derives poses from the server's remaining-time timeline.
@@ -398,6 +426,8 @@ export class CaptureCinematic {
   if(!this.active)return;
   this.active=false;
   const board=this.board;
+  this.flank?.cancel();
+  this.flank=null;
   for(const figure of this._hidden)figure.visible=true;
   this._hidden.length=0;
   if(this.scene){board.scene.remove(this.scene);this.scene.clear();this.scene=null;}

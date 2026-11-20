@@ -178,7 +178,14 @@
     this._noise(now,.17,.074,900,'bandpass');
     this._voice(390,now,.19,.063,'triangle',null,190);
     this._voice(134,now+.065,.18,.028,'square',null,77);
-   }else if(name==='strike'){
+   }else if(name==='blade'){
+     this._voice(1280,now,.31,.036,'triangle',null,820);
+     this._noise(now,.16,.029,1900,'highpass');
+    }else if(name==='slice'){
+     this._noise(now,.26,.091,1460,'bandpass');
+     this._voice(940,now,.25,.060,'sawtooth',null,270);
+     this._voice(168,now+.095,.28,.092,'triangle',null,76);
+    }else if(name==='strike'){
     this._noise(now,.35,.16,260,'lowpass');
     this._voice(95,now,.67,.17,'triangle',null,40);
     this._voice(810,now,.32,.04,'square',null,170);

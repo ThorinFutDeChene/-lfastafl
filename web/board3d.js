@@ -788,7 +788,17 @@ export class Board3D {
         articulated: this.captureCinematic.active &&
           Boolean(this.captureCinematic.attackerRig?.right),
         victims: this.captureCinematic.actors?.length || 0,
-        style: this.captureCinematic.active ? 'combo' : null,
+        style: this.captureCinematic.active
+          ? (this.captureCinematic.flank?.style || 'combo') : null,
+        flank: this.captureCinematic.flank ? {
+          supporter: [...this.captureCinematic.flank.plan.supporter],
+          pause: [...this.captureCinematic.flank.plan.pause],
+          supportAnimated: Boolean(this.captureCinematic.flank.supporter),
+          sword: Boolean(this.captureCinematic.flank.sword),
+          splitHalves: this.captureCinematic.flank.split?.parts?.length || 0,
+          attackerAt: this.captureCinematic.attacker.position.toArray(),
+          phase: this.captureCinematic.flank.phase || 0,
+        } : null,
         duel: this.captureCinematic.duel ?? -1,
         stage: this.captureCinematic.stage || '',
         sparkCount: this.captureCinematic.actors?.reduce((sum, actor) =>
