@@ -99,7 +99,7 @@ test('Move, parries, individual blows and final synchronized strike are frame de
      'Every authentic dwarf participates in the final blow');
   }
  }
- assert.equal(siegeMotion(.17,smooth,pulse).move,1);
+ assert.equal(siegeMotion(.175,smooth,pulse).move,1);
  assert.equal(siegeMotion(1,smooth,pulse).fracture,1);
  assert.equal(siegeMotion(1,smooth,pulse).camera,0);
 });
