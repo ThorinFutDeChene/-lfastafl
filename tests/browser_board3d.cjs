@@ -1093,10 +1093,10 @@ async function main() {
       assert.deepEqual((await diagnostics(host)).camera,initialCamera);
       const history=(await (await context.request.get(base+'/api/state?game='+data.game)).json()).game.history;
       assert.equal(history.length,1,'The presentation must never emit a second server move');
-      // This optional screenshot is taken after a live WebGL motion test.
-      // A page snapshot does not require the animated board wrapper to stay
-      // layout-stable for Playwright's locator.screenshot action.
-      await capture(host,'host-fluid-movement.png');
+      // Live movement is verified through exact positions and elapsed frames.
+      // A full screenshot of the continuously animated software-WebGL viewport
+      // is not a gameplay assertion and can stall Chromium on CI.
+      // Earlier static board screenshots are retained for the visual report.
     }finally{
       await host.close();await watcherContext.close();failurePage=page;
     }
