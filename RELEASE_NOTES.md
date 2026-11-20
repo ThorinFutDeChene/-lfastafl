@@ -1,49 +1,44 @@
-# Álfastafl 0.7.0-dev5 — Le dernier combat du Roi
+# Álfastafl 0.7.0-dev6 — Capture contre le trône vide, dans les deux sens
 
-## Cinématique de victoire des Nains
+## Deux scènes de capture cinématographique
 
-Déclenchement : coup de nain **validé par le serveur** avec
-`reason=king_captured`, `winner=dwarf`, `status=finished`.
+**1 nain capture 1 elfe contre le trône :**
+1. Le nain atteint sa vraie case d'arrivée avant de frapper au contact.
+2. Il porte un coup de hache, paré par l'elfe avec son bras protégeant l'arc.
+3. Le nain frappe de nouveau et projette la sculpture elfique contre le trône.
+4. Impact sur le socle, étincelles et **18 fragments de l'elfe** en 3D.
 
-- Le nain qui vient de jouer **achève son déplacement** sur la case
-  définitive avant de porter un coup de hache au contact.
-- Le roi se retourne, pare plusieurs coups avec son épée et tente
-  une ultime résistance.
-- Les nains **réellement positionnés** autour de lui frappent à tour de
-  rôle, puis enchaînent une attaque coordonnée.
-- Leur nombre est dicté par les règles effectivement appliquées :
-  **deux nains** en prise historique sur un axe, **quatre nains**
-  en encerclement complet, ou **trois nains** dans les configurations
-  spéciales avec trône. Aucun combattant fictif n'est ajouté.
-- La sculpture du roi s'affaisse puis se brise en **30 fragments 3D**.
-  Sa **couronne sculptée est projetée**. Onde de choc et éclats
-  lumineux accompagnent les haches.
-- Caméra mobile et petite secousse au coup final, sons d'épée, haches,
-  couronne et **fanfare de victoire des nains** composée par synthèse
-  locale sans téléchargement.
-- Affichage : **« Victoire des Nains — le roi livre son dernier combat ! »**
+**1 elfe capture 1 nain contre le trône :**
+1. L'archer s'arrête une case avant sa destination.
+2. Il tire une flèche parée par le bouclier du nain.
+3. Une seconde flèche pousse la sculpture de bronze contre le trône.
+4. Éclats de la sculpture (18 fragments), **12 petits débris visuels**
+   sur le socle, puis l'archer finit son déplacement réel.
 
-## Garanties techniques
+Les deux scènes bénéficient d'une caméra locale mobile, des
+animations d'armes articulées et de sons de choc contre la pierre,
+entièrement synthétisés et disponibles hors ligne.
 
-- Le moteur de règles est inchangé. Le plateau réel conserve le roi sur sa
-  case (le moteur définit cette victoire par immobilisation/encerclement) ;
-  les sculptures animées n'affectent jamais l'historique ni les sauvegardes.
-- Les nains de soutien restent à leur case, aucun mouvement de plateau
-  supplémentaire. Le jeu et les horloges restent arrêtés une fois la victoire
-  constatée par le serveur.
-- Les scènes de victoire des Elfes à cheval et les captures ordinaires
-  restent inchangées.
-- Durées **4, 8 ou 12 secondes**, option Désactivées, vue 2D, préférences
-  de réduction des animations et bouton **Passer** maintenus.
-- Les clients LAN et spectateurs reçoivent le même événement de victoire,
-  et les scènes locales suivent le même temps serveur.
-- Tests : six configurations de capture du roi en Python, planificateur
-  2/3/4 nains et phases de combat en Node, cas historiques et Fetlar réels
-  dans Chromium, et bruitages synthétiques hors ligne.
-- **Tests physiques Ubuntu MATE et appareils mobiles recommandés** avant
-  toute promotion de cette version en stable.
+## Déclenchement conforme aux règles
 
-## Distribution
+- Le trône doit être **vide** ; le centre est hostile aux soldats des deux
+  camps dans les trois variantes. Les cas d'un roi sur le trône, d'une
+  capture en étau par deux pièces, d'un mur de boucliers ou d'une
+  capture du roi suivent leurs propres règles et scènes.
+- Une unique capture doit avoir été **confirmée par le serveur**,
+  sur la case exactement comprise entre l'attaquant et le trône.
+- **Aucun changement** des règles Tafl, des tours, du chronomètre, des
+  permissions réseau, de l'historique et des sauvegardes. Le trône ne
+  change ni de case ni d'occupation après la scène.
+- Durées existantes 4/8/12 s, Désactivées, Passer, Réduire les animations,
+  affichage 2D et spectateurs inchangés.
+- Tests de captures réelles Python (2 camps × 3 variantes), déterminisme
+  Node et scénarios Chromium avec les deux camps, caméra, fragments,
+  spectateur et retour au plateau.
+- Validation matérielle Ubuntu MATE, tablette et smartphone à réaliser
+  avant promotion en stable.
 
-- Paquet Debian **0.7.0~dev5**, canal **Développement (DEV)**.
+## Publication
+
+- Paquet Debian **0.7.0~dev6**, canal **Développement (DEV)**.
 - Stable 0.5.0 inchangée.

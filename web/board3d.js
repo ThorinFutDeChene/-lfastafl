@@ -814,7 +814,18 @@ export class Board3D {
         style: this.siegeCinematic.active ? 'king-last-stand' :
           this.escapeCinematic.active ? 'royal-cavalry' :
           this.captureCinematic.active
-          ? (this.captureCinematic.flank?.style || 'combo') : null,
+          ? (this.captureCinematic.throne?.style ||
+             this.captureCinematic.flank?.style || 'combo') : null,
+        throne: this.captureCinematic.throne ? {
+          style: this.captureCinematic.throne.style,
+          victimKind: this.captureCinematic.throne.plan.victimKind,
+          target: [...this.captureCinematic.throne.plan.throne],
+          attacker: [...this.captureCinematic.throne.plan.attacker],
+          pause: [...this.captureCinematic.throne.plan.pause],
+          phase: this.captureCinematic.throne.phase,
+          rubble: this.captureCinematic.throne.rubble?.length || 0,
+          visibleRubble: this.captureCinematic.throne.rubble?.filter(x => x.visible).length || 0,
+        } : null,
         flank: this.captureCinematic.flank ? {
           supporter: [...this.captureCinematic.flank.plan.supporter],
           pause: [...this.captureCinematic.flank.plan.pause],

@@ -7,6 +7,8 @@ import {createFigurine} from './figurines3d.js';
 import {duelWindow,combatVariant,duelMotion,smooth} from './combat-motion.js';
 import {flankPlan} from './flank-capture.js';
 import {FlankCinematic} from './flank-cinematic3d.js';
+import {throneCapturePlan} from './throne-capture.js';
+import {ThroneCinematic} from './throne-cinematic3d.js';
 
 const SURFACE=.12;
 const clamp=x=>Math.max(0,Math.min(1,x));
@@ -48,6 +50,7 @@ export class CaptureCinematic {
   this._hidden=[];
   this.actors=[];
   this.flank=null;
+  this.throne=null;
   this.progress=0;
   this.key='';
  }
@@ -91,6 +94,8 @@ export class CaptureCinematic {
   // hostile throne, king or shieldwall may not invent an allied executioner.
   const plan=event.captured.length===1&&victims.length===1
    ?flankPlan(event,board._view.board,event.captured[0]):null;
+  const thronePlan=!plan&&event.captured.length===1&&victims.length===1
+   ?throneCapturePlan(event,board._view.board,board._view.mode):null;
   this._hidden=[];
   const squares=[event.to,...victims.map(v=>v.at)];
   for(const figure of board._visiblePieces) {
@@ -163,7 +168,15 @@ export class CaptureCinematic {
     ...duelWindow(index,count),variant:combatVariant(event,index)};
   });
   this.soundCues=[['move',.025,'move']];
-  if(plan) {
+  if(thronePlan){
+   const dwarf=event.piece==='N';
+   this.soundCues.push(
+    ['throne-first',.34,dwarf?'dwarven-axe':'arrow'],
+    ['throne-block',.42,dwarf?'guard':'shield'],
+    ['throne-second',.73,dwarf?'dwarven-axe':'arrow'],
+    ['throne-impact',.80,'throne-impact'],
+    ['throne-shatter',.87,'shatter']);
+  }else if(plan) {
    const [victim]=this.actors;
    const cue=(tag,phase,name)=>this.soundCues.push([
     tag,victim.start+(victim.end-victim.start)*phase,name]);
@@ -228,6 +241,9 @@ export class CaptureCinematic {
   if(plan) {
    const flanking=new FlankCinematic(this,plan,event);
    if(flanking.start())this.flank=flanking;
+  }else if(thronePlan){
+   const againstThrone=new ThroneCinematic(this,thronePlan,event);
+   if(againstThrone.start())this.throne=againstThrone;
   }
   this._loop();
   return true;
@@ -247,8 +263,9 @@ export class CaptureCinematic {
    this.cancel();return;
   }
   const t=this.progress=clamp((performance.now()-this.startTime)/(this.duration*1000));
-  if(this.flank) {
-   this.flank.update(t);
+  if(this.flank||this.throne) {
+   if(this.flank)this.flank.update(t);
+   else this.throne.update(t);
    this._sounds();
    board._requestDraw();
    if(t>=1){this.cancel();return;}
@@ -428,6 +445,8 @@ export class CaptureCinematic {
   const board=this.board;
   this.flank?.cancel();
   this.flank=null;
+  this.throne?.cancel();
+  this.throne=null;
   for(const figure of this._hidden)figure.visible=true;
   this._hidden.length=0;
   if(this.scene){board.scene.remove(this.scene);this.scene.clear();this.scene=null;}

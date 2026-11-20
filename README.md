@@ -1,13 +1,50 @@
-# Álfastafl — 0.7.0-dev5 (canal DEV)
+# Álfastafl — 0.7.0-dev6 (canal DEV)
 
-La **0.7.0-dev5** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev6** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev5` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev6` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev6 : captures d'un soldat contre le trône vide, dans les deux sens
+
+Le trône vide est une case hostile aux soldats des **deux camps**
+dans les trois variantes jouées. La cinématique se déclenche seulement
+après une capture à une seule victime, confirmée par le serveur, lorsque
+la sculpture adverse est située **entre la pièce qui vient de jouer et
+le trône VIDE**. Aucun second combattant fictif n'est généré.
+
+**Nain contre elfe :** le nain termine son déplacement jusqu'à la case
+réellement choisie ; au contact, il assène un premier coup de hache,
+l'elfe tente de parer avec le bras portant son arc, puis le nain
+arme sa hache et donne le coup décisif. L'elfe est projeté contre le
+trône, dont il fait jaillir de petits morceaux de pierre, puis sa
+sculpture éclate en **18 fragments 3D**.
+
+**Elfe contre nain :** l'archer s'immobilise une case avant sa destination,
+décoche une flèche que le nain détourne avec son bouclier, puis en
+tire une deuxième qui projette le nain de bronze contre le trône.
+La sculpture explose en **18 fragments** et la collision produit
+**12 débris du trône** (effets visuels locaux). L'archer termine
+son déplacement jusqu'à la case sélectionnée.
+
+Sons originaux (arc, parade, hache, collision et fracture), caméra
+mobile, étincelles et retour à l'angle de vue initial. Le trône
+lui-même et son état de jeu restent intacts, aucun coup ni capture
+supplémentaire n'est généré. La scène fonctionne aussi pour les
+spectateurs autorisés, suit le temps envoyé par le serveur, et
+respecte les durées 4, 8, 12 s, le bouton Passer, la vue 2D et
+Réduire les animations. Les captures contre un trône occupé, par
+encadrement ou par mur de boucliers utilisent les scènes prévues
+pour leur configuration réelle.
+
+Les tests Python valident les deux camps dans les trois modes,
+les tests Node vérifient le plan de la scène et sa chronologie,
+et Chromium contrôle le rendu hôte/spectateur et l'intégrité du
+plateau après la capture.
 
 ## DEV 0.7.0-dev5 : dernier combat du roi, 2, 3 ou 4 nains
 

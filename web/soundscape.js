@@ -189,6 +189,12 @@
     this._noise(now,.35,.16,260,'lowpass');
     this._voice(95,now,.67,.17,'triangle',null,40);
     this._voice(810,now,.32,.04,'square',null,170);
+   }else if(name==='throne-impact'){
+    this._noise(now,.47,.18,240,'lowpass');
+    this._voice(84,now,.58,.19,'triangle',null,32);
+    this._noise(now+.035,.23,.071,1300,'bandpass');
+    [440,710,960].forEach((pitch,i)=>
+     this._voice(pitch,now+i*.048,.19,.023,'triangle',null,pitch*.55));
    }else if(name==='shatter'){
     this._noise(now,.55,.13,1500,'highpass');
     [440,710,1040,1470,1930].forEach((pitch,i)=>

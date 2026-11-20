@@ -116,6 +116,7 @@ test('Music and effect levels have independent immediate controls and persist ac
  audio.effect('royal-mount');
  audio.effect('king-defiance');
  audio.effect('dwarven-axe');
+ audio.effect('throne-impact');
  audio.effect('royal-crown-fall');
  audio.effect('dwarven-victory');
  audio.effect('strike');
