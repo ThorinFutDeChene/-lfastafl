@@ -378,8 +378,21 @@ async function dragMove(page, from, to) {
 
 async function capture(page, filename, locator = null) {
   const destination = path.join(output, filename);
-  if (locator) await page.locator(locator).screenshot({path: destination});
-  else await page.screenshot({path: destination});
+  if (locator) {
+    const target=page.locator(locator);
+    await target.waitFor({state:'visible'});
+    const box=await target.boundingBox();
+    assert(box && box.width>2 && box.height>2,
+      'Screenshot target must be visible: '+locator);
+    // locator.screenshot waits for layout stability, which an active WebGL
+    // board does not promise. Capture the current viewport area directly.
+    const vp=page.viewportSize();
+    const x=Math.max(0,Math.floor(box.x)),y=Math.max(0,Math.floor(box.y));
+    const width=Math.min(Math.ceil(box.width),vp.width-x);
+    const height=Math.min(Math.ceil(box.height),vp.height-y);
+    assert(width>1 && height>1,'Screenshot target is outside the viewport: '+locator);
+    await page.screenshot({path:destination,clip:{x,y,width,height}});
+  } else await page.screenshot({path: destination});
   report.screenshots.push(path.relative(root, destination));
 }
 
