@@ -1,13 +1,37 @@
-# Álfastafl — 0.6.0-dev1 (canal DEV)
+# Álfastafl — 0.7.0-dev1 (canal DEV)
 
-La **0.6.0-dev1** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev1** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.6.0~dev1` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev1` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0 : combats articulés et cinématiques
+**Figurines articulées en combat.** Lorsqu'une capture est confirmée par le serveur,
+la scène utilise temporairement des sculptures segmentées : bras, armes, jambes et tête
+pivotent autour d'articulations locales. Le nain arme sa hache et son bouclier ;
+l'elfe défend son arc ; le roi garde son épée et son sceptre. Les figurines
+ordinaires restent fusionnées afin de préserver les performances WebGL.
+**Mise en scène.** L'attaquant s'élance, oriente son corps vers la victime,
+prépare l'attaque, frappe, et la victime tente de se protéger avant de céder.
+En cas de capture multiple, les adversaires sont traités successivement dans
+la durée impartie par le serveur. Chaque statue vaincue produit 18 éclats 3D
+avec trajectoires balistiques. La caméra effectue un léger travelling et reprend
+exactement l'orientation initiale après la scène ou son interruption.
+**Audio.** Ajout d'effets hors ligne distincts pour le tir d'arc, la garde et
+le bouclier, synchronisés aux impacts et à la fragmentation. Les canaux de
+volume existants sont conservés.
+**Intégrité.** Aucun changement des règles, des sauvegardes, de la gestion des
+connexions, ni de l'horloge authoritative. L'hôte, les joueurs et les spectateurs
+disposent de scènes locales synchronisées aux mêmes horodatages de combat.
+La vue 2D, les appareils sans WebGL et l'option système Réduire les animations
+restent pris en charge.
+**Validation.** Les scénarios Chromium vérifient désormais les articulations,
+la fragmentation et l'indépendance des modèles de jeu. À valider sur
+Ubuntu MATE/QtWebEngine et téléphones/tablettes avant promotion stable.
 
 ## DEV 0.6.0 : déplacement fluide des figurines et ambiance sonore
 
@@ -15,11 +39,11 @@ Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte loca
 
 **Musique et effets.** Le moteur Web Audio produit hors ligne une ambiance nordique originale : mélodie lente, bourdon grave, percussions sourdes et souffle de vent. L'atmosphère se tend progressivement après plusieurs coups. Les déplacements et captures disposent d'effets de friction, d'armes, de chocs et de fracture de pierre/bronze. **Musique** et **Effets** ont chacun leur volume, modifiable immédiatement et mémorisé indépendamment sur chaque ordinateur, tablette ou téléphone. Le bouton **Activer / Couper le son** respecte les restrictions de lecture automatique des navigateurs ; un geste utilisateur est nécessaire. Aucune piste musicale ni aucun fichier audio tiers n'est téléchargé.
 
-**Limites.** Le modèle des figurines est encore procédural, sans squelette articulé ; les gestes d'armes et combats cinématographiques complets restent le jalon artistique **0.7.0**. Un prototype de capture/sculpture brisée, déjà présent depuis la 0.5.1-dev5, reste disponible et ne doit pas être confondu avec l'animation finale. Les animations en 3D nécessitent WebGL2 ; la vue 2D demeure entièrement fonctionnelle.
+**Historique 0.6.0.** La première scène de capture utilisait des sculptures rigides ; l'articulation et les nouveaux effets arrivent en 0.7.0. Un prototype de capture/sculpture brisée, déjà présent depuis la 0.5.1-dev5, reste disponible et ne doit pas être confondu avec l'animation finale. Les animations en 3D nécessitent WebGL2 ; la vue 2D demeure entièrement fonctionnelle.
 
 ## Cinématiques de capture et son (prototype introduit en DEV 0.5.1-dev5)
 
-**Captures façon échecs magiques :** les nains de bronze, les elfes de pierre et le roi restent des **sculptures** pendant le combat. Après une capture validée par le moteur, la caméra se rapproche du lieu de l'affrontement, l'attaquant s'élance, la figurine touchée bascule et se fragmente en éclats, puis la caméra revient au cadrage initial. Les captures multiples animent plusieurs victimes. La capture du roi dispose d'un effet sonore spécifique et d'éclats dorés. Les figurines actuelles sont générées procéduralement ; **leurs membres et leurs armes ne sont pas encore articulés** comme dans une production cinématographique : cette DEV est la première passe d'animation.
+**Captures façon échecs magiques :** les nains de bronze, les elfes de pierre et le roi restent des **sculptures** pendant le combat. Après une capture validée par le moteur, la caméra se rapproche du lieu de l'affrontement, l'attaquant s'élance, la figurine touchée bascule et se fragmente en éclats, puis la caméra revient au cadrage initial. Les captures multiples animent plusieurs victimes. La capture du roi dispose d'un effet sonore spécifique et d'éclats dorés. Les figurines actuelles sont générées procéduralement ; **leurs membres et leurs armes deviennent articulés dans les scènes de combat de la 0.7.0** ; le rendu en jeu reste optimisé.
 
 Dans **Héberger → Captures animées**, choisir **Rapide (4 s)**, **Classique (8 s, défaut)**, **Épique (12 s)** ou **Désactivées**. Pendant une capture active, **le serveur suspend le chronomètre et refuse les coups suivants** jusqu'à la fin de la scène ; la décision des captures reste exclusivement celle du moteur. Les invités autorisés et les spectateurs reçoivent la même capture avec le temps restant pour la voir au bon moment. Chaque appareil dispose du bouton **Passer la scène** ; il peut revenir immédiatement au plateau, mais le prochain tour attend la fin de la période commune, même si un utilisateur a passé la scène. Une partie existante créée avant ce jalon conserve son paramètre précédent (captures sans pause), sauf nouvelle partie créée avec l'option.
 
@@ -63,7 +87,7 @@ Les parties et le tutoriel utilisent la **Vue 3D** par défaut. Le plateau 11×1
 - **Elfes en pierre claire** : oreilles, cape et arc.
 - **Roi en pierre claire** : couronne, épée et sceptre.
 
-Les figurines restent des modèles procéduraux de première génération. La DEV 0.5.1-dev5 ajoute des **scènes de capture avec mouvements de groupes, effets d'impact et éclats de matière**, ainsi que le son. Les corps ne sont pas encore articulés en squelette et la finition artistique sera poursuivie.
+Les figurines restent des modèles procéduraux de première génération. La DEV 0.5.1-dev5 ajoute des **scènes de capture avec mouvements de groupes, effets d'impact et éclats de matière**, ainsi que le son. Les membres deviennent articulés dans les scènes de capture à compter de la 0.7.0, sans modification des figurines statiques.
 
 ### Commandes
 

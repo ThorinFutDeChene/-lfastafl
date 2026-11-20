@@ -105,6 +105,9 @@ test('Music and effect levels have independent immediate controls and persist ac
  assert.equal(h.values.get('alfastafl.effects-volume'),'0.32');
  const before=h.stats.oscillators;
  audio.effect('move');
+ audio.effect('arrow');
+ audio.effect('guard');
+ audio.effect('shield');
  audio.effect('strike');
  audio.effect('shatter');
  assert(h.stats.oscillators>before,'Confirmed moves/captures generate effects');

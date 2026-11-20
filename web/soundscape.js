@@ -163,7 +163,18 @@
     this._noise(now,.44,.079,1100,'bandpass');
     this._voice(620,now,.39,.084,'sawtooth',null,90);
     this._voice(360,now+.03,.3,.04,'triangle',null,105);
-   }else if(name==='strike'){
+   }else if(name==='arrow'){
+     this._noise(now,.19,.05,1600,'highpass');
+     this._voice(780,now,.23,.035,'triangle',null,240);
+     this._voice(280,now+.09,.26,.025,'sine',null,160);
+    }else if(name==='guard'){
+     this._noise(now,.16,.095,430,'bandpass');
+     this._voice(310,now,.30,.065,'triangle',null,175);
+    }else if(name==='shield'){
+     this._noise(now,.31,.13,360,'bandpass');
+     this._voice(145,now,.42,.15,'triangle',null,70);
+     this._voice(480,now+.02,.30,.038,'triangle',null,290);
+    }else if(name==='strike'){
     this._noise(now,.35,.16,260,'lowpass');
     this._voice(95,now,.67,.17,'triangle',null,40);
     this._voice(810,now,.32,.04,'square',null,170);

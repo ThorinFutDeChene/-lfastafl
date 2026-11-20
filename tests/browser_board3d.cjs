@@ -1159,7 +1159,24 @@ async function main() {
       assert.equal(await spectator.locator('#capture-overlay').isVisible(),true);
       assert.equal(await spectator.locator('#host').isVisible(),false);
       const beforeCamera=await diagnostics(host);
-      assert.equal(beforeCamera.cinematic.shardCount,12);
+      assert.equal(beforeCamera.cinematic.shardCount,18,
+        'Each sculpture has eighteen fragments');
+      assert.equal(beforeCamera.cinematic.articulated,true,
+        'The cinematic attacker must have a real articulated rig');
+      assert.equal(beforeCamera.cinematic.victims,1);
+      const rig=await host.evaluate(()=>{
+        const scene=document.getElementById('game-board-3d').board3d.captureCinematic;
+        const check=figure=>['left-arm','right-arm','head','left-leg','right-leg']
+          .every(name=>Boolean(figure.getObjectByName('combat-'+name)));
+        const boardFigure=document.getElementById('game-board-3d').board3d._visiblePieces[0];
+        return {attacker:check(scene.attacker),
+          defender:check(scene.actors[0].figure),
+          boardHasJoints:Boolean(boardFigure?.getObjectByName('combat-right-arm'))};
+      });
+      assert.equal(rig.attacker,true,'Dwarf combat rig has poseable axe, shield and limbs');
+      assert.equal(rig.defender,true,'Elf defender has articulated carved bow and limbs');
+      assert.equal(rig.boardHasJoints,false,
+        'Ordinary pieces must retain the low-draw-call rigid mesh');
       // Skip the host view early, before awaiting the fragment effects that
       // occur much later in the shared 12-second cinematic window. Playwright
       // click stability checks can otherwise wait until the overlay disappears.
@@ -1192,10 +1209,21 @@ async function main() {
         if(!animation?.active)return false;
         const shown=animation.actors.reduce((sum,actor)=>
           sum+actor.shards.filter(shard=>shard.visible).length,0);
-        return shown>0?{shown,progress:animation.progress}:false;
+        return shown>0&&!animation.actors[0].figure.visible
+          ?{shown,progress:animation.progress}:false;
       });
       const fragments=await fragmentsHandle.jsonValue();
       assert(fragments.shown>0,'Shattered sculpture must produce visible 3D fragments');
+      const pose=await spectator.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        return {rightArm:cut.attackerRig.right.rotation.x,
+          fragments:cut.actors[0].shards.length,
+          defenderVisible:cut.actors[0].figure.visible};
+      });
+      assert.equal(pose.fragments,18);
+      assert.equal(pose.defenderVisible,false,
+        'After fracture the opponent gives way to 3D fragments');
+      assert(Number.isFinite(pose.rightArm));
       const spectatorSkipped=await spectator.evaluate(()=>{
         const board=document.getElementById('game-board-3d').board3d;
         if(!board?.captureCinematic.active)return false;
