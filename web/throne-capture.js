@@ -18,6 +18,11 @@ export function throneCapturePlan(event,board,mode) {
  if(!Array.isArray(victim)||victim.length!==3||victim[2]!==victimKind||
     !valid(victim.slice(0,2)))return null;
  const square=victim.slice(0,2);
+ // The moving soldier cannot have started on the enemy's occupied square
+ // or on its own final destination. Reject fabricated/old capture events.
+ if((event.from[0]===square[0]&&event.from[1]===square[1])||
+    (event.from[0]===event.to[0]&&event.from[1]===event.to[1]))
+  return null;
  const dr=square[0]-event.to[0],dc=square[1]-event.to[1];
  if(Math.abs(dr)+Math.abs(dc)!==1||
     square[0]+dr!==5||square[1]+dc!==5||
