@@ -61,6 +61,34 @@
   document.title=title;
  }
  function syncInvites(invites,address,id){
+  // A tournament is a collection of simultaneous games. Its invitation QR
+  // must remain stable while the main board rotates between its fixtures.
+  const tournamentId=window.AlfastaflTournamentLive?.hostTournament();
+  if(tournamentId){
+   const visible=Boolean(address?.lan_enabled);
+   el('shell-network-status').textContent=visible
+    ? 'Tournoi en cours · Validation initiale obligatoire' : 'LAN inactif';
+   for(const x of qrRoles){
+    x.img.hidden=!visible;
+    x.figure.classList.toggle('shell-qr-offline',!visible);
+    x.note.textContent=visible ? (x.role==='player'
+     ? 'Rejoindre le tournoi comme joueur'
+     : 'Suivre toutes les parties du tournoi')
+     : 'Activez le réseau dans le menu Réseau.';
+    if(visible){
+     const signature='tournament|'+tournamentId+'|'+x.role;
+     if(x.figure.dataset.signature!==signature){
+      x.img.src='/api/tournament/qr?tournament='+encodeURIComponent(tournamentId)+
+       '&role='+x.role;
+      x.figure.dataset.signature=signature;
+     }
+    }else{
+     delete x.figure.dataset.signature;
+     x.img.removeAttribute('src');
+    }
+   }
+   return;
+  }
   const visible=Boolean(id&&game&&game.id===id&&game.status==='active'&&
    invites?.player&&invites?.spectator&&address?.lan_enabled);
   el('shell-network-status').textContent=address?.lan_enabled
