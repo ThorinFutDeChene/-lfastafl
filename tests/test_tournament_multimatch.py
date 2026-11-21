@@ -156,7 +156,7 @@ class MultiMatchTests(unittest.TestCase):
         path='tournament/qr?'+urlencode({'tournament':tid,'role':'player'})
         with urlopen(self.base+path,timeout=5) as response:
             self.assertEqual(response.headers.get_content_type(),'image/png')
-            self.assertTrue(response.read().startswith(b'\\x89PNG\\r\\n\\x1a\\n'))
+            self.assertTrue(response.read().startswith(b'\x89PNG\r\n\x1a\n'))
         self.assertEqual(self.api('tournament/join',{'tournament':tid,
             'role':'player','name':'Chloé','invite':'invalid'})[0],403)
         self.assertEqual(self.api('tournament/join',{'tournament':tid,
