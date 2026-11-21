@@ -149,6 +149,37 @@ class MultiMatchTests(unittest.TestCase):
                          {m['game'] for m in matches})
         self.assertEqual({m['cinematic']['move']['n'] for m in live['matches']},{1,2})
 
+    def test_shared_tournament_qr_routes_each_player_to_their_own_match(self):
+        self.server.lan_enabled=True
+        tid,matches=self.tournament()
+        token=self.store.tournament_invitation(tid,'player')
+        path='tournament/qr?'+urlencode({'tournament':tid,'role':'player'})
+        with urlopen(self.base+path,timeout=5) as response:
+            self.assertEqual(response.headers.get_content_type(),'image/png')
+            self.assertTrue(response.read().startswith(b'\\x89PNG\\r\\n\\x1a\\n'))
+        self.assertEqual(self.api('tournament/join',{'tournament':tid,
+            'role':'player','name':'Chloé','invite':'invalid'})[0],403)
+        self.assertEqual(self.api('tournament/join',{'tournament':tid,
+            'role':'player','name':'Intrus','invite':token})[0],403)
+        code,routed=self.api('tournament/join',{'tournament':tid,
+            'role':'player','name':'Chloé','invite':token})
+        self.assertEqual(code,200,routed)
+        self.assertEqual(routed['game'],matches[1]['game'])
+        self.assertEqual(self.store.pending[routed['request']]['status'],'waiting')
+        code,assigned=self.api('approve',{'request':routed['request']})
+        self.assertEqual(code,200,assigned)
+        self.assertEqual(assigned['camp'],matches[1]['camp_a'])
+        self.assertEqual(self.store.sessions[assigned['session']]['name'],'Chloé')
+        spectoken=self.store.tournament_invitation(tid,'spectator')
+        code,spec=self.api('tournament/join',{'tournament':tid,
+            'role':'spectator','name':'Public','invite':spectoken})
+        self.assertEqual(code,200,spec)
+        self.assertIn(spec['game'],[m['game'] for m in matches])
+        self.assertEqual(self.store.pending[spec['request']]['status'],'waiting')
+        self.server.lan_enabled=False
+        self.assertEqual(self.api('tournament/join',{'tournament':tid,
+            'role':'player','name':'Alice','invite':token})[0],403)
+
     def test_revocation_immediately_blocks_reentry_and_does_not_affect_others(self):
         tid,matches=self.tournament()
         sid,credential=self.approve(matches[0],'Alice')
