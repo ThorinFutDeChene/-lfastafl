@@ -108,6 +108,19 @@
     <p id="joinmsg"></p>
   </section>
   <section id="game">
+    <details id="my-tournament" class="tournament-personal-panel" hidden>
+      <summary>Mes rencontres du tournoi</summary>
+      <strong id="my-tournament-name"></strong>
+      <div id="tournament-personal-list"></div>
+      <p id="tournament-personal-status" role="status"></p>
+    </details>
+    <div id="tournament-broadcast-bar" class="tournament-broadcast-bar" hidden role="status">
+      <div><strong id="tournament-broadcast-name">Tournoi</strong>
+        <span id="tournament-broadcast-match">En attente de rencontres</span></div>
+      <button id="tournament-broadcast-stop" type="button">Arrêter la diffusion</button>
+    </div>
+    <div id="tournament-captures" class="tournament-captures" hidden aria-live="polite"
+         aria-label="Scènes de prises sur les autres parties"></div>
     <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
     <button id="host-close-board" class="host-window-close" type="button" aria-label="Fermer cette fenêtre du plateau" title="Retour à la gestion">✕ Fermer</button>
     <button id="host-fullscreen" class="host-fullscreen" type="button" aria-label="Basculer le plein écran" title="Plein écran (F11)">⛶</button>
@@ -373,5 +386,6 @@
 <script src="/tutorial.js"></script>
 <script src="/host-shell.js"></script>
 <script src="/tournament-ui.js"></script>
+<script src="/tournament-live.js"></script>
 </body>
 </html>
