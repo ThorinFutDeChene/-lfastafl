@@ -76,6 +76,8 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_auto_lan.cjs
+      - name: Verify automatic LAN retirement policy and firewall lease timing
+        run: PYTHONPATH=src python3 -m unittest tests/test_lan_idle.py tests/test_desktop_lan.py -v
       - name: Verify odd tournament byes, Swiss points and knockout draw replays
         timeout-minutes: 6
         env:
