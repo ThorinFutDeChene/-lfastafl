@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
-/* Independent Ubuntu host-management / popup-board contract. Qt implements
- * native fullscreen; Chromium exercises the same URLs, role separation,
- * spectator QR, tutorial isolation and popup close behavior. */
+/* End-to-end verification of the DEV9 SINGLE fullscreen host shell.
+ * No UFW operations. The simulated LAN exposes the real admin-only
+ * invitation/QR endpoint; no guest gains access before explicit approval. */
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const os=require('node:os');
@@ -10,23 +10,21 @@ const path=require('node:path');
 const {spawn}=require('node:child_process');
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
-const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'alfastafl-desktop-ui-'));
+const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'alfastafl-single-shell-'));
 const python=process.env.TUTORIAL_TEST_PYTHON||'python3';
 const environment={...process.env,
  PYTHONPATH:[path.join(root,'src'),process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)};
-let server,browser;
-const report=[];
+let server,browser;const report={scenarios:[],errors:[]};
 async function check(name,task){
- try{await task();report.push({name,result:'PASS'});console.log('PASS '+name);}
- catch(error){report.push({name,result:'FAIL',error:String(error)});throw error;}
+ try{await task();report.scenarios.push({name,ok:true});console.log('PASS '+name);}
+ catch(error){report.scenarios.push({name,ok:false,message:String(error)});throw error;}
 }
 const code=`
 import json,signal,sys
 from alfastafl.server import Store,run
 store=Store(sys.argv[1])
 server=run('127.0.0.1',0,store)
-# Simulated opted-in network without any second bound port or firewall
-# change. The QR endpoint still generates real spectator invites.
+# Test-only simulation: real QR generation and approval, no firewall leases.
 server.lan_enabled=True
 server.lan_address='127.0.0.1'
 def interrupt(*_):raise KeyboardInterrupt
@@ -40,15 +38,14 @@ async function startServer(){
  server=spawn(python,['-u','-c',code,path.join(temporary,'games')],{
   cwd:root,env:environment,stdio:['ignore','pipe','pipe']});
  return new Promise((resolve,reject)=>{
-  const timer=setTimeout(()=>reject(Error('Server startup timeout')),16000);
-  let buffer='',err='';
-  server.stderr.on('data',b=>{err+=b.toString();});
-  server.once('exit',c=>reject(Error('Server exit '+c+': '+err)));
+  let data='',error='';
+  const timer=setTimeout(()=>reject(Error('Python startup timed out')),16000);
+  server.stderr.on('data',chunk=>error+=chunk.toString());
+  server.once('exit',exit=>reject(Error('Python exited '+exit+': '+error)));
   server.stdout.on('data',chunk=>{
-   buffer+=chunk.toString();
-   if(!buffer.includes('\n'))return;
-   try{const ready=JSON.parse(buffer.slice(0,buffer.indexOf('\n')));
-    clearTimeout(timer);resolve('http://127.0.0.1:'+ready.port);
+   data+=chunk.toString();if(!data.includes('\n'))return;
+   try{const conf=JSON.parse(data.slice(0,data.indexOf('\n')));
+    clearTimeout(timer);resolve('http://127.0.0.1:'+conf.port);
    }catch(e){reject(e);}
   });
  });
@@ -57,139 +54,170 @@ async function main(){
  const base=await startServer();
  browser=await chromium.launch({headless:true,
   args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
- const context=await browser.newContext({viewport:{width:1366,height:820},acceptDownloads:false});
- const errors=[];
- context.on('page',page=>page.on('pageerror',error=>errors.push(error.message)));
- const manager=await context.newPage();
- manager.setDefaultTimeout(13000);
- await manager.goto(base+'/?desktop=host',{waitUntil:'domcontentloaded'});
- await manager.locator('#tutorial-open').waitFor({state:'visible'});
- await check('Desktop manager remains maximized-style and never embeds a board',async()=>{
-  assert.equal(await manager.evaluate(()=>document.body.classList.contains('desktop-host-manager')),true);
-  assert.equal(await manager.locator('#host').isVisible(),true);
-  assert.equal(await manager.locator('#game-board-view').isVisible(),false);
-  assert.equal(await manager.locator('#game-board-3d canvas').count(),0);
-  assert.equal(await manager.locator('#tutorial-panel').isVisible(),false);
-  assert.equal(await manager.locator('#host-close-board').isVisible(),false);
+ const context=await browser.newContext({viewport:{width:1440,height:900}});
+ const page=await context.newPage();page.setDefaultTimeout(16000);
+ let pages=1;
+ context.on('page',opened=>{
+  if(opened!==page)pages++;
+  opened.on('pageerror',error=>report.errors.push(String(error)));
  });
- await check('Tutorial opens in a separate window without a game or remote LAN',async()=>{
-  await manager.selectOption('#mode','historical');
-  const popupReady=manager.waitForEvent('popup');
-  await manager.locator('#tutorial-open').click();
-  const tutorial=await popupReady;
-  tutorial.setDefaultTimeout(14000);
-  await tutorial.waitForURL(/desktop=tutorial/);
-  await tutorial.waitForFunction(()=>document.getElementById('tutorial-panel')?.open&&
+ page.on('pageerror',error=>report.errors.push(String(error)));
+ page.on('dialog',dialog=>dialog.accept());
+ const open=mode=>page.evaluate(mode=>window.AlfastaflShell.open(mode),mode);
+ const gameId=()=>page.evaluate(()=>gameId);
+ const state=async id=>(await(await context.request.get(
+  base+'/api/state?game='+encodeURIComponent(id))).json());
+ const eventual=fn=>page.waitForFunction(fn);
+ await page.goto(base+'/?desktop=shell',{waitUntil:'domcontentloaded'});
+ await eventual(()=>window.AlfastaflShell&&document.body.classList.contains('desktop-shell'));
+ await check('Only one fullscreen board is visible; QR rail and menus replace management UI',async()=>{
+  assert.equal(await page.locator('#game-board-view').isVisible(),true);
+  assert.equal(await page.locator('#host').isVisible(),false);
+  assert.equal(await page.locator('#shell-qr-column').isVisible(),true);
+  assert.equal(await page.locator('#shell-empty-board').isVisible(),true);
+  assert.equal(await page.locator('#shell-player-image').isVisible(),false);
+  assert.equal(await page.locator('#shell-spectator-image').isVisible(),false);
+  const box=await page.evaluate(()=>{
+   const a=document.getElementById('shell-qr-column').getBoundingClientRect();
+   const b=document.getElementById('game-board-view').getBoundingClientRect();
+   return {rail:[a.x,a.y,a.width,a.height],game:[b.x,b.y,b.width,b.height],
+    viewport:[innerWidth,innerHeight],overflow:document.documentElement.scrollWidth>innerWidth+1};
+  });
+  assert.equal(box.rail[0],0);
+  assert(Math.abs(box.game[0]-box.rail[2])<=2,JSON.stringify(box));
+  assert(Math.abs(box.game[2]+box.rail[2]-box.viewport[0])<=2);
+  assert(Math.abs(box.game[3]-box.viewport[1])<=2);
+  assert.equal(box.overflow,false);
+ });
+ await check('Paramètres opens a modal window for game rules, time, 3D, sound, and camera',async()=>{
+  assert.equal(await open('settings'),true);
+  await page.locator('#shell-settings-dialog[open]').waitFor();
+  for(const id of ['mode','time-mode','capture-duration','reconnect-minutes',
+    'game-board-quality','game-board-mode','audio-toggle','audio-music',
+    'audio-effects','game-camera-top']){
+    assert.equal(await page.locator('#shell-settings-dialog #'+id).count(),1,id);
+  }
+  await page.selectOption('#mode','fetlar');
+  await page.selectOption('#capture-duration','4');
+  await page.selectOption('#game-board-quality','eco');
+  assert.equal(await page.locator('#game-board-quality').inputValue(),'eco');
+  await page.locator('#shell-settings-dialog [data-shell-close]').click();
+  assert.equal(await page.locator('#shell-settings-dialog').evaluate(el=>el.open),false);
+ });
+ let id;
+ await check('Fichier > Nouvelle partie creates the board in the SAME window',async()=>{
+  await open('new');
+  await page.locator('#shell-new-dialog[open]').waitFor();
+  await page.selectOption('#create-host-camp','');
+  const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/create');
+  await page.locator('#shell-new-dialog #create').click();
+  assert.equal((await response).status(),200);
+  await eventual(()=>document.getElementById('shell-new-dialog').open===false&&
+   document.getElementById('game-board-view').dataset.state==='ready'&&
+   document.getElementById('game-board-3d')?.board3d?.getDiagnostics().pieceCount===37);
+  id=await gameId();assert(id);
+  assert.equal(await page.locator('#shell-empty-board').isVisible(),false);
+  assert.equal(pages,1,'No secondary board or manager window should open');
+  const game=(await state(id)).game;
+  assert.equal(game.mode,'fetlar');
+  assert.equal(game.status,'active');
+  assert.equal(game.settings.capture_cinematic_seconds,4);
+ });
+ await check('Player QR top-left, spectator QR bottom-left, both stable across polling',async()=>{
+  await eventual(()=>['shell-player-image','shell-spectator-image'].every(id=>
+   document.getElementById(id).naturalWidth>0&&!document.getElementById(id).hidden));
+  const top=await page.locator('#shell-player-code').boundingBox();
+  const bottom=await page.locator('#shell-spectator-code').boundingBox();
+  assert(top.y+top.height<bottom.y,'Player QR must be above spectator QR');
+  assert(top.x<200&&bottom.x<200,'Both QRs must remain in LEFT rail');
+  const first=await page.locator('#shell-player-image').getAttribute('src');
+  const second=await page.locator('#shell-spectator-image').getAttribute('src');
+  assert.match(first,/role=player/);
+  assert.match(second,/role=spectator/);
+  await page.waitForTimeout(2200);
+  assert.equal(await page.locator('#shell-player-image').getAttribute('src'),first);
+  assert.equal(await page.locator('#shell-spectator-image').getAttribute('src'),second);
+ });
+ await check('Both QRs request APPROVAL; network never bypasses host authorization',async()=>{
+  const invites=(await state(id)).invites;
+  for(const role of ['player','spectator']){
+   const request=await context.request.post(base+'/api/join',{data:{
+    game:id,invite:invites[role],name:'Demande '+role}});
+   assert.equal(request.status(),200);
+   const req=(await request.json()).request;
+   const pending=(await(await context.request.get(base+'/api/pending')).json()).pending;
+   assert(pending.some(x=>x.id===req&&x.role===role));
+  }
+  await open('connections');
+  await eventual(()=>document.querySelectorAll('#shell-connections-dialog #pending button').length>=3);
+  const firstPending=page.locator('#shell-connections-dialog #pending>div').first();
+  assert.match(await firstPending.textContent(),/player/);
+  await page.locator('#shell-connections-dialog [data-shell-close]').click();
+ });
+ await check('Partie menu can seat the host as a player without moving the board',async()=>{
+  await open('game');
+  await page.locator('#shell-game-dialog #host-play-dwarf').click();
+  await eventual(()=>document.getElementById('shell-game-dialog').open===false);
+  await page.waitForFunction(()=>Boolean(session)&&you?.role==='player'&&you.camp==='dwarf');
+  assert.equal(pages,1);
+  const authenticated=await context.request.get(base+'/api/state?game='+id+
+   '&session='+encodeURIComponent(await page.evaluate(()=>session)));
+  assert.equal((await authenticated.json()).you.camp,'dwarf');
+  assert.equal(await page.locator('#shell-player-code').isVisible(),true);
+ });
+ await check('Fichier > Sauvegardes handles pause, resume and deletion',async()=>{
+  // Verify that the real host save operation never closes the fullscreen shell.
+  await open('saves');
+  await page.locator('#shell-saves-dialog #save-leave').click();
+  await page.waitForFunction(()=>game?.status==='paused');
+  assert.equal((await state(id)).game.status,'paused');
+  assert.equal(await page.locator('#shell-saves-dialog #resume-game').isVisible(),true);
+  await page.locator('#shell-saves-dialog #resume-game').click();
+  await page.waitForFunction(()=>game?.status==='active');
+  assert.equal((await state(id)).game.status,'active');
+  await open('saves');
+  await page.locator('#shell-saves-dialog #save-leave').click();
+  await page.waitForFunction(()=>game?.status==='paused');
+  await open('saves');
+  const deletion=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/delete');
+  await page.locator('#shell-saves-dialog #game-list .game-delete').first().click();
+  assert.equal((await deletion).status(),200);
+  await page.waitForFunction(()=>!gameId&&document.getElementById('shell-empty-board')?.hidden===false);
+  assert.equal(await page.locator('#shell-player-image').isVisible(),false);
+  assert.equal(await page.locator('#shell-spectator-image').isVisible(),false);
+  assert.equal(pages,1);
+  await page.locator('#shell-saves-dialog [data-shell-close]').click();
+ });
+ await check('Tutorial is a modal window, never a second fullscreen game',async()=>{
+  await open('tutorial');
+  await eventual(()=>document.getElementById('tutorial-panel').open&&
    document.querySelectorAll('#tutorial-board button').length===121&&
    document.getElementById('tutorial-panel').getAttribute('aria-busy')==='false');
-  const snapshot=await tutorial.evaluate(()=>{
-   const dialog=document.getElementById('tutorial-panel');
-   const rect=dialog.getBoundingClientRect();
-   return {mode:document.getElementById('tutorial-mode-label').textContent,
-    dimensions:[rect.width,rect.height],window:[innerWidth,innerHeight],
-    managementVisible:document.getElementById('host').getBoundingClientRect().width>0,
-    hasSelectedGame:document.getElementById('game-board-view').boardView?.state?.board!=null};
-  });
-  assert.match(snapshot.mode,/histor/i);
-  assert(Math.abs(snapshot.dimensions[0]-snapshot.window[0])<3);
-  assert(Math.abs(snapshot.dimensions[1]-snapshot.window[1])<3);
-  assert.equal(snapshot.managementVisible,false);
-  assert.equal(snapshot.hasSelectedGame,false);
-  assert.equal(await manager.locator('#tutorial-panel').evaluate(el=>el.open),false);
-  const closed=tutorial.waitForEvent('close');
-  await tutorial.locator('#tutorial-close').click();
-  await closed;
-  assert.equal(manager.isClosed(),false,'Closing tutor must not close the host manager');
+  assert.equal(pages,1);
+  await page.locator('#tutorial-close').click();
+  await page.waitForFunction(()=>document.getElementById('tutorial-panel').open===false);
+  assert.equal(await page.locator('#game-board-view').isVisible(),true);
  });
- let board;
- await check('Creating a game opens an independent viewport-filling spectator board',async()=>{
-  await manager.selectOption('#create-host-camp','');
-  const pending=manager.waitForEvent('popup');
-  await manager.locator('#create').click();
-  board=await pending;
-  board.setDefaultTimeout(20000);
-  await board.waitForURL(/desktop=board.*game=/);
-  await board.waitForFunction(()=>document.getElementById('game-board-view')?.dataset.state==='ready'&&
-   document.getElementById('game-board-3d')?.board3d?.getDiagnostics().pieceCount===37);
-  assert.equal(await board.locator('#host').isVisible(),false);
-  assert.equal(await board.locator('#join').isVisible(),false);
-  assert.equal(await board.locator('#guest-menu-toggle').isVisible(),true);
-  assert.equal(await board.locator('#host-close-board').isVisible(),true);
-  assert.equal(await manager.locator('#game-board-view').isVisible(),false);
-  assert.equal(await manager.locator('#game-board-3d canvas').count(),0);
-  const size=await board.evaluate(()=>{
-   const area=document.getElementById('game-board-3d').getBoundingClientRect();
-   return {w:area.width,h:area.height,vw:innerWidth,vh:innerHeight,scroll:document.documentElement.scrollWidth>innerWidth+1};
-  });
-  assert(Math.abs(size.w-size.vw)<4,JSON.stringify(size));
-  assert(Math.abs(size.h-size.vh)<4,JSON.stringify(size));
-  assert.equal(size.scroll,false);
-  assert.equal(await board.locator('#player-controls').isVisible(),false);
- });
- await check('QR spectator invitation scans and only requests access; image is not reloaded on every poll',async()=>{
-  await board.waitForFunction(()=>!document.getElementById('host-spectator-qr').hidden&&
-   document.getElementById('host-spectator-qr-image').naturalWidth>0);
-  const img=board.locator('#host-spectator-qr-image');
-  assert.match(await img.getAttribute('src'),/role=spectator/);
-  const before=await img.getAttribute('src');
-  await board.waitForTimeout(2400);
-  assert.equal(await img.getAttribute('src'),before,'Polling must not reload the QR');
-  const invitation=(await (await context.request.get(base+'/api/state?game='+
-   encodeURIComponent(new URL(board.url()).searchParams.get('game')))).json()).invites.spectator;
-  const requested=await context.request.post(base+'/api/join',{data:{
-   game:new URL(board.url()).searchParams.get('game'),invite:invitation,name:'Spectateur supplémentaire'
-  }});
-  assert.equal(requested.status(),200);
-  const requestId=(await requested.json()).request;
-  const pending=(await (await context.request.get(base+'/api/pending')).json()).pending;
-  assert(pending.some(entry=>entry.id===requestId&&entry.role==='spectator'),
-   'QR points to spectator request; it never bypasses host approval');
- });
- await check('Spectator QR disappears as soon as the LAN is disabled',async()=>{
+ await check('Both QRs disappear on LAN shutdown and come back only with LAN and a game',async()=>{
+  await open('new');
+  await page.locator('#create').click();
+  await page.waitForFunction(()=>Boolean(game)&&game.status==='active'&&
+    !document.getElementById('shell-player-image').hidden);
   const route='**/api/address';
   await context.route(route,async r=>r.fulfill({status:200,contentType:'application/json',
    body:JSON.stringify({address:'127.0.0.1',port:new URL(base).port,lan_enabled:false})}));
-  await board.waitForFunction(()=>document.getElementById('host-spectator-qr').hidden);
+  await page.waitForFunction(()=>['shell-player-image','shell-spectator-image'].every(id=>
+   document.getElementById(id).hidden));
   await context.unroute(route);
-  await board.waitForFunction(()=>!document.getElementById('host-spectator-qr').hidden);
+  await page.waitForFunction(()=>['shell-player-image','shell-spectator-image'].every(id=>
+   !document.getElementById(id).hidden));
+  assert.equal(pages,1);
  });
- await check('The host can switch to player in the separate board without altering admin rights',async()=>{
-  const seat=manager.waitForResponse(response=>response.url().includes('/api/host/seat')&&
-   response.request().method()==='POST');
-  await manager.locator('#host-play-dwarf').click();
-  assert.equal((await seat).status(),200);
-  await board.waitForURL(url=>url.searchParams.get('desktop')==='board'&&
-   Boolean(url.searchParams.get('session')));
-  await board.waitForFunction(()=>document.getElementById('game-board-view')?.boardView?.state?.interactive===true ||
-    document.getElementById('host-player-status')?.textContent.includes('Nains'));
-  const sess=new URL(board.url()).searchParams.get('session');
-  const id=new URL(board.url()).searchParams.get('game');
-  const state=(await (await context.request.get(base+'/api/state?game='+id+'&session='+sess)).json());
-  assert.equal(state.you.role,'player');assert.equal(state.you.camp,'dwarf');
-  assert.equal(await manager.locator('#host').isVisible(),true);
-  assert.equal(await board.locator('#host').isVisible(),false);
-  assert.equal(await board.locator('#host-spectator-qr').isVisible(),true);
- });
- await check('Closing and reopening the fullscreen board does not stop the game',async()=>{
-  const id=new URL(board.url()).searchParams.get('game');
-  const close=board.waitForEvent('close');
-  await board.locator('#host-close-board').click();
-  await close;
-  assert.equal(manager.isClosed(),false);
-  const newWindow=manager.waitForEvent('popup');
-  await manager.locator('#host-open-board').click();
-  board=await newWindow;
-  await board.waitForURL(/desktop=board/);
-  const game=(await (await context.request.get(base+'/api/state?game='+id)).json()).game;
-  assert.equal(game.status,'active');
-  await board.waitForFunction(()=>document.getElementById('game-board-3d')?.board3d?.getDiagnostics().pieceCount===37);
- });
- assert.deepEqual(errors,[],'Browser JS failures: '+errors.join('; '));
+ assert.deepEqual(report.errors,[],'Unexpected JS errors');
  await context.close();
 }
-const timeout=setTimeout(()=>{if(browser)browser.close().catch(()=>{});
- if(server)server.kill('SIGTERM');},150000);
+const timer=setTimeout(()=>{browser?.close().catch(()=>{});server?.kill('SIGTERM')},220000);
 main().catch(error=>{console.error(error.stack||error);process.exitCode=1;})
- .finally(async()=>{clearTimeout(timeout);if(browser)await browser.close().catch(()=>{});
+ .finally(async()=>{clearTimeout(timer);await browser?.close().catch(()=>{});
   if(server)server.kill('SIGTERM');
   fs.rmSync(temporary,{recursive:true,force:true});});

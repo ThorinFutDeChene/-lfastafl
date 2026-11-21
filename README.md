@@ -1,13 +1,61 @@
-# Álfastafl — 0.7.0-dev8 (canal DEV)
+# Álfastafl — 0.7.0-dev9 (canal DEV)
 
-La **0.7.0-dev8** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev9** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev8` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev9` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev9 : plateau unique en plein écran, deux QR à gauche et menus natifs
+
+**Nouvelle interface du PC hôte sur Ubuntu** : au lancement, la fenêtre
+principale est désormais le **plateau 3D en plein écran**. L'ancienne
+fenêtre de gestion permanente est abandonnée. **Aucun deuxième plateau
+n'est créé** ; les fonctionnalités de gestion se retrouvent dans
+la barre de **menus natifs Qt** :
+
+- **Fichier → Nouvelle partie** : une fenêtre modale permet de choisir
+  « jouer les Nains », « jouer les Elfes » ou « rester spectateur »
+  et de créer la partie. **Fichier → Sauvegarder** conserve la partie ;
+  **Fichier → Sauvegardes** ouvre une fenêtre avec la liste des parties
+  sauvegardées, la sélection, la reprise et la suppression définitive
+  (confirmation requise ; interdite sur une partie active).
+- **Partie** : choix du rôle du PC hôte, arbitrage et commande des
+  joueurs, historique des coups, et tutoriel dans une fenêtre modale
+  dédiée, sans interrompre la partie.
+- **Paramètres** : fenêtre de réglages regroupant règles/variantes,
+  horloges, délai de reconnexion, durée des cinématiques, mode 2D/3D,
+  qualité 3D, caméra, musique et effets sonores. Les paramètres de
+  création s'appliquent à la *prochaine* partie ; la vue et le son
+  réagissent immédiatement sans redémarrage.
+- **Réseau** : activation/désactivation manuelle et temporaire du
+  réseau local, et fenêtre d'autorisation des demandes de joueurs ou
+  spectateurs. Les mises à jour sont conservées dans le menu natif
+  **Mises à jour**. **F11** bascule le plein écran.
+
+Une **colonne permanente sur la gauche** montre le
+**QR JOUEUR en haut à gauche** et le **QR SPECTATEUR en bas à gauche**,
+avec un habillage viking. Les deux QR sont propres à la partie
+en cours, apparaissent seulement si elle est active et si le LAN
+est volontairement ouvert, et cessent d'être affichés dès l'arrêt
+du LAN ou la suppression de la partie. Ils ne sont pas rechargés à
+chaque interrogation. Un scan ne donne **aucun accès automatique** :
+la personne fait une demande qui doit être autorisée dans Réseau
+→ Connexions. La colonne reste présente à l'écran même hors ligne,
+avec un message explicatif à la place de QR inopérants.
+
+Le plateau occupe tout l'espace **à droite de la colonne** ; les menus
+et fenêtres modales n'affectent ni les règles Tafl ni les sauvegardes
+ni les cinématiques, et ne créent pas d'autre contexte WebGL. Les
+téléphones et PC invités continuent d'utiliser leur propre interface
+immersive après autorisation de l'hôte. Des tests Python vérifient
+la fenêtre Qt plein écran et la continuité du LAN ; Chromium vérifie
+le layout, la gestion des sauvegardes, la reprise, les suppressions,
+les QR, l'approbation, le mode joueur et le tutoriel. Le rendu Qt sur
+un matériel Ubuntu MATE réel reste à vérifier avant passage en stable.
 
 ## DEV 0.7.0-dev8 : PC hôte avec plateau dans une nouvelle fenêtre plein écran
 

@@ -1,2 +1,2 @@
 """Alfastafl, open-source LAN tafl game."""
-__version__ = '0.7.0.dev8'
+__version__ = '0.7.0.dev9'

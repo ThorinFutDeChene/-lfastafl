@@ -1,48 +1,53 @@
-# Álfastafl 0.7.0-dev8 — Fenêtres plein écran du PC hôte
+# Álfastafl 0.7.0-dev9 — Interface hôte : plateau unique et menus
 
-## Séparation nette entre l'hébergement et l'affichage
+## Plein écran simplifié
 
-- **Fenêtre hôte principale** : démarre toujours maximisée (pas plein
-  écran), conserve la barre d'outils d'autorisation LAN, la création
-  et la sélection des parties, les sauvegardes, les camps et la
-  validation des demandes. **Le plateau n'y est plus affiché** et
-  aucun moteur 3D n'y consomme de ressources.
-- **Nouvelle fenêtre native Qt plein écran** : ouvre le plateau
-  lorsqu'une partie est créée, sélectionnée, lorsque l'hôte
-  choisit de jouer les Nains/Elfes ou de rester spectateur, ou
-  via le bouton de réouverture de plateau. Un joueur hôte peut
-  réellement jouer dans cette fenêtre sans quitter l'administration.
-- **Tutoriel** : s'ouvre depuis la fenêtre principale dans une
-  autre fenêtre native plein écran. Exercices, légalité et affichage
-  3D/2D restent indépendants de la partie et du LAN.
-- **Menu ☰** du plateau pour les réglages, **F11** pour basculer
-  entre plein écran et fenêtre ordinaire, **Fermer** pour retourner
-  à l'administration sans arrêter la partie ni le serveur.
-  La fermeture du logiciel referme proprement toutes ses fenêtres.
+Le PC hôte démarre **directement sur son unique plateau de jeu**.
+L'ancienne fenêtre de gestion indépendante de la DEV8 est remplacée
+par les menus de la fenêtre native Qt, même en plein écran. Le
+plateau 3D reste visible et jouable lorsqu'aucun dialogue n'est
+ouvert ; il ne s'ouvre **plus de deuxième plateau**. F11 permet
+de basculer entre plein écran et fenêtre normale.
 
-## Invitation spectateurs sur le plateau
+## Une colonne QR verticale à gauche
 
-- En jeu **et** en mode hôte spectateur, QR code
-  **« SPECTATEURS »** en coin inférieur droit.
-- Il pointe uniquement vers l'invitation spectateur de la partie
-  affichée. La demande **ne donne jamais automatiquement accès** :
-  l'hôte doit l'autoriser dans la fenêtre de gestion.
-- QR visible uniquement quand l'accès LAN a été volontairement
-  activé, masqué dès sa désactivation, actualisé seulement si
-  l'URL/invitation change.
-- Les invités distants conservent leur interface actuelle. Aucun
-  droit supplémentaire accordé, pas de port ouvert au démarrage.
+- **En haut : QR JOUEUR** demandant à rejoindre le camp disponible.
+- **En bas : QR SPECTATEUR** demandant à regarder la partie.
+- Le plateau reste en plein écran sur toute la surface **à droite**
+  de cette colonne permanente, sans recouvrir les QR.
+- QR masqués lorsque le LAN volontaire n'est pas ouvert, lorsque
+  la partie n'est pas active ou qu'aucune partie n'est sélectionnée.
+- Le QR ne se recharge pas à chaque rafraîchissement.
+- L'hôte valide chaque demande : aucun nouveau droit réseau n'est
+  attribué par le simple scan.
 
-## Compatibilité et validation
+## Menus natifs et fenêtres de gestion
 
-- Moteur de jeu Tafl, animations, son, chronomètres, sauvegardes,
-  autorisations LAN et historique préservés.
-- La stable 0.5.0 reste inchangée.
-- Tests Python pour les deux modes de fenêtres Qt ; nouveaux
-  scénarios Chromium pour la séparation gestion/plateau, la fenêtre
-  tutoriel, l'hôte joueur ou spectateur, le QR et la fermeture /
-  réouverture du plateau.
-- **Tests physiques sur Ubuntu MATE requis**, notamment l'usage
-  sur plusieurs moniteurs et le comportement de QtWebEngine.
+**Fichier** : Nouvelle partie, Sauvegarder la partie, Sauvegardes
+(choisir/reprendre/supprimer), Quitter.
 
-**Distribution :** canal DEV, paquet Debian `0.7.0~dev8`.
+**Partie** : Rôle du PC hôte (Nains/Elfes/Spectateur), historique,
+arbitrage et tutoriel.
+
+**Paramètres** : Fenêtre unique regroupant modes et règles, contrôle
+du temps, temps de reconnexion, durée des cinématiques,
+affichage 2D/3D, qualité 3D, caméra, volume musique et effets.
+Les paramètres d'une nouvelle partie ne modifient pas une
+partie déjà créée ; ceux de l'affichage et du son sont immédiats.
+
+**Réseau** : Connexions, validation des demandes et activation du LAN,
+sans ouverture automatique de ports. **Mises à jour** : commandes
+existantes conservées dans la barre des menus.
+
+Toutes les fenêtres de gestion utilisent les contrôles déjà existants
+et ne recréent pas de plateau ni de session serveur. Les téléphones,
+tablettes et PC invités restent inchangés.
+
+## Tests et distribution
+
+Tests Python et Chromium pour l'interface, création, jeu, sauvegardes,
+QR et autorisations, en plus des régressions moteur et 3D. Essais
+réels Ubuntu MATE toujours nécessaires avant promotion en stable.
+
+Paquet Debian **0.7.0~dev9** — canal **DEV** uniquement.
+La stable 0.5.0 reste inchangée.

@@ -63,7 +63,7 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_tutorial.cjs
-      - name: Verify separate fullscreen host windows and spectator QR
+      - name: Verify native single-board fullscreen host shell and both QR codes
         timeout-minutes: 4
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules

@@ -1,4 +1,4 @@
-"""Keep the Ubuntu application maximized at startup."""
+"""Keep one native fullscreen host application with a real menu bar."""
 from unittest import TestCase
 from alfastafl.desktop import show_main_window, show_board_window
 
@@ -18,10 +18,10 @@ class DummyWindow:
 
 
 class DesktopWindowTests(TestCase):
-    def test_starts_maximized_without_fullscreen(self):
+    def test_starts_fullscreen_with_native_menus(self):
         window = DummyWindow()
         show_main_window(window)
-        self.assertEqual(window.calls, ["maximized"])
+        self.assertEqual(window.calls, ["fullscreen"])
 
     def test_game_and_tutorial_are_separate_native_fullscreen_windows(self):
         popup = DummyWindow()

@@ -437,3 +437,221 @@ body.desktop-tutorial-only #tutorial-panel{
 body.desktop-tutorial-only #tutorial-panel::backdrop{background:#0c1712}
 body.desktop-tutorial-only .tutorial-play .board-stage{height:clamp(340px,62dvh,800px)}
 body.desktop-tutorial-only .tutorial-layout{width:100%;max-width:none}
+
+
+/* DEV9 native host shell. ONE fullscreen Qt window; the board is the
+   only permanent content. Everything else lives behind Qt menus and
+   accessible modal management windows. Remote guest UI is unchanged. */
+:root{--shell-rail:clamp(146px,12.5vw,190px)}
+body.desktop-shell{overflow:hidden;overscroll-behavior:none;background:#07120f}
+body.desktop-shell main{max-width:none;width:100vw;height:100dvh;margin:0;padding:0}
+body.desktop-shell main>header,
+body.desktop-shell main>footer,
+body.desktop-shell #host,
+body.desktop-shell #join{display:none!important}
+body:not(.desktop-shell) #shell-qr-column,
+body:not(.desktop-shell) #shell-empty-board,
+body:not(.desktop-shell) .shell-window{display:none!important}
+body.desktop-shell #game{
+ position:fixed;top:0;bottom:0;right:0;left:var(--shell-rail);
+ width:calc(100% - var(--shell-rail));height:100dvh;z-index:0;
+ overflow:hidden;border:0;border-radius:0;padding:0;margin:0;
+ background:#07130e
+}
+body.desktop-shell #game-board-view{
+ position:absolute;inset:0;width:100%;height:100%;margin:0;
+ padding:0;min-width:0
+}
+body.desktop-shell #game-board-view .board-stage{
+ width:100%;height:100%;min-height:100%;border:0;border-radius:0
+}
+body.desktop-shell #game-board-view #board{
+ position:absolute;top:50%;left:50%;
+ width:min(94%,94dvh);max-width:none;max-height:none;margin:0;
+ transform:translate(-50%,-50%)
+}
+body.desktop-shell #game-board-view .board-tools,
+body.desktop-shell #game-board-view .board-help,
+body.desktop-shell #game-board-view .board-legend,
+body.desktop-shell #game-board-view .board-empty,
+body.desktop-shell #game-board-view .board-status:not([data-kind=error]),
+body.desktop-shell #game>h3,
+body.desktop-shell #game>#moves,
+body.desktop-shell #guest-menu-toggle,
+body.desktop-shell #host-close-board,
+body.desktop-shell #host-fullscreen,
+body.desktop-shell #host-spectator-qr{display:none!important}
+body.desktop-shell #game>.row{
+ position:fixed;top:8px;left:calc(var(--shell-rail) + 10px);z-index:25;
+ max-width:calc(100vw - var(--shell-rail) - 30px);
+ padding:7px 12px;border:1px solid #9e825c78;border-radius:9px;
+ color:#efd7aa;background:#0b1a15e1;pointer-events:none
+}
+body.desktop-shell #game>.row h2{display:none}
+body.desktop-shell #game>.row #state{font-size:.83rem}
+body.desktop-shell #game>#clocks{display:none}
+body.desktop-shell[data-guest-timed=true] #game>#clocks:not([hidden]){
+ display:grid;position:fixed;z-index:26;
+ bottom:10px;left:calc(var(--shell-rail) + (100vw - var(--shell-rail))/2);
+ transform:translateX(-50%);width:min(480px,calc(100vw - var(--shell-rail) - 35px));
+ margin:0;gap:5px;pointer-events:none;
+ padding:5px;border-radius:10px;background:#07140fd6
+}
+body.desktop-shell[data-guest-timed=true] .clock-box{padding:5px 3px}
+body.desktop-shell #game>#msg:not(:empty){
+ position:fixed;top:55px;left:calc(var(--shell-rail) + 12px);
+ z-index:42;max-width:450px;padding:10px;border:1px solid #956945;
+ border-radius:8px;background:#21180eed
+}
+body.desktop-shell #game>#connection-state:not([hidden]),
+body.desktop-shell #game>#draw-response:not([hidden]),
+body.desktop-shell #game>#repetition-review:not([hidden]){
+ position:fixed;z-index:45;left:calc(var(--shell-rail) + (100vw - var(--shell-rail))/2);
+ transform:translateX(-50%);max-width:min(540px,calc(100vw - var(--shell-rail) - 20px));
+ width:100%;background:#17241cf0
+}
+body.desktop-shell #game>#connection-state:not([hidden]){bottom:14px}
+body.desktop-shell #game>#draw-response:not([hidden]),
+body.desktop-shell #game>#repetition-review:not([hidden]){
+ top:50%;transform:translate(-50%,-50%)
+}
+body.desktop-shell #capture-overlay{top:auto;bottom:22px;left:50%}
+body.desktop-shell #shell-qr-column{
+ position:fixed;top:0;bottom:0;left:0;z-index:38;
+ width:var(--shell-rail);padding:12px 9px 10px;
+ display:flex;flex-direction:column;align-items:center;
+ justify-content:space-between;gap:8px;
+ background:linear-gradient(140deg,#172a21,#0a1711 68%,#16231b);
+ border-right:2px solid #bd995b;box-shadow:6px 0 26px #0006;
+ overflow-y:auto;overscroll-behavior:contain;
+ scrollbar-width:thin
+}
+body.desktop-shell .shell-rail-brand{
+ display:flex;align-items:center;gap:5px;
+ color:#f0c78a;font-weight:900;font-size:1.24rem;letter-spacing:.025em;
+ text-shadow:0 0 14px #b6966644
+}
+body.desktop-shell .shell-rail-brand span{font-size:.72rem}
+body.desktop-shell .shell-qr-card{
+ width:100%;min-height:150px;margin:0;padding:9px 5px;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+ border:1px solid #8b7757;border-radius:10px;
+ background:linear-gradient(#1b3026,#11221b);text-align:center
+}
+body.desktop-shell .shell-qr-card figcaption{
+ font-size:.76rem;font-weight:850;letter-spacing:.10em;color:#f2d7a4
+}
+body.desktop-shell .shell-qr-card img:not([hidden]){
+ display:block;width:min(100%,145px);height:auto;aspect-ratio:1;
+ border:6px solid #fff;border-radius:7px;background:#fff;
+ image-rendering:auto
+}
+body.desktop-shell .shell-qr-card p{
+ color:#d4d9c6;line-height:1.35;font-size:.7rem;margin:0
+}
+body.desktop-shell .shell-qr-card.shell-qr-offline{
+ border-style:dashed;opacity:.77
+}
+body.desktop-shell .shell-qr-card.shell-qr-offline img{display:none!important}
+body.desktop-shell .shell-rail-middle{
+ display:flex;flex-direction:column;gap:7px;
+ align-items:center;justify-content:center;flex:1;min-height:30px;
+ color:#a88a57;opacity:.8
+}
+body.desktop-shell .shell-rail-middle span{font-size:1.22rem;line-height:1}
+body.desktop-shell .shell-rail-middle small{
+ font-size:.56rem;letter-spacing:.15em;writing-mode:vertical-rl
+}
+body.desktop-shell #shell-network-status{
+ color:#d7bc8d;font-size:.67rem;text-align:center;line-height:1.35;
+ border-top:1px solid #615844;padding-top:8px;width:100%
+}
+body.desktop-shell #shell-empty-board:not([hidden]){
+ position:fixed;left:calc(var(--shell-rail) + (100vw - var(--shell-rail))/2);
+ top:50%;transform:translate(-50%,-50%);z-index:36;
+ width:min(460px,calc(100vw - var(--shell-rail) - 40px));
+ padding:25px;color:#f0d1a0;text-align:center;
+ background:#0c1d17e8;border:1px solid #bda272;border-radius:14px;
+ box-shadow:0 12px 44px #0008;line-height:1.6;pointer-events:none
+}
+/* Real window-like modal panels over the immersive fullscreen board;
+   app logic and controls are the same DOM nodes as in DEV8. */
+body.desktop-shell .shell-window{
+ width:min(750px,calc(100vw - 36px));max-width:none;
+ max-height:calc(100dvh - 46px);overflow-y:auto;
+ padding:22px 24px 26px;color:#f1e5d1;
+ background:#1c2b23;border:1px solid #d0af77;
+ border-radius:13px;box-shadow:0 14px 65px #000d;
+}
+body.desktop-shell .shell-window.shell-wide-window{
+ width:min(1060px,calc(100vw - 32px))
+}
+body.desktop-shell .shell-window:not([open]){display:none!important}
+body.desktop-shell .shell-window::backdrop{background:#030b08c9}
+body.desktop-shell .shell-window-heading{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:16px;padding-bottom:14px;margin-bottom:15px;border-bottom:1px solid #64715c
+}
+body.desktop-shell .shell-window-heading h2{
+ margin:0;font-size:1.45rem;color:#edcc91
+}
+body.desktop-shell .shell-window-heading .shell-close{
+ padding:5px 11px;min-width:40px;min-height:40px;
+ background:#2d251b;color:#f8d7ab;border-color:#ac8c65;
+ font-size:1.45rem;line-height:1
+}
+body.desktop-shell .shell-window p{line-height:1.4}
+body.desktop-shell .shell-window-foot{color:#b8c3ae;font-size:.83rem}
+body.desktop-shell #shell-new-content .host-actions{
+ display:flex;align-items:center;gap:18px
+}
+body.desktop-shell #shell-game-content #host-game-controls{
+ background:#192b23;padding:10px
+}
+body.desktop-shell #shell-settings-content>.board-tools{
+ display:flex;align-items:center;flex-wrap:wrap;
+ gap:12px;margin-top:22px;border-top:1px solid #718061;
+ padding:18px 0 6px;background:transparent
+}
+body.desktop-shell #shell-settings-content>.board-tools:before{
+ content:'Affichage et son (modifications immédiates)';
+ width:100%;font-weight:800;color:#f1cd94
+}
+body.desktop-shell #shell-settings-content>.board-tools label{
+ font-size:.92rem
+}
+body.desktop-shell #shell-settings-content>.board-tools select{font-size:.92rem}
+body.desktop-shell #shell-settings-content .game-setup{
+ display:grid;grid-template-columns:1fr 1fr;gap:6px 12px
+}
+body.desktop-shell #shell-settings-content .game-setup label{align-items:center}
+body.desktop-shell #shell-saves-content .saved-games{
+ margin:8px 0;padding:0;border:none
+}
+body.desktop-shell #shell-saves-content #game-list{
+ display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:10px 0 20px
+}
+body.desktop-shell #shell-saves-content .game-entry{width:100%}
+body.desktop-shell #shell-saves-content .game-select{flex:1}
+body.desktop-shell #shell-saves-content #save-leave,
+body.desktop-shell #shell-saves-content #resume-game{
+ margin:8px 10px 0 0
+}
+body.desktop-shell #shell-connections-content #invitations{
+ grid-template-columns:minmax(140px,190px) minmax(0,1fr) minmax(140px,190px)
+}
+body.desktop-shell #shell-history-content #moves{max-height:none;line-height:1.75}
+@media(max-width:800px){
+ :root{--shell-rail:134px}
+ body.desktop-shell .shell-qr-card img:not([hidden]){max-width:116px}
+ body.desktop-shell .shell-qr-card p{font-size:.65rem}
+ body.desktop-shell .shell-rail-middle small{display:none}
+ body.desktop-shell #shell-settings-content .game-setup{grid-template-columns:1fr}
+}
+@media(max-height:640px){
+ body.desktop-shell #shell-qr-column{padding:5px;gap:4px}
+ body.desktop-shell .shell-qr-card{padding:4px;min-height:105px;gap:2px}
+ body.desktop-shell .shell-qr-card img:not([hidden]){max-width:88px;border-width:4px}
+ body.desktop-shell .shell-qr-card p{display:none}
+ body.desktop-shell .shell-rail-middle{min-height:0}
+}

@@ -2,10 +2,12 @@
 const $=id=>document.getElementById(id);
 const q=new URLSearchParams(location.search);
 const isHost=['127.0.0.1','localhost','::1'].includes(location.hostname);
-const desktopMode=isHost&&['host','board','tutorial'].includes(q.get('desktop'))?q.get('desktop'):'';
+const desktopMode=isHost&&['host','board','tutorial','shell'].includes(q.get('desktop'))?q.get('desktop'):'';
 const isDesktopManager=desktopMode==='host';
 const isDesktopBoard=desktopMode==='board';
 const isDesktopTutorial=desktopMode==='tutorial';
+const isDesktopShell=desktopMode==='shell';
+document.body.classList.toggle('desktop-shell',isDesktopShell);
 document.body.classList.toggle('desktop-host-manager',isDesktopManager);
 document.body.classList.toggle('desktop-board-only',isDesktopBoard);
 document.body.classList.toggle('desktop-tutorial-only',isDesktopTutorial);
@@ -192,6 +194,8 @@ function clearSelectedGame(){
  sessionStorage.removeItem('alfastafl.game');
  sessionStorage.removeItem('alfastafl.session');
  render();
+ window.AlfastaflShell?.syncInvites(null,null,null);
+ window.AlfastaflShell?.updateStatus();
 }
 async function listGames(force=false){
  if(!isHost||(!force&&Date.now()-gameListUpdatedAt<5000))return;
@@ -213,6 +217,7 @@ async function listGames(force=false){
     sessionStorage.setItem('alfastafl.game',gameId);
     sessionStorage.removeItem('alfastafl.session');
     await load();showReservedBoard(popup);await listGames(true);
+    window.AlfastaflShell?.onSelected();
    };
    const remove=document.createElement('button');remove.type='button';
    remove.className='game-delete';remove.textContent='Supprimer';
@@ -339,8 +344,10 @@ function render(){
   $('state').textContent='Aucune partie sélectionnée';
   $('moves').replaceChildren();
   for(const id of ['clocks','connection-state','host-game-controls',
-                   'player-controls','draw-response','repetition-review','invitations'])
+                   'player-controls','draw-response','repetition-review','invitations',
+                   'save-leave','resume-game'])
    $(id).hidden=true;
+  window.AlfastaflShell?.updateStatus();
   return;
  }
  $('clocks').hidden=false;
@@ -383,6 +390,7 @@ function render(){
  }
  if(focused&&focused.every(Number.isInteger)&&!gameBusy)focusGameSquare(focused);
  renderClocks();renderConnection();renderHostControls();
+ window.AlfastaflShell?.updateStatus();
  $('moves').replaceChildren();
  for(const move of game.history){
   const item=document.createElement('li');
@@ -469,6 +477,7 @@ async function load(){
   if(state.invites&&isHost){
    const addr=await api('address');
    if(!currentRequest())return;
+   window.AlfastaflShell?.syncInvites(state.invites,addr,requestedGame);
    const origin='http://'+addr.address+':'+addr.port;
    const panel=$('invitations');
    const spectatorQR=$('host-spectator-qr');
@@ -588,6 +597,7 @@ $('create').onclick=async()=>{
   if(session)sessionStorage.setItem('alfastafl.session',session);
   else sessionStorage.removeItem('alfastafl.session');
   await load();showReservedBoard(popup);await listGames(true);
+  window.AlfastaflShell?.onCreated();
   }catch(error){if(popup&&!popup.closed)popup.close();throw error;}
  }catch(error){say(error.message);}
 
@@ -674,7 +684,7 @@ async function pending(){
 async function tick(){
  if(isHost&&!isDesktopBoard&&!isDesktopTutorial){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
   `Serveur réseau actif : http://${n.address}:${n.port}/`:
-  'Mode local. Activez l’accès LAN dans la barre d’outils pour connecter des joueurs.';
+  'Mode local. Activez l’accès LAN depuis le menu Réseau pour connecter des joueurs.';
  }catch(error){$('lan-status').textContent='Etat du réseau indisponible.';}}
  if(requestId&&!session){
   try{

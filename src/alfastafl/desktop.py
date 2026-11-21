@@ -6,8 +6,8 @@ from .relauncher import schedule_restart
 
 
 def show_main_window(window):
-    """Keep the administration window maximized, with native desktop controls."""
-    window.showMaximized()
+    """Álfastafl's single native fullscreen game window (menus remain usable)."""
+    window.showFullScreen()
 
 
 def show_board_window(window):
@@ -37,8 +37,8 @@ def main():
     thread[0].start()
 
     win = QMainWindow()
-    win.setWindowTitle('Álfastafl — Gestion hôte (DEV)')
-    win.resize(1100, 820)
+    win.setWindowTitle('Álfastafl — Plateau et menus (DEV)')
+    win.resize(1280, 850)
 
     # JavaScript window.open is handled by Qt, NOT an embedded browser tab:
     # the administration window stays visible/available on its own screen,
@@ -72,14 +72,55 @@ def main():
 
     view = DisplayWebView(win)
     win.setCentralWidget(view)
-    view.setUrl(QUrl(f'http://127.0.0.1:{PORT}/?desktop=host'))
-    bar = QToolBar('Réseau local')
+    view.setUrl(QUrl(f'http://127.0.0.1:{PORT}/?desktop=shell'))
+    # Keep the Qt updater controller's toolbar API, but put all actions
+    # in the native menu bar: the screen belongs to the plateau + QR rail.
+    bar = QToolBar('Contrôles internes')
     win.addToolBar(bar)
+    bar.hide()
     lan_action = QAction('Activer accès LAN', win)
     lan_action.setCheckable(True)
     # Sharing is opt-in for each application session, never restored on startup.
     lan_action.setChecked(False)
-    bar.addAction(lan_action)
+    # Menu commands reach the live page and open its existing controls in
+    # modal windows. The game board stays the sole WebGL rendering surface.
+    def menu_command(menu, label, command):
+        action = menu.addAction(label)
+        action.triggered.connect(
+            lambda *_: view.page().runJavaScript(
+                "window.AlfastaflShell?.open(" + repr(command) + ")"))
+        return action
+
+    menus = win.menuBar()
+    file_menu = menus.addMenu('Fichier')
+    menu_command(file_menu, 'Nouvelle partie…', 'new')
+    menu_command(file_menu, 'Sauvegarder la partie', 'save')
+    menu_command(file_menu, 'Sauvegardes…', 'saves')
+    file_menu.addSeparator()
+    quit_action = file_menu.addAction('Quitter')
+    quit_action.triggered.connect(win.close)
+
+    game_menu = menus.addMenu('Partie')
+    menu_command(game_menu, 'Jouer / Spectateur / Arbitrage…', 'game')
+    menu_command(game_menu, 'Historique des coups…', 'history')
+    menu_command(game_menu, 'Tutoriel…', 'tutorial')
+
+    settings_menu = menus.addMenu('Paramètres')
+    menu_command(settings_menu, 'Réglages du jeu, affichage et son…', 'settings')
+
+    network_menu = menus.addMenu('Réseau')
+    network_menu.addAction(lan_action)
+    menu_command(network_menu, 'Connexions et demandes d’accès…', 'connections')
+
+    view_menu = menus.addMenu('Affichage')
+    menu_command(view_menu, 'Caméra vue de dessus', 'top')
+    menu_command(view_menu, 'Réinitialiser la caméra', 'reset-camera')
+    menu_command(view_menu, 'Qualité et caméra…', 'settings')
+    fullscreen_shortcut = QShortcut(QKeySequence('F11'), win)
+    fullscreen_shortcut.activated.connect(
+        lambda: win.showNormal() if win.isFullScreen() else show_main_window(win))
+    # Keep this reference: Qt owns the shortcut for the application lifetime.
+    win.fullscreen_shortcut = fullscreen_shortcut
 
     # A second listener is bound to the exact private LAN IPv4 address.
     # Keeping the 127.0.0.1 listener avoids broad 0.0.0.0 exposure,
@@ -220,6 +261,8 @@ def main():
         QTimer.singleShot(0, app.quit)
 
     win.updates = UpdateController(win, bar, restart_callback=restart_after_update)
+    update_menu = menus.addMenu('Mises à jour')
+    update_menu.addActions(win.updates.button.menu().actions())
 
     def shutdown():
         for popup in tuple(open_windows):
@@ -231,7 +274,7 @@ def main():
 
     app.aboutToQuit.connect(shutdown)
     show_main_window(win)
-    # Only the toolbar action can enable LAN access during this session.
+    # LAN remains opt-in via its native Réseau menu; never restored on startup.
     sys.exit(app.exec())
 
 

@@ -9,8 +9,23 @@
 </head>
 <body>
 <main>
+  <aside id="shell-qr-column" aria-label="Invitations des joueurs et des spectateurs">
+    <div class="shell-rail-brand" aria-hidden="true">ᚨ <span>ÁLFASTAFL</span></div>
+    <figure id="shell-player-code" class="shell-qr-card" data-role="player">
+      <figcaption>JOUEURS</figcaption>
+      <img id="shell-player-image" alt="QR pour demander à jouer" width="140" height="140" hidden>
+      <p id="shell-player-note">Activez le réseau local et créez une partie.</p>
+    </figure>
+    <div class="shell-rail-middle"><span>ᚠ</span><small>RÉSEAU LOCAL</small><span>ᚦ</span></div>
+    <figure id="shell-spectator-code" class="shell-qr-card" data-role="spectator">
+      <figcaption>SPECTATEURS</figcaption>
+      <img id="shell-spectator-image" alt="QR pour demander à regarder" width="140" height="140" hidden>
+      <p id="shell-spectator-note">L'hôte autorise les connexions.</p>
+    </figure>
+    <div id="shell-network-status" aria-live="polite">LAN inactif</div>
+  </aside>
   <header>
-    <h1>ᚨ Álfastafl <small>0.7.0 DEV8</small></h1>
+    <h1>ᚨ Álfastafl <small>0.7.0 DEV9</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -56,7 +71,7 @@
       <button id="create" type="button">Créer une partie</button>
       <button id="tutorial-open" type="button" aria-haspopup="dialog" aria-controls="tutorial-panel" hidden>Tutoriel</button>
     </div>
-    <p id="lan-status" role="status">Mode local. Activez l’accès LAN dans la barre d’outils pour connecter des joueurs.</p>
+    <p id="lan-status" role="status">Mode local. Activez l’accès LAN depuis le menu Réseau pour connecter des joueurs.</p>
     <div class="saved-games">
       <h3>Parties hébergées et sauvegardées</h3>
       <div id="game-list">Aucune partie à afficher.</div>
@@ -183,6 +198,39 @@
     <h3>Historique des coups</h3>
     <ol id="moves"></ol>
   </section>
+
+  <!-- Administrative windows reuse the existing live forms, controls and
+       server-approved sessions; host-shell.js relocates them here on startup. -->
+  <dialog id="shell-new-dialog" class="shell-window" aria-labelledby="shell-new-title">
+    <div class="shell-window-heading"><h2 id="shell-new-title">Nouvelle partie</h2><button class="shell-close" type="button" data-shell-close aria-label="Fermer">×</button></div>
+    <p>Choisissez le rôle de cet ordinateur. Les règles et les temps de jeu se règlent dans <strong>Paramètres</strong>.</p>
+    <div id="shell-new-content"></div>
+    <p class="shell-window-foot">Une nouvelle partie conserve les sauvegardes existantes.</p>
+  </dialog>
+  <dialog id="shell-saves-dialog" class="shell-window" aria-labelledby="shell-saves-title">
+    <div class="shell-window-heading"><h2 id="shell-saves-title">Gestion des sauvegardes</h2><button class="shell-close" type="button" data-shell-close aria-label="Fermer">×</button></div>
+    <p>Sélectionnez une partie pour afficher son plateau ; reprenez-la si elle est suspendue. Supprimer est définitif.</p>
+    <div id="shell-saves-content"></div>
+  </dialog>
+  <dialog id="shell-settings-dialog" class="shell-window shell-wide-window" aria-labelledby="shell-settings-title">
+    <div class="shell-window-heading"><h2 id="shell-settings-title">Paramètres du jeu</h2><button class="shell-close" type="button" data-shell-close aria-label="Fermer">×</button></div>
+    <p>Les règles, les chronomètres, les délais de reconnexion et les cinématiques concernent la <strong>prochaine partie</strong>. L'affichage, la caméra et le son s'appliquent immédiatement.</p>
+    <div id="shell-settings-content"></div>
+  </dialog>
+  <dialog id="shell-game-dialog" class="shell-window" aria-labelledby="shell-game-title">
+    <div class="shell-window-heading"><h2 id="shell-game-title">Commandes de partie</h2><button class="shell-close" type="button" data-shell-close aria-label="Fermer">×</button></div>
+    <div id="shell-game-content"></div>
+  </dialog>
+  <dialog id="shell-connections-dialog" class="shell-window shell-wide-window" aria-labelledby="shell-connections-title">
+    <div class="shell-window-heading"><h2 id="shell-connections-title">Connexions et autorisations</h2><button class="shell-close" type="button" data-shell-close aria-label="Fermer">×</button></div>
+    <p>Les QR ne permettent que de <strong>demander</strong> l'accès. L'hôte doit autoriser chaque personne.</p>
+    <div id="shell-connections-content"></div>
+  </dialog>
+  <dialog id="shell-history-dialog" class="shell-window" aria-labelledby="shell-history-title">
+    <div class="shell-window-heading"><h2 id="shell-history-title">Historique des déplacements</h2><button class="shell-close" type="button" data-shell-close aria-label="Fermer">×</button></div>
+    <div id="shell-history-content"></div>
+  </dialog>
+  <div id="shell-empty-board" role="status">Aucune partie ouverte. Utilisez <strong>Fichier → Nouvelle partie</strong> ou <strong>Fichier → Sauvegardes</strong>.</div>
   <dialog id="tutorial-panel" class="tutorial-dialog" aria-labelledby="tutorial-heading">
     <div class="tutorial-header">
       <div>
@@ -260,5 +308,6 @@
 <script src="/soundscape.js"></script>
 <script src="/app.js"></script>
 <script src="/tutorial.js"></script>
+<script src="/host-shell.js"></script>
 </body>
 </html>
