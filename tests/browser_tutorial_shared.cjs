@@ -81,7 +81,7 @@ async function main(){
   try{const response=await guestContext.request.fetch(
    base+url.pathname+url.search,options);
    await route.fulfill({response});}
-  catch(_){if(!route.isInterceptResolutionHandled())await route.abort();}
+  catch(_){try{await route.abort();}catch(_ignored){/* Context may already be closing. */}}
  });
  const guest=await guestContext.newPage();
  guest.on('pageerror',e=>pageErrors.push('guest: '+e.message));

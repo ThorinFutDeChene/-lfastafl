@@ -127,7 +127,7 @@ async function main(){
    try{
     const response=await context.request.fetch(base+url.pathname+url.search,args);
     await route.fulfill({response});
-   }catch(error){if(!route.isInterceptResolutionHandled())await route.abort();}
+   }catch(error){try{await route.abort();}catch(_ignored){/* Context may already be closing. */}}
   });
   const page=await context.newPage();page.setDefaultTimeout(16000);
   page.on('pageerror',e=>errors.push(name+': '+e.message));
