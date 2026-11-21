@@ -106,6 +106,7 @@ def main():
     menu_command(game_menu, 'Jouer / Spectateur / Arbitrage…', 'game')
     menu_command(game_menu, 'Historique des coups…', 'history')
     menu_command(game_menu, 'Tutoriel…', 'tutorial')
+    menu_command(game_menu, 'Tournois et tirage des factions…', 'tournament')
 
     settings_menu = menus.addMenu('Paramètres')
     menu_command(settings_menu, 'Réglages du jeu, affichage et son…', 'settings')

@@ -207,6 +207,7 @@ async function listGames(force=false){
    const entry=document.createElement('div');entry.className='game-entry';
    const button=document.createElement('button');button.type='button';
    button.className='game-select';
+   button.dataset.game=g.id;
    button.classList.toggle('active-game',g.id===gameId);
    button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
    button.title='Sélectionner cette partie';
@@ -670,13 +671,47 @@ async function pending(){
   const results=await api('pending');$('pending').replaceChildren();
   for(const request of results.pending){
    const div=document.createElement('div');
-   div.textContent=`${request.name} · ${request.role} · partie ${request.game.slice(0,8)} `;
-   for(const camp of request.role==='player'?['elf','dwarf']:['spectator']){
-    const b=document.createElement('button');b.textContent=camp;
-    b.onclick=async()=>{try{await api('approve',{request:request.id,camp:camp==='spectator'?null:camp});await pending();}
-      catch(error){say(error.message);}};
-    div.append(b);
+   div.className='pending-request';
+   div.dataset.role=request.role;
+   div.dataset.request=request.id;
+   const player=request.role==='player';
+   const camps=player?(request.available_camps||[]):[];
+   const roleText=player?'Joueur':'Spectateur';
+   const label=document.createElement('span');
+   label.textContent=`${request.name} · ${roleText} · partie ${request.game.slice(0,8)} `;
+   div.append(label);
+   const campLabel=camp=>camp==='elf'?'Elfes':'Nains';
+   function action(title,endpoint,chosenCamp=null){
+    const button=document.createElement('button');
+    button.type='button';
+    button.className=endpoint==='approve'?'pending-approve':'pending-reject';
+    button.textContent=title;
+    if(chosenCamp)button.dataset.camp=chosenCamp;
+    button.onclick=async()=>{
+     button.disabled=true;
+     try{
+      await api(endpoint,{request:request.id,camp:chosenCamp});
+      await pending();
+     }catch(error){say(error.message);await pending();}
+    };
+    div.append(button);
    }
+   if(!player)action('Autoriser à regarder','approve');
+   else if(camps.length===1){
+    // The server assigns the ONLY legal faction; the host cannot pick
+    // an occupied side or override a tournament's preassigned camp.
+    const only=camps[0];
+    action('Autoriser — '+campLabel(only),'approve');
+   }else if(camps.length===2){
+    // First remote player in a match with two vacant sides chooses once;
+    // the next player automatically inherits the other available side.
+    for(const camp of camps)action('Attribuer '+campLabel(camp),'approve',camp);
+   }else{
+    const unavailable=document.createElement('em');
+    unavailable.textContent=' Aucune faction libre ou attribuée à cette personne.';
+    div.append(unavailable);
+   }
+   action('Refuser','reject');
    $('pending').append(div);
   }
  }catch(error){}

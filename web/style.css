@@ -655,3 +655,65 @@ body.desktop-shell #shell-history-content #moves{max-height:none;line-height:1.7
  body.desktop-shell .shell-qr-card p{display:none}
  body.desktop-shell .shell-rail-middle{min-height:0}
 }
+
+/* DEV11: approvals present only the currently free camps, or a single
+   tournament-assigned one. The reject action remains clearly distinct. */
+.pending-request{
+ display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
+ margin:10px 0;padding:10px 12px;border:1px solid #61715e;
+ border-radius:9px;background:#0c1e17
+}
+.pending-request>span{flex:1 1 240px;line-height:1.4}
+.pending-request>em{font-size:.83rem;color:#f4bba1}
+.pending-request button{min-height:40px;padding:7px 13px}
+.pending-request .pending-reject{
+ background:#34251f;color:#f1c0b4;border:1px solid #9b7061
+}
+.pending-request .pending-approve{
+ background:#bba06d;color:#172017;font-weight:750
+}
+.pending-request button:disabled{opacity:.6}
+body.desktop-shell .tournament-create{
+ display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;
+ padding:14px;margin-bottom:14px;border:1px solid #72816b;
+ border-radius:12px;background:#11241b
+}
+body.desktop-shell .tournament-create h3,
+body.desktop-shell .tournament-create>label:has(textarea),
+body.desktop-shell .tournament-create>p{grid-column:1 / -1}
+body.desktop-shell .tournament-create h3{margin:2px 0 8px;color:#f4d59d}
+body.desktop-shell .tournament-create label{display:flex;flex-direction:column;gap:6px}
+body.desktop-shell .tournament-create input,
+body.desktop-shell .tournament-create select,
+body.desktop-shell .tournament-create textarea{
+ width:100%;min-height:40px;padding:8px;color:#f6ead7;
+ background:#111b16;border:1px solid #8c8a6a;border-radius:7px
+}
+body.desktop-shell .tournament-create textarea{resize:vertical;min-height:105px}
+body.desktop-shell .tournament-create button{justify-self:start}
+body.desktop-shell .tournament-create p{font-size:.84rem;margin:0;color:#d3d6bb}
+body.desktop-shell #tournament-message:not(:empty){
+ padding:9px 12px;background:#193224;border:1px solid #5b8367;
+ border-radius:8px
+}
+body.desktop-shell #tournament-message[data-error=true]{
+ background:#37221d;color:#f2c5b5;border-color:#a36e59
+}
+body.desktop-shell .tournament-item{
+ margin:14px 0;padding:13px;border:1px solid #8c865b;border-radius:10px;
+ background:#15241bc9
+}
+body.desktop-shell .tournament-item h3{margin:0;color:#f2d6a1}
+body.desktop-shell .tournament-item h4{margin:14px 0 6px;color:#e3c694}
+body.desktop-shell .tournament-item .tournament-match{
+ display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;
+ padding:7px;border-bottom:1px solid #65705566
+}
+body.desktop-shell .tournament-match span{flex:1 1 260px}
+body.desktop-shell .tournament-match em{font-size:.78rem;color:#bdbfa9}
+body.desktop-shell .tournament-match strong{font-size:.85rem;color:#dfca9e}
+body.desktop-shell .tournament-item button{font-size:.86rem;padding:7px 12px}
+body.desktop-shell .tournament-next{margin-top:15px}
+@media(max-width:620px){
+ body.desktop-shell .tournament-create{grid-template-columns:1fr}
+}

@@ -7,7 +7,7 @@
  'use strict';
  if(!isHost||!isDesktopShell)return;
  const el=id=>document.getElementById(id);
- const ids=['new','saves','settings','game','connections','history'];
+ const ids=['new','saves','settings','game','connections','history','tournament'];
  const dialogs=Object.fromEntries(ids.map(id=>[id,el('shell-'+id+'-dialog')]));
  function take(destination,node){
   if(!node)throw Error('Fenêtre de gestion incomplète : '+destination.id);
@@ -105,6 +105,7 @@
   for(const modal of Object.values(dialogs))if(modal.open)modal.close();
   if(name==='saves')listGames(true).catch(()=>{});
   if(name==='connections')pending().catch(()=>{});
+  if(name==='tournament')window.AlfastaflTournaments?.refresh();
   target.showModal();
   target.querySelector('[data-shell-close]')?.focus({preventScroll:true});
   return true;

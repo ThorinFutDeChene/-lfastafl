@@ -1,39 +1,50 @@
-# Álfastafl 0.7.0-dev10 — Correctif critique de démarrage Ubuntu
+# Álfastafl 0.7.0-dev11 — Attribution automatique et tournois équilibrés
 
-## Symptôme
+## Connexions joueur : un seul camp libre, un seul bouton
 
-L'application installée (en particulier DEV8 et DEV9) ne s'ouvrait
-pas : aucune fenêtre ne s'affichait.
+La fenêtre **Réseau → Connexions et autorisations** tient maintenant
+compte des places réellement disponibles. Si le PC hôte joue les
+Nains, le téléphone est admis directement chez les Elfes (inversement
+pour un PC hôte Elfe). Plus de boutons « elf » et « dwarf » simultanés
+quand un camp est déjà pris.
 
-## Cause identifiée et correction
+Si deux téléphones jouent sans joueur sur le PC hôte, le premier
+joueur autorisé reçoit le camp choisi. Le second obtient
+**automatiquement** le camp restant. La fenêtre se met à jour après
+chaque autorisation et fournit un refus explicite si les deux camps
+sont occupés. Les spectateurs ne choisissent jamais un camp.
 
-Le constructeur de la fenêtre Qt6 utilisait
-`QWebEngineSettings.WebAttribute.JavascriptCanCloseWindows`,
-un attribut propre à l'ancien moteur **Qt WebKit**, qui n'existe
-**pas dans Qt WebEngine 6**. Sur le véritable Qt6 Ubuntu, l'accès à
-cette propriété levait une exception et empêchait l'ouverture de
-la fenêtre principale, sans boîte de dialogue puisque le lanceur
-Debian utilise `Terminal=false`.
+Le serveur impose l'affectation même si un invité modifie
+artificiellement sa requête HTTP : impossible de prendre un camp
+occupé. Les remplacements arbitraux prévus dans les règles existantes
+restent compatibles.
 
-**Correctif :** suppression de cet attribut inexistant, conservation
-de `JavascriptCanOpenWindows` supporté et de
-`windowCloseRequested` pour fermer les fenêtres si nécessaire.
+## Tournoi : tirage au sort et rééquilibrage
 
-## Recette anti-régression renforcée
+Dans **Partie → Tournois et tirage des factions**, un menu local permet
+de créer les participants et les rondes des trois formats
+(élimination directe, toutes rencontres, suisse).
 
-- Le faux Qt des tests Python ne définit désormais plus cet attribut
-  invalide ; toute réintroduction échoue en CI.
-- Un test nouveau exécute réellement **PyQt6 + QtWebEngine** dans une
-  session graphique Xvfb, sur le système Ubuntu du runner GitHub.
-  La fenêtre native et la page WebEngine de jeu doivent être ouvertes ;
-  le processus doit rester actif. Ce test est obligatoire avant
-  la compilation et la publication du paquet .deb.
-- Les contrôles Python, les tests des menus et QR joueur/spectateur et
-  la régression du plateau 3D restent exécutés.
+- **Premier match sans historique** : attribution Elfes/Nains
+  par tirage aléatoire équitable.
+- **Matchs suivants** : chacun reçoit de préférence le camp
+  qu'il a joué le moins ; le moteur minimise le déséquilibre
+  maximal puis total entre les deux adversaires.
+- **Égalité** : si les deux prétendent au même camp, celui qui
+  l'a joué le plus récemment reçoit l'autre. La comparaison
+  se fait par **numéro de ronde** et respecte les rondes de repos.
+- **Nouvelle égalité** : tirage au sort.
+- Les camps d'un match de tournoi sont **imposés lors des connexions** :
+  seuls les noms d'inscription exacts peuvent occuper les places.
+- Les vainqueurs sont lus depuis les **parties terminées sur le
+  serveur** ; les résultats et historiques des factions sont
+  conservés de façon atomique dans les données locales. Le
+  redémarrage du PC hôte ne remet pas les compteurs à zéro.
 
-## Distribution
+## Validation
 
-- **Version Debian : 0.7.0~dev10**. Canal **DEV**, pas stable.
-- La stable 0.5.0 n'est pas modifiée.
-- Aucune migration des sauvegardes ; aucune modification des règles
-  ni des autorisations réseau.
+Tests Python (situations PC hôte joueur, deux téléphones, tournoi,
+historique et départages), test de démarrage natif PyQt6/QtWebEngine,
+tests Chromium des menus et affectations et régressions 3D.
+
+**Canal DEV, version Debian 0.7.0~dev11. Stable inchangée (0.5.0).**

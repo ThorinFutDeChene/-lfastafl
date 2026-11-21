@@ -1,13 +1,90 @@
-# Álfastafl — 0.7.0-dev10 (canal DEV)
+# Álfastafl — 0.7.0-dev11 (canal DEV)
 
-La **0.7.0-dev10** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev11** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev10` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev11` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev11 : attribution des camps et tournois équitables
+
+### Joueurs connectés : plus de choix impossible à l'autorisation
+
+La fenêtre **Réseau → Connexions et autorisations** n'affiche désormais
+que les camps réellement disponibles, contrôlés par le serveur :
+
+- **PC hôte joueur Nain :** un téléphone autorisé reçoit
+  **automatiquement les Elfes**, via un seul bouton
+  « Autoriser — Elfes ».
+- **PC hôte joueur Elfe :** l'invité reçoit automatiquement
+  **les Nains**.
+- **PC hôte spectateur + deux téléphones :** lors de la première
+  autorisation, les camps Elfes et Nains sont libres ; le premier
+  téléphone admis se voit attribuer le camp choisi. Le second n'a
+  plus de choix et reçoit automatiquement la faction restante.
+- **Partie complète :** plus d'attribution ; la demande peut être
+  refusée. Les demandes encore en attente sont mises à jour après
+  chaque admission, pour éviter les courses entre joueurs.
+- **Spectateurs :** aucun camp, un seul bouton « Autoriser à regarder » ;
+  le bouton « Refuser » reste disponible.
+
+Ce contrôle existe aussi dans l'API : en présence d'**un seul camp
+libre**, une autorisation sans camp le choisit automatiquement,
+même en cas de demande simultanée. Quand les deux camps sont
+disponibles, le premier joueur doit être attribué explicitement.
+Le serveur rejette tout camp occupé ou réservé à quelqu'un d'autre,
+sans déléguer la sécurité à JavaScript. Les remplacements autorisés
+par l'arbitre continuent d'utiliser la faction à remplacer.
+
+### Tournois : tirage initial, équilibrage et ancienneté
+
+Dans **Partie → Tournois et tirage des factions**, le PC hôte peut
+créer un tournoi (élimination directe, toutes rencontres ou Suisse),
+enregistrer ses participants, puis demander la première ronde.
+Chaque rencontre crée une partie avec des **camp Nains/Elfes
+préattribués**. Le joueur doit se présenter avec **exactement
+le nom inscrit** : lors de l'autorisation réseau, il reçoit son
+camp prédéfini, sans menu de choix. Les personnes non inscrites
+ne peuvent pas prendre une place de joueur du tournoi.
+
+**Algorithme d'affectation des camps :**
+1. **Première rencontre entre deux joueurs sans historique :**
+   tirage au sort équitable.
+2. **Rencontres suivantes :** priorité à la faction que chacun
+   a le moins jouée. Parmi les répartitions possibles, minimiser
+   d'abord le déséquilibre maximal par joueur, puis le déséquilibre
+   total.
+3. **Égalité de priorités :** si les deux joueurs réclament le
+   même camp, celui qui a joué ce camp **le plus récemment**
+   obtient **l'autre** ; celui qui attend depuis le plus longtemps
+   le conserve. Si chaque joueur a joué autant d'Elfes que de
+   Nains, il préfère aussi inverser son camp de la partie précédente.
+4. **Nouvelle égalité :** tirage au sort, et non attribution
+   arbitraire par le nom ou l'ordre du tournoi.
+
+Le calcul utilise le **numéro de ronde** ; une exemption d'une
+ronde ne fausse donc pas l'ancienneté. L'historique des factions
+et les appariements sont sauvegardés atomiquement sous
+`~/.local/share/alfastafl/parties/.tournaments.json`,
+séparément des sauvegardes de chaque partie. Au lancement d'une
+nouvelle ronde, le serveur extrait automatiquement les vainqueurs
+des **parties terminées**, inscrit leurs camps et résultats
+dans l'historique et refuse d'avancer tant que la ronde précédente
+n'est pas achevée. Les résultats ne peuvent pas être forgés par
+un navigateur invité.
+
+L'interface Tournois permet de retrouver chaque rencontre et
+d'ouvrir sa partie sur le plateau plein écran existant ; la
+gestion réseau et les QR code restent inchangés.
+
+Des tests unitaires détaillent le premier tirage, les cas
+d'égalité, les tours de repos, l'historique conservé après
+redémarrage, l'autorisation de tournoi et le cas PC hôte joueur.
+Les scénarios Chromium couvrent les deux téléphones, la faction
+automatique et la création/affichage d'un match de tournoi.
 
 ## DEV 0.7.0-dev10 : correctif critique de démarrage Qt sur Ubuntu
 
@@ -509,7 +586,7 @@ La **0.5.0-dev1** est une préversion ; la [0.4.0](https://github.com/ThorinFutD
 
 **Nouveau dans cette DEV** : plateau WebGL 2, premières figurines procédurales reconnaissables, caméra libre, sélection et déplacement par clic, toucher ou glisser-déposer, repères de capture calculés par le serveur et repli en 2D. La validation graphique de ce jalon est en cours.
 
-**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, raffinement artistique des figurines et modèles articulés pour des combats plus réalistes, orchestration musicale avancée, réalisation automatique, régie multi-parties et tournoi entièrement intégré à l'interface.
+**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, raffinement artistique des figurines et modèles articulés pour des combats plus réalistes, orchestration musicale avancée, réalisation automatique, régie multi-parties et tableau de bord de tournoi avancé (l'interface de création/rencontres et l'équilibrage des factions sont déjà disponibles).
 
 ## Tests sur Ubuntu (sans installer)
 

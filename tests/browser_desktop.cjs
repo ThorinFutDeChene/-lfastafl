@@ -151,7 +151,12 @@ async function main(){
   await open('connections');
   await eventual(()=>document.querySelectorAll('#shell-connections-dialog #pending button').length>=3);
   const firstPending=page.locator('#shell-connections-dialog #pending>div').first();
-  assert.match(await firstPending.textContent(),/player/);
+  assert.match(await firstPending.textContent(),/Joueur/);
+  const firstChoices=firstPending.locator('button.pending-approve');
+  assert.equal(await firstChoices.count(),2,
+   'When host is observing, the first remote player chooses one of two free camps');
+  assert.deepEqual(await firstChoices.evaluateAll(buttons=>
+   buttons.map(button=>button.dataset.camp)),['elf','dwarf']);
   await page.locator('#shell-connections-dialog [data-shell-close]').click();
  });
  await check('Partie menu can seat the host as a player without moving the board',async()=>{
@@ -164,6 +169,23 @@ async function main(){
    '&session='+encodeURIComponent(await page.evaluate(()=>session)));
   assert.equal((await authenticated.json()).you.camp,'dwarf');
   assert.equal(await page.locator('#shell-player-code').isVisible(),true);
+ });
+ await check('When the host plays Dwarves, a waiting phone has ONE automatic Elf approval',async()=>{
+  await open('connections');
+  await page.waitForFunction(()=>document.querySelector(
+   '#shell-connections-dialog #pending .pending-request[data-role="player"] .pending-approve'
+  )?.textContent.includes('Elfes'));
+  const guest=page.locator('#shell-connections-dialog #pending .pending-request[data-role="player"]');
+  assert.equal(await guest.locator('.pending-approve').count(),1,
+    'The opposite camp must be forced when the PC host is a player');
+  assert.equal(await guest.locator('.pending-approve').textContent(),'Autoriser — Elfes');
+  const approving=page.waitForResponse(response=>
+   new URL(response.url()).pathname==='/api/approve'&&response.status()===200);
+  await guest.locator('.pending-approve').click();
+  const assigned=await (await approving).json();
+  assert.equal(assigned.camp,'elf');
+  assert.equal((await state(id)).seats.elf.name,'Demande player');
+  await page.locator('#shell-connections-dialog [data-shell-close]').click();
  });
  await check('Fichier > Sauvegardes handles pause, resume and deletion',async()=>{
   // Verify that the real host save operation never closes the fullscreen shell.
@@ -212,6 +234,68 @@ async function main(){
   await page.waitForFunction(()=>['shell-player-image','shell-spectator-image'].every(id=>
    !document.getElementById(id).hidden));
   assert.equal(pages,1);
+ });
+ await check('Two remote phones: first chooses, second automatically inherits remaining camp',async()=>{
+  const id2=await gameId();
+  const invite=(await state(id2)).invites.player;
+  for(const name of ['Premier téléphone','Deuxième téléphone']){
+   const result=await context.request.post(base+'/api/join',{data:{game:id2,invite,name}});
+   assert.equal(result.status(),200);
+  }
+  await open('connections');
+  const requests=page.locator('#shell-connections-dialog #pending .pending-request[data-role="player"]');
+  await page.waitForFunction(()=>document.querySelectorAll(
+   '#shell-connections-dialog #pending .pending-request[data-role="player"]').length===2);
+  assert.equal(await requests.nth(0).locator('.pending-approve').count(),2);
+  const assigned=page.waitForResponse(response=>
+   new URL(response.url()).pathname==='/api/approve'&&response.status()===200);
+  await requests.nth(0).locator('button.pending-approve[data-camp="elf"]').click();
+  assert.equal((await (await assigned).json()).camp,'elf');
+  await page.waitForFunction(()=>{
+   const requests=document.querySelectorAll('#shell-connections-dialog #pending .pending-request[data-role="player"]');
+   return requests.length===1&&requests[0].querySelectorAll('.pending-approve').length===1;
+  });
+  const second=requests.first();
+  assert.equal(await second.locator('.pending-approve').textContent(),'Autoriser — Nains');
+  const approved=page.waitForResponse(response=>
+   new URL(response.url()).pathname==='/api/approve'&&response.status()===200);
+  await second.locator('.pending-approve').click();
+  assert.equal((await (await approved).json()).camp,'dwarf');
+  const seats=(await state(id2)).seats;
+  assert.equal(seats.elf.name,'Premier téléphone');
+  assert.equal(seats.dwarf.name,'Deuxième téléphone');
+  assert.equal(pages,1);
+  await page.locator('#shell-connections-dialog [data-shell-close]').click();
+ });
+ await check('Tournoi menu creates a scheduled game with automatic, visible faction assignments',async()=>{
+  assert.equal(await open('tournament'),true);
+  await page.locator('#shell-tournament-dialog[open]').waitFor();
+  await page.locator('#tournament-name').fill('Coupe test');
+  await page.locator('#tournament-players').fill('Alice\nBruno');
+  await page.locator('#tournament-format').selectOption('swiss');
+  await page.locator('#tournament-rounds').fill('2');
+  await page.locator('#tournament-create').click();
+  await page.waitForFunction(()=>document.querySelectorAll(
+   '#tournament-list .tournament-item').length===1);
+  assert.match(await page.locator('#tournament-list .tournament-title').textContent(),/Coupe test/);
+  await page.locator('#tournament-list .tournament-next').click();
+  await page.waitForFunction(()=>document.querySelectorAll(
+   '#tournament-list .tournament-match').length===1);
+  const line=await page.locator('#tournament-list .tournament-match').first().textContent();
+  assert.match(line,/Alice/);assert.match(line,/Bruno/);
+  assert.match(line,/Elfes/);assert.match(line,/Nains/);
+  const tournaments=(await (await context.request.get(base+'/api/tournaments')).json()).tournaments;
+  assert.equal(tournaments.length,1);
+  const match=tournaments[0].matches[0];
+  assert.notEqual(match.camp_a,match.camp_b);
+  assert.equal(match.round,1);
+  const show=page.locator('#tournament-list .tournament-view').first();
+  await show.click();
+  await page.waitForFunction(expected=>gameId===expected,match.game);
+  assert.equal(await page.locator('#shell-tournament-dialog').evaluate(x=>x.open),false);
+  const selected=(await state(match.game)).game;
+  assert.equal(selected.id,match.game);
+  assert.equal(pages,1,'Tournament match shares the existing fullscreen board');
  });
  assert.deepEqual(report.errors,[],'Unexpected JS errors');
  await context.close();
