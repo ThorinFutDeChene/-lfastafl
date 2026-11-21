@@ -48,8 +48,10 @@ def main():
         def __init__(self, parent=None):
             super().__init__(parent)
             settings = self.settings()
+            # Qt WebEngine exposes JavascriptCanOpenWindows, but NOT the
+            # old Qt WebKit JavascriptCanCloseWindows attribute. The latter
+            # crashed the entire application before showing its first window.
             settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
-            settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanCloseWindows, True)
 
         def createWindow(self, window_type):
             popup = QMainWindow()

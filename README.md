@@ -1,13 +1,37 @@
-# Álfastafl — 0.7.0-dev9 (canal DEV)
+# Álfastafl — 0.7.0-dev10 (canal DEV)
 
-La **0.7.0-dev9** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev10** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev9` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev10` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev10 : correctif critique de démarrage Qt sur Ubuntu
+
+Les DEV8 et DEV9 pouvaient **ne pas se lancer du tout** sur Ubuntu.
+Leur constructeur `QWebEngineView` essayait de configurer
+`QWebEngineSettings.WebAttribute.JavascriptCanCloseWindows` :
+**cet attribut provient de Qt WebKit et n'existe pas dans Qt WebEngine**.
+L'accès produisait une exception Python avant l'apparition de la fenêtre,
+alors que nos tests précédents simulaient un faux enum avec ce membre
+inexistant et ne reproduisaient donc pas l'erreur sur Ubuntu.
+
+La DEV10 supprime l'attribut erroné et conserve le support de
+`JavascriptCanOpenWindows` présent dans Qt WebEngine.
+Le test de faux Qt exclut dorénavant cette ancienne constante
+et une **nouvelle recette native** lance effectivement PyQt6 et
+QtWebEngine, ouvre la fenêtre et vérifie le chargement de la page
+de jeu dans un serveur Xvfb sur Ubuntu (paquets Qt système Debian).
+Cette recette est désormais **obligatoire avant publication**.
+
+La fenêtre unique plein écran, les deux QR à gauche, les menus
+natif Fichier / Partie / Paramètres / Réseau, le plateau 3D,
+les règles Tafl et les sauvegardes restent inchangés.
+Stable 0.5.0 inchangée ; installation de la DEV10 recommandée
+pour les postes dont la DEV8/DEV9 ne démarre pas.
 
 ## DEV 0.7.0-dev9 : plateau unique en plein écran, deux QR à gauche et menus natifs
 

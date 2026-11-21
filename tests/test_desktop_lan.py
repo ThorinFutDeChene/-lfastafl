@@ -153,7 +153,6 @@ class DesktopSession:
 
         class FakeWebAttribute:
             JavascriptCanOpenWindows = 1
-            JavascriptCanCloseWindows = 2
 
         class FakeSettings:
             WebAttribute = FakeWebAttribute
