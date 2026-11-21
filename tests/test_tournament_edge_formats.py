@@ -77,6 +77,14 @@ class PairingEdgeTests(unittest.TestCase):
                 self.assertEqual(sum(len(v) for v in t.history.values()),
                                  count*(count-1))
 
+    def test_swiss_first_bye_is_lottery_between_equally_ranked_players(self):
+        t=Tournament('Suisse','swiss',['Alice','Bruno','Chloé'])
+        with patch('alfastafl.tournament.secrets.choice',return_value='Bruno') as draw:
+            t.next_round()
+        draw.assert_called_once()
+        self.assertEqual(
+            [m['a'] for m in t.matches if m.get('bye')],['Bruno'])
+
     def test_knockout_any_size_exempts_to_power_of_two_then_crowns_one(self):
         for count in range(2,18):
             with self.subTest(players=count):
@@ -219,6 +227,9 @@ class TournamentByesHTTPTests(unittest.TestCase):
         self.assertEqual(self.store.tournaments[tid]['round_no'],1)
         self.assertEqual(len(self.store.games),2)
         self.assertEqual(self.api('tournament/round',{'tournament':tid})[0],400)
+        live=self.store.broadcast(tid,admin=True)
+        self.assertEqual([m['game'] for m in live['matches']],[replay['game']],
+            'The spectator must see the new replay, not the superseded drawn board')
         drawn=self.store.tournaments[tid]['matches']
         self.assertEqual(next(m for m in drawn if m['id']==original['id'])['winner'],'draw')
         game=self.store.games[replay['game']]
