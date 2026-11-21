@@ -74,6 +74,39 @@
      item.append(row);
     }
    }
+   if(tournament.matches.length){
+    item.append(button('Diffuser les rencontres sur cet écran',async()=>{
+     el('shell-tournament-dialog').close();
+     window.AlfastaflTournamentLive?.start(tournament.id,'host');
+    },'tournament-broadcast-start'));
+   }
+   const access=document.createElement('details');access.className='tournament-access-manager';
+   const summary=document.createElement('summary');summary.textContent='Appareils autorisés et révocation';
+   const devices=div('tournament-authorized-devices');
+   access.append(summary,devices);
+   access.addEventListener('toggle',async()=>{
+    if(!access.open)return;
+    devices.textContent='Chargement des autorisations…';
+    try{
+     const results=await api('tournament/devices?tournament='+encodeURIComponent(tournament.id));
+     devices.replaceChildren();
+     if(!results.devices.length){devices.textContent='Aucun appareil encore autorisé.';return;}
+     for(const entry of results.devices){
+      const line=div('tournament-authorized-device');
+      text(line,'span',entry.name+' • '+(entry.role==='player'?'joueur':'spectateur')+
+       ' • '+entry.count+' appareil(s)');
+      line.append(button('Révoquer',async()=>{
+       if(!confirm('Révoquer les accès de '+entry.name+' pour ce tournoi ?'))return;
+       const result=await api('tournament/revoke',{
+        tournament:tournament.id,name:entry.name,role:entry.role});
+       status(result.revoked+' appareil(s) révoqué(s).');
+       access.open=false;access.open=true;
+      },'tournament-revoke'));
+      devices.append(line);
+     }
+    }catch(error){devices.textContent='Lecture impossible : '+error.message;}
+   });
+   item.append(access);
    item.append(button(tournament.round_no?'Valider les résultats et ronde suivante':'Tirer la première ronde',async()=>{
     const res=await api('tournament/round',{
      tournament:tournament.id,mode:el('mode').value,
