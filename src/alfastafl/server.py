@@ -214,14 +214,17 @@ class Store:
             if not tournament or tournament['id']!=entry['tournament'] or not match:
                 raise PermissionError('Ce match ne fait pas partie de votre tournoi.')
             g=self.games.get(gid)
-            if not g or g.status=='finished':
-                raise ValueError('Rencontre terminée ou indisponible.')
-            if g.status=='paused' and g.reason in ('host_restarted','host_closed'):
-                self.resume(gid)
-            if g.status not in ('active','paused') or (g.status=='paused'
-                   and g.reason not in ('disconnected',)):
-                raise ValueError('Rencontre suspendue : intervention de l’arbitre requise.')
             role=entry['role'];player=entry['name']
+            if not g or (g.status=='finished' and role!='spectator'):
+                raise ValueError('Rencontre terminée ou indisponible.')
+            # Spectators may rejoin through an already-finished match's QR:
+            # this must not resume, mutate or claim a game seat.
+            if role=='player':
+                if g.status=='paused' and g.reason in ('host_restarted','host_closed'):
+                    self.resume(gid)
+                if g.status not in ('active','paused') or (g.status=='paused'
+                       and g.reason not in ('disconnected',)):
+                    raise ValueError('Rencontre suspendue : intervention de l’arbitre requise.')
             camp=None
             if role=='player':
                 camp=match['camp_a'] if player==match['a'] else (
