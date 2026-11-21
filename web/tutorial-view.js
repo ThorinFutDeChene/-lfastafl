@@ -13,6 +13,7 @@
   const connection = el('remote-connection');
   let revision = 0;
   let lesson = null;
+  let lastMoveKey = '';
   let busy = false;
   let closed = false;
   let interval;
@@ -92,11 +93,18 @@
     };
     flatBoard(state,viewState.selected,viewState.legal,viewState.captures);
     boardView.update(viewState);
-    if(previousRevision&&previousLesson===state.lesson&&
-        data.event&&state.completed) {
-      // A confirmed new move is shown as 3D motion; a late joiner starts
-      // directly from the current authoritative position without replay.
-      boardView.playMove(data.event).catch(()=>{});
+    if (!data.event) {
+      lastMoveKey = '';
+    } else {
+      const move=data.event;
+      const moveKey=JSON.stringify([state.mode,state.lesson,move.n,
+        move.from,move.to,move.captured,move.reason]);
+      // A hint or an explanatory update can increase revision while
+      // retaining the same last_move. Animate it ONLY once per completion.
+      if (previousRevision && previousLesson===state.lesson &&
+          moveKey!==lastMoveKey && state.completed)
+        boardView.playMove(move).catch(()=>{});
+      lastMoveKey=moveKey;
     }
     connection.textContent='Diffusion en direct · lecture seule';
     connection.dataset.status='live';

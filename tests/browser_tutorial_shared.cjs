@@ -90,6 +90,12 @@ async function main(){
  assert.equal(await guest.locator('#request').count(),0);
  assert.equal(await guest.locator('#tutorial-board [role="gridcell"]').count(),121);
  console.log('PASS guest sees the correct 3D/2D teaching board, no game controls');
+ await guest.evaluate(()=>{
+  const view=document.getElementById('tutorial-board-view').boardView;
+  window.__tutorialPlayCount=0;
+  const original=view.playMove.bind(view);
+  view.playMove=(...args)=>{window.__tutorialPlayCount++;return original(...args);};
+ });
 
  const first=(await (await hostContext.request.get(base+'/api/tutorial?mode=fetlar')).json()).tutorial;
  const from=first.focus[0],to=first.targets[0];
@@ -109,7 +115,12 @@ async function main(){
  assert.equal(snapshot.state.completed,true);
  assert.equal(snapshot.event.n,1);
  assert.deepEqual(snapshot.event.to,to);
- console.log('PASS server-confirmed host move and result synchronized with spectator');
+ await guest.waitForFunction(()=>window.__tutorialPlayCount===1);
+ await host.locator('#tutorial-hint').click();
+ await guest.waitForFunction(()=>!document.getElementById('tutorial-remote-hint').hidden);
+ assert.equal(await guest.evaluate(()=>window.__tutorialPlayCount),1,
+  'A hint on a completed exercise must never replay the move animation');
+ console.log('PASS server-confirmed host move is animated once, even after a hint');
  await host.locator('#tutorial-next').click();
  await guest.waitForFunction(()=>document.getElementById('tutorial-remote-title').textContent===
   'Se déplacer en ligne droite');
