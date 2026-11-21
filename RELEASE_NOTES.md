@@ -1,30 +1,22 @@
-# Álfastafl 0.7.1-dev8 — Compatibilité Firefox et WebKit
+# Álfastafl 0.7.1-dev9 — Fiabilisation des recettes multi-navigateurs
 
-## Extension des tests de navigateurs
+## Correctif de tests automatisés
 
-- La recette du tutoriel partagé (QR, sélection des coups, déplacements,
-  lecture seule et révocation) s'exécute maintenant avec les moteurs
-  **Chromium**, **Firefox** et **WebKit** via Playwright.
-- La recette à quatre joueurs / deux rencontres / un spectateur est
-  également exécutée sous ces trois moteurs : autorisations,
-  déplacements, reconnection, rotation des plateaux, scènes de prises
-  simultanées et qualification des finalistes.
-- GitHub Actions installe les moteurs nécessaires et doit réussir ces
-  tests avant toute publication de DEV8.
-- Le cahier de recette physique distingue Firefox Linux/Android,
-  Chrome Android et Safari iOS/macOS.
+- La fermeture des contextes Playwright dans les scénarios
+  **tournoi à quatre joueurs** et **tutoriel partagé** ne patiente
+  plus sur des requêtes HTTP d'actualisation de l'affichage.
+- Les scénarios testent toujours les autorisations, les deux rencontres
+  simultanées, la rotation des spectateurs, les captures, la reconnexion
+  des finalistes, ainsi que les déplacements du tutoriel partagé.
+- Les tests Chromium, Firefox et WebKit restent obligatoires avant
+  la publication de cette préversion sur GitHub Actions.
 
-**Limite :** WebKit Linux constitue un test du moteur de rendu,
-et non une validation de Safari sur iPhone, iPad ou macOS. Les essais
-réels sur ces appareils et le Wi-Fi restent obligatoires avant
-une déclaration de compatibilité complète.
+## Compatibilité et limites
 
-## Correctifs et continuité
+Ce correctif ne change **aucune fonctionnalité du jeu** ni les règles
+de tafl, les sauvegardes, le protocole réseau ou les animations.
+La stable **0.7.0** est inchangée.
 
-- Le test de mise à jour lit désormais la version attendue dans
-  `VERSION` pour éviter les blocages CI à chaque nouvelle DEV.
-- Aucun changement de règles, de sauvegarde ou du protocole réseau.
-- Version stable **0.7.0 inchangée**.
-
-Pour les résultats de la recette multijoueurs et les scénarios
-terrain, voir `RECETTE_TOURNOIS_TERRAIN.md`.
+La recette physique Ubuntu MATE, téléphones et tablettes, incluant
+Safari iOS/macOS, reste à exécuter selon
+`RECETTE_TOURNOIS_TERRAIN.md` (suivi : issue GitHub n°7).
