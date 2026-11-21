@@ -807,7 +807,7 @@ class AppHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError,UnicodeDecodeError):raise ValueError('Invalid JSON')
     def static(self,path):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
-        assets=('index.html','app.js','tutorial.js','host-shell.js','tournament-ui.js','style.css',
+        assets=('index.html','app.js','tutorial.js','host-shell.js','tournament-ui.js','tournament-live.js','style.css',
                 'board-view.js','board3d.js','figurines3d.js','move3d.js','cinematic3d.js','combat-motion.js','flank-capture.js',
                 'flank-cinematic3d.js','archery3d.js','throne-capture.js',
                 'throne-cinematic3d.js','escape-motion.js','king-escape3d.js','king-siege-motion.js',
