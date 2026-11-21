@@ -17,6 +17,7 @@ PARTY_MENU_COMMANDS = (
     ('Tutoriel…', 'tutorial'),
     ('Tournois et tirage des factions…', 'tournament'),
 )
+LAN_ACTIVATING_COMMANDS = frozenset(('new', 'tutorial', 'tournament'))
 
 
 def show_main_window(window):
@@ -120,7 +121,7 @@ def main():
     def menu_command(menu, label, command):
         action = menu.addAction(label)
         def dispatch(*_):
-            if command in ('new', 'tutorial', 'tournament'):
+            if command in LAN_ACTIVATING_COMMANDS:
                 # Start immediately on the real native-menu action. The
                 # asynchronous firewall helper never blocks the Qt UI.
                 controller.start()
