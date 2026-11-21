@@ -181,7 +181,7 @@ class Tournament:
                 # Protect against repeated byes: always select a player with
                 # the LEAST exemptions so far; among those take the lowest
                 # ranked. Byes are visible and earn 3 points, no false game.
-                bye_counts={p:sum(m.get('bye') and m['a']==p
+                bye_counts={p:sum(bool(m.get('bye') and m['a']==p)
                                   for m in self.matches) for p in pool}
                 least=min(bye_counts.values())
                 player=next(p for p in reversed(pool) if bye_counts[p]==least)
