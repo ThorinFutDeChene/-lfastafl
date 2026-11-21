@@ -62,10 +62,13 @@ class AutomaticLanEndpointTests(unittest.TestCase):
         self.assertEqual(self.calls,[])
         self.assertFalse(self.server.lan_enabled)
 
-    def test_host_rejected_if_no_native_controller_available(self):
+    def test_standalone_local_host_reports_offline_capability_without_http_error(self):
         delattr(self.server,'lan_activation_requested')
         code,reply=self.request(header='lan-activate')
-        self.assertEqual(code,503,reply)
+        self.assertEqual(code,200,reply)
+        self.assertFalse(reply['active'])
+        self.assertFalse(reply['pending'])
+        self.assertFalse(reply['available'])
         self.assertIn('indisponible',reply['error'])
         self.assertEqual(self.calls,[])
 
