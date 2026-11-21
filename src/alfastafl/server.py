@@ -1064,6 +1064,22 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             u=urlparse(self.path)
+            if u.path=='/api/lan/activate':
+                # Only the native host's own page can request an automatic
+                # session-scoped network opening. A foreign website must
+                # not be able to silently trigger the privileged UFW helper.
+                # The custom header requires a browser CORS preflight from
+                # cross-origin pages; no CORS permissions are sent here.
+                if not self.admin() or self.headers.get(
+                        'X-Alfastafl-Host-Action')!='lan-activate':
+                    raise PermissionError('Activation réseau réservée au PC hôte.')
+                if self.server.lan_enabled:
+                    return self.send({'active':True,'pending':False})
+                activate=getattr(self.server,'lan_activation_requested',None)
+                if not callable(activate):
+                    return self.send({'error':'Activation LAN native indisponible.'},503)
+                activate()
+                return self.send({'active':False,'pending':True},202)
             if u.path.startswith('/api/tutorial') and not self.admin():
                 raise PermissionError('Tutoriel réservé au PC hôte.')
             d=self.read_json();st=self.server.store
