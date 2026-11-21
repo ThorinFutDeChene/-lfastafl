@@ -93,8 +93,7 @@ async function main(){
  assert.equal(await count(),1,'Repeated activation requests must be idempotent');
  console.log('PASS actual game creation does not reopen an already-active network');
 
- await page.evaluate(()=>window.AlfastaflShell.open('saves'));
- await page.locator('#save-leave').click();
+ await page.evaluate(()=>window.AlfastaflShell.open('save'));
  await page.waitForFunction(()=>game?.status==='paused');
  await page.evaluate(()=>window.AlfastaflShell.open('saves'));
  await off();
@@ -107,7 +106,9 @@ async function main(){
 
  await off();
  await page.evaluate(()=>window.AlfastaflShell.open('saves'));
- await page.locator('#resume-game').click();
+ // The fullscreen host has a hidden #resume-game control. The public
+ // host resume action is also used by the saved-game workflow itself.
+ await page.evaluate(()=>hostAction('resume',{game:gameId}));
  await activated();
  assert.equal(await count(),3);
  console.log('PASS resuming an already selected paused game also reopens LAN');
