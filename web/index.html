@@ -14,7 +14,7 @@
     <figure id="shell-player-code" class="shell-qr-card" data-role="player">
       <figcaption>JOUEURS</figcaption>
       <img id="shell-player-image" alt="QR pour demander à jouer" width="140" height="140" hidden>
-      <p id="shell-player-note">Activez le réseau local et créez une partie.</p>
+      <p id="shell-player-note">Créez ou reprenez une partie pour ouvrir le réseau automatiquement.</p>
     </figure>
     <div class="shell-rail-middle"><span>ᚠ</span><small>RÉSEAU LOCAL</small><span>ᚦ</span></div>
     <figure id="shell-spectator-code" class="shell-qr-card" data-role="spectator">
@@ -71,7 +71,7 @@
       <button id="create" type="button">Créer une partie</button>
       <button id="tutorial-open" type="button" aria-haspopup="dialog" aria-controls="tutorial-panel" hidden>Tutoriel</button>
     </div>
-    <p id="lan-status" role="status">Mode local. Activez l’accès LAN depuis le menu Réseau pour connecter des joueurs.</p>
+    <p id="lan-status" role="status">Mode local · le réseau est ouvert automatiquement à la création ou reprise d’une partie.</p>
     <div class="saved-games">
       <h3>Parties hébergées et sauvegardées</h3>
       <div id="game-list">Aucune partie à afficher.</div>
@@ -330,7 +330,7 @@
       <aside id="tutorial-live-panel" class="tutorial-live-panel" aria-label="Diffusion du tutoriel">
         <div class="tutorial-live-copy">
           <strong>Partager le tutoriel</strong>
-          <p id="tutorial-live-status" role="status" aria-live="polite">Réseau local désactivé. Activez le LAN depuis le menu Réseau pour présenter ce plateau.</p>
+          <p id="tutorial-live-status" role="status" aria-live="polite">Le réseau s’ouvre automatiquement à l’ouverture du tutoriel.</p>
           <a id="tutorial-live-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Ouvrir la vue spectateur</a>
           <button id="tutorial-live-toggle" type="button" class="tutorial-secondary" hidden>Arrêter le partage</button>
         </div>
