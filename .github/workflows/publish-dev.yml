@@ -57,10 +57,10 @@ jobs:
       - name: Verify two-way captures against the hostile empty throne
         run: node tests/ui_throne_capture.cjs
       - name: Install tutorial browser test dependencies
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: |
           npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
-          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium firefox webkit
       - name: Exercise the host tutorial in Chromium
         timeout-minutes: 5
         env:
@@ -89,6 +89,30 @@ jobs:
         timeout-minutes: 6
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_four_clients.cjs
+      - name: Verify shared QR tutorial under Firefox
+        timeout-minutes: 7
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: firefox
+        run: node tests/browser_tutorial_shared.cjs
+      - name: Verify four-player tournament under Firefox
+        timeout-minutes: 9
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: firefox
+        run: node tests/browser_tournament_four_clients.cjs
+      - name: Verify shared QR tutorial under WebKit (Safari engine)
+        timeout-minutes: 7
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: webkit
+        run: node tests/browser_tutorial_shared.cjs
+      - name: Verify four-player tournament under WebKit (Safari engine)
+        timeout-minutes: 9
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: webkit
         run: node tests/browser_tournament_four_clients.cjs
       - name: Verify native single-board fullscreen host shell and both QR codes
         timeout-minutes: 4

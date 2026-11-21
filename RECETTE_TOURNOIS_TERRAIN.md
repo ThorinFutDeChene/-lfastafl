@@ -30,6 +30,27 @@
 | T13 | Fermer toute activité, toutes les diffusions et toutes les fenêtres de régie, sans partie active. | Le serveur LAN et la règle UFW temporaire disparaissent après la période de grâce de 60 secondes ; la boucle locale reste disponible. | À renseigner |
 | T14 | Démarrer une nouvelle partie, reprendre une sauvegarde puis rouvrir un tournoi. | Le LAN se réactive automatiquement ; aucune ouverture manuelle en doublon. | À renseigner |
 
+## Matrice de compatibilité des navigateurs
+
+Le test automatisé sur GitHub Actions utilise désormais les moteurs
+**Chromium**, **Firefox** et **WebKit** pour le tutoriel partagé et le
+tournoi à quatre joueurs. **WebKit sur Linux n'est pas Safari sur iPhone,
+iPad ou Mac** : les tests physiques restent indispensables.
+
+| Plateforme | Navigateur | Répéter ces scénarios | Verdict |
+| --- | --- | --- | --- |
+| Ubuntu MATE / Linux | Firefox actuel | T02, T03, T04, T05, T07, T10 | Non testé physiquement |
+| Android (smartphone/tablette) | Firefox | T02, T03, T04, T06, T07 | Non testé physiquement |
+| Android (smartphone/tablette) | Chrome/Chromium | T02, T03, T04, T06, T07 | Non testé physiquement |
+| iPhone / iPad | Safari | T02, T03, T04, T05, T07, T10 | Non testé physiquement |
+| macOS, si disponible | Safari | T02, T03, T04, T05, T07 | Non testé physiquement |
+
+Vérifier sur chaque navigateur le rendu du plateau 3D (ou son repli
+2D), la position des boutons sur petit écran, la lecture du QR code,
+la synchronisation, la reconnexion après changement d'onglet ou coupure
+réseau, les sons et les animations. Conserver la version exacte du
+navigateur et de l'OS dans le compte rendu.
+
 ## Contrôles complémentaires
 
 - **Temps et sécurité** : essai avec une horloge active, interruption réseau, reconnexion après un délai supérieur au délai autorisé, révocation puis nouvelle demande d'accès.
