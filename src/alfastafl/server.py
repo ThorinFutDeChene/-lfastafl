@@ -923,7 +923,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     sid=q.get('session',[''])[0]
                     auth=st.touch(gid,sid)
                     g=st.games[gid]
-                    if not self.admin() and (not auth or auth['game']!=gid or not auth['active']):return self.send({'error':'Unauthorized'},403)
+                    if not self.admin() and (not auth or not auth['active'] or
+                            (auth['game']!=gid and not st.tournament_spectator(gid,sid))):
+                        return self.send({'error':'Unauthorized'},403)
                     return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None,
                                       'seats':{camp:{'name':seat['name'],'host':bool(seat.get('local_host'))}
                                                for camp,seat in st._seats(gid).items()}
