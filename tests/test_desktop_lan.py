@@ -165,6 +165,7 @@ class DesktopSession:
             def __init__(self, *_):
                 self.setUrl = Mock()
                 self.settings = Mock(return_value=Mock())
+                self.page = Mock(return_value=Mock())
 
         class FakeQt:
             class WidgetAttribute:
