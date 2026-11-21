@@ -99,12 +99,19 @@ async function main(){
   document.getElementById('tournament-broadcast-match').textContent.includes('contre'));
  assert.equal(await host.locator('#tournament-broadcast-name').textContent(),
   'Tournoi à quatre • Ronde 1');
+ await host.waitForFunction(()=>['shell-player-image','shell-spectator-image'].every(id=>
+  document.getElementById(id).getAttribute('src')?.includes('tournament/qr')));
+ const playerQR=await host.locator('#shell-player-image').getAttribute('src');
+ const spectatorQR=await host.locator('#shell-spectator-image').getAttribute('src');
+ assert(playerQR.includes('role=player')&&spectatorQR.includes('role=spectator'));
  const first=await host.evaluate(()=>gameId);
  assert(matches.some(m=>m.game===first));
  await host.waitForFunction(previous=>gameId!==previous,first,{timeout:13500});
  const second=await host.evaluate(()=>gameId);
  assert(matches.some(m=>m.game===second));
- console.log('PASS host broadcast automatically rotates distinct live boards');
+ assert.equal(await host.locator('#shell-player-image').getAttribute('src'),playerQR);
+ assert.equal(await host.locator('#shell-spectator-image').getAttribute('src'),spectatorQR);
+ console.log('PASS host rotates boards without changing tournament-wide QR codes');
  await hostContext.request.post(base+'/__test__/captures',{data:{}});
  await host.waitForFunction(()=>document.querySelectorAll('.tournament-capture-card').length===2,
   {timeout:11000});
