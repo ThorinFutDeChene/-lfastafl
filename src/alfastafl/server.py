@@ -1,5 +1,5 @@
 """Local-network web service. All game mutations are server-authoritative."""
-import json, threading, secrets, os, tempfile, pathlib, time, socket, io, uuid
+import json, threading, secrets, hashlib, os, tempfile, pathlib, time, socket, io, uuid
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
@@ -31,6 +31,18 @@ class Store:
         # Tournament faction history must survive app restarts, unlike
         # authorization sessions, which are deliberately ephemeral.
         self._tournament_file=self.path/'.tournaments.json'
+        self._device_file=self.path/'.tournament-devices.json'
+        # Only hashes of approved bearer credentials reach the host disk.
+        # A browser cannot provide a stable hardware MAC address.
+        self.tournament_credentials={}
+        if self._device_file.is_file():
+            try:
+                saved_devices=json.loads(self._device_file.read_text('utf-8'))
+                if isinstance(saved_devices,dict):
+                    self.tournament_credentials={key:value for key,value in saved_devices.items()
+                        if isinstance(key,str) and len(key)==64 and isinstance(value,dict)}
+            except (OSError,ValueError,TypeError):
+                pass
         if self._tournament_file.is_file():
             try:
                 saved=json.loads(self._tournament_file.read_text('utf-8'))
@@ -95,13 +107,163 @@ class Store:
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
 
+    def save_tournament_credentials(self):
+        """Atomically store approved device hashes; never serialize bearer secrets."""
+        payload=json.dumps(self.tournament_credentials,ensure_ascii=False,indent=2)
+        fd,tmp=tempfile.mkstemp(prefix='.alfastafl-devices-',dir=self.path)
+        try:
+            with os.fdopen(fd,'w',encoding='utf-8') as f:
+                f.write(payload);f.flush();os.fsync(f.fileno())
+            os.replace(tmp,self._device_file)
+            try:
+                directory_fd=os.open(self.path,os.O_DIRECTORY|os.O_RDONLY)
+                try:os.fsync(directory_fd)
+                finally:os.close(directory_fd)
+            except (OSError,AttributeError):pass
+        finally:
+            if os.path.exists(tmp):os.unlink(tmp)
+
+    def tournament_for_game(self,gid):
+        for tournament in self.tournaments.values():
+            for match in tournament.get('matches',[]):
+                if match.get('game')==gid:
+                    return tournament,match
+        return None,None
+
     def tournament_match(self,gid):
         """The scheduled identities and immutable camps for a tournament game."""
-        for t in self.tournaments.values():
-            for match in t.get('matches',[]):
-                if match.get('game')==gid:
-                    return match
-        return None
+        return self.tournament_for_game(gid)[1]
+
+    def _device_entry(self,credential):
+        if not isinstance(credential,str) or not 40<=len(credential)<=200:
+            raise PermissionError('Appareil non autorisé pour ce tournoi.')
+        digest=hashlib.sha256(credential.encode('utf-8')).hexdigest()
+        entry=self.tournament_credentials.get(digest)
+        if not entry or entry.get('tournament') not in self.tournaments:
+            raise PermissionError('Autorisation de tournoi inconnue ou révoquée.')
+        return entry
+
+    def _register_tournament_device(self,gid,session):
+        tournament,match=self.tournament_for_game(gid)
+        if not tournament or not session or session['role'] not in ('player','spectator'):
+            return
+        if session['role']=='player' and session['name'] not in (match['a'],match['b']):
+            return
+        credential=secrets.token_urlsafe(48)
+        digest=hashlib.sha256(credential.encode('utf-8')).hexdigest()
+        self.tournament_credentials[digest]={
+            'tournament':tournament['id'],'name':session['name'],
+            'role':session['role']}
+        self.save_tournament_credentials()
+        session['tournament_credential']=credential
+        session['tournament_id']=tournament['id']
+
+    def tournament_identify(self,gid):
+        t,m=self.tournament_for_game(gid)
+        return {'id':t['id'],'name':t['name'],'match':m['id']} if t else None
+
+    def tournament_my_matches(self,credential):
+        with self.lock:
+            entry=self._device_entry(credential)
+            tournament=self.tournaments[entry['tournament']]
+            role=entry['role']; name=entry['name']
+            matches=[]
+            for match in tournament.get('matches',[]):
+                if role=='player' and name not in (match['a'],match['b']):
+                    continue
+                g=self.games.get(match.get('game'))
+                matches.append({'game':match.get('game'),'round':match['round'],
+                    'a':match['a'],'b':match['b'],'camp_a':match['camp_a'],
+                    'camp_b':match['camp_b'],'status':g.status if g else 'missing',
+                    'winner':match.get('winner')})
+            return {'tournament':tournament['id'],'name':tournament['name'],
+                    'role':role,'player':name,'matches':matches}
+
+    def tournament_live(self,tournament_id):
+        """Read-only multiplexed state, never a source of authority for moves."""
+        with self.lock:
+            self._tick_locked()
+            tournament=self.tournaments[tournament_id]
+            matches=[]
+            for match in tournament.get('matches',[]):
+                g=self.games.get(match.get('game'))
+                matches.append({'id':match['id'],'game':match.get('game'),
+                    'round':match['round'],'a':match['a'],'b':match['b'],
+                    'camp_a':match['camp_a'],'camp_b':match['camp_b'],
+                    'winner':match.get('winner'),'status':g.status if g else 'missing',
+                    'moves':len(g.history) if g else 0,
+                    'cinematic':self.cinematic_state(g.id) if g else None})
+            return {'tournament':{'id':tournament['id'],'name':tournament['name'],
+                                 'format':tournament['format'],'round_no':tournament['round_no']},
+                    'matches':matches}
+
+    def tournament_spectator(self,gid,sid):
+        s=self.sessions.get(sid)
+        if not s or not s.get('active') or s['role']!='spectator':
+            return None
+        origin,_=self.tournament_for_game(s['game'])
+        target,_=self.tournament_for_game(gid)
+        return s if origin and target and origin['id']==target['id'] else None
+
+    def tournament_enter(self,credential,gid):
+        """Resume an already approved tournament device, including after restart."""
+        with self.lock:
+            entry=self._device_entry(credential)
+            tournament,match=self.tournament_for_game(gid)
+            if not tournament or tournament['id']!=entry['tournament'] or not match:
+                raise PermissionError('Ce match ne fait pas partie de votre tournoi.')
+            g=self.games.get(gid)
+            if not g or g.status=='finished':
+                raise ValueError('Rencontre terminée ou indisponible.')
+            if g.status=='paused' and g.reason in ('host_restarted','host_closed'):
+                self.resume(gid)
+            if g.status not in ('active','paused') or (g.status=='paused'
+                   and g.reason not in ('disconnected',)):
+                raise ValueError('Rencontre suspendue : intervention de l’arbitre requise.')
+            role=entry['role'];player=entry['name']
+            camp=None
+            if role=='player':
+                camp=match['camp_a'] if player==match['a'] else (
+                    match['camp_b'] if player==match['b'] else None)
+                if not camp:
+                    raise PermissionError('Ce joueur ne participe pas à ce match.')
+                occupied=self._seats(gid).get(camp)
+                if occupied and occupied['name']!=player:
+                    raise PermissionError('La faction attribuée est occupée.')
+                if occupied:
+                    occupied['active']=False
+                g.players[camp]=player
+                self.save(g)
+            elif role!='spectator':
+                raise PermissionError('Rôle de tournoi invalide.')
+            sid=secrets.token_urlsafe(30)
+            self.sessions[sid]={'game':gid,'role':role,'camp':camp,'name':player,
+                'active':True,'seen':False,'connected':True,'last_seen':self.monotonic(),
+                'tournament_credential':credential,'tournament_id':tournament['id']}
+            # A returning, approved player must not wait for another host approval.
+            for request in self.pending.values():
+                if (request['game']==gid and request['name']==player
+                        and request['role']==role and request['status']=='waiting'):
+                    request['status']='rejected'
+            return {'session':sid,'camp':camp,'role':role,'game':gid,
+                    'tournament':tournament['id']}
+
+    def tournament_revoke(self,tournament_id,name,role='player'):
+        """Host can revoke saved credentials and active sessions immediately."""
+        with self.lock:
+            if tournament_id not in self.tournaments or role not in ('player','spectator'):
+                raise ValueError('Tournoi ou rôle inconnu.')
+            digests=[key for key,entry in self.tournament_credentials.items()
+                if entry.get('tournament')==tournament_id
+                and entry.get('name')==name and entry.get('role')==role]
+            for digest in digests:del self.tournament_credentials[digest]
+            if digests:self.save_tournament_credentials()
+            for s in self.sessions.values():
+                if (s.get('tournament_id')==tournament_id and s.get('name')==name
+                        and s.get('role')==role):
+                    s['active']=False
+            return len(digests)
+
 
     def available_camps(self,gid,name=None):
         """Server-authoritative choices for the host's approval dialog.
