@@ -149,6 +149,9 @@
       el('live-toggle').textContent = 'Réactiver le partage';
     } else {
       liveDisabled = false;
+      // The LAN may have retired after a long period without sharing.
+      // Explicitly resuming a live tutorial requests it again.
+      ensureLanForSession();
       refreshLive();
     }
   });
