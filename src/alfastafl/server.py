@@ -31,6 +31,8 @@ class Store:
         self._pending_secrets={}
         self._broadcast_sessions={}
         self.repetition_votes={}
+        # A presentation is ephemeral and independent of saved game/tournament data.
+        self.tutorial_live=None
         # Tournament faction history must survive app restarts, unlike
         # authorization sessions, which are deliberately ephemeral.
         self._tournament_file=self.path/'.tournaments.json'
@@ -100,6 +102,68 @@ class Store:
             except (OSError,AttributeError):pass
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
+
+    def start_tutorial_live(self,mode,lesson=None):
+        """The Ubuntu host publishes one temporary, read-only teaching session."""
+        with self.lock:
+            state=tutorial.lesson_state(mode,lesson)
+            token=secrets.token_urlsafe(42)
+            self.tutorial_live={'token':token,'revision':1,'state':state,
+                'selected':None,'legal':[],'captures':[],'hint_visible':False,
+                'updated':self.monotonic(),'event':None}
+            return {'token':token,'revision':1}
+
+    def update_tutorial_live(self,token,state,selected=None,legal=None,
+                             captures=None,hint_visible=False):
+        """Accept ONLY snapshots from the local host, never the LAN viewer."""
+        with self.lock:
+            live=self.tutorial_live
+            if not live or not isinstance(token,str) or not hmac.compare_digest(
+                    token,live['token']):
+                raise ValueError('Présentation du tutoriel expirée.')
+            if not isinstance(state,dict) or not isinstance(state.get('mode'),str) or \
+                    not isinstance(state.get('lesson'),str):
+                raise ValueError('État de démonstration invalide.')
+            # Reject malformed positions before exposing them to spectators.
+            tutorial.lesson_state(state['mode'],state['lesson'])
+            board=state.get('board')
+            if not isinstance(board,list) or len(board)!=11 or any(
+                    not isinstance(row,list) or len(row)!=11 for row in board):
+                raise ValueError('Plateau de démonstration invalide.')
+            for points in (legal,captures):
+                if not isinstance(points,list) or len(points)>121:
+                    raise ValueError('Cases de démonstration invalides.')
+            if selected is not None and (not isinstance(selected,list) or
+                    len(selected)!=2 or any(type(v)!=int or v<0 or v>10 for v in selected)):
+                raise ValueError('Sélection de démonstration invalide.')
+            snapshot={'state':state,'selected':selected,'legal':legal,
+                      'captures':captures,'hint_visible':bool(hint_visible)}
+            if any(live[k]!=v for k,v in snapshot.items()):
+                live.update(snapshot)
+                live['revision']+=1
+                # A move event must have a revision to prevent repeat animations.
+                live['event']=state.get('last_move') if state.get('completed') else None
+            live['updated']=self.monotonic()
+            return {'revision':live['revision']}
+
+    def tutorial_live_state(self,token,lan_enabled):
+        with self.lock:
+            live=self.tutorial_live
+            if not lan_enabled or not live or not isinstance(token,str) or \
+                    len(token)>200 or not hmac.compare_digest(token,live['token']) or \
+                    self.monotonic()-live['updated']>20:
+                raise PermissionError('Présentation indisponible ou terminée.')
+            return {key:live[key] for key in ('revision','state','selected',
+                       'legal','captures','hint_visible','event')}
+
+    def stop_tutorial_live(self,token):
+        with self.lock:
+            live=self.tutorial_live
+            if live and isinstance(token,str) and hmac.compare_digest(
+                    token,live['token']):
+                self.tutorial_live=None
+                return True
+            return False
 
     def tournament_match(self,gid):
         """The scheduled identities and immutable camps for a tournament game."""
@@ -643,6 +707,7 @@ class Store:
     def shutdown(self):
         """Persist the current clocks; host closure cannot silently burn time."""
         with self.lock:
+            self.tutorial_live=None
             self._tick_locked()
             self._cinematics.clear()
             for g in self.games.values():
@@ -892,6 +957,31 @@ class AppHandler(BaseHTTPRequestHandler):
             except ImportError:return self.send({'error':'Install python3-qrcode'},503)
         
         try:
+            if u.path=='/api/tutorial/live/state':
+                return self.send(self.server.store.tutorial_live_state(
+                    q.get('token',[''])[0],self.server.lan_enabled))
+            if u.path=='/api/tutorial/live/qr':
+                if not self.admin():return self.send({'error':'QR réservé au PC hôte.'},403)
+                if not self.server.lan_enabled:
+                    return self.send({'error':'Activez le réseau LAN pour partager.'},503)
+                token=q.get('token',[''])[0]
+                self.server.store.tutorial_live_state(token,True)
+                try:
+                    import qrcode
+                except ImportError:
+                    return self.send({'error':'Module QR indisponible'},503)
+                url=('http://'+self.server.lan_address+':'+
+                     str(self.server.server_address[1])+'/?tutorial_view='+token)
+                output=io.BytesIO()
+                qrcode.make(url).save(output,format='PNG')
+                raw=output.getvalue()
+                self.send_response(200)
+                self.send_header('Content-Type','image/png')
+                self.send_header('Content-Length',str(len(raw)))
+                self.send_header('Cache-Control','no-store')
+                self.end_headers()
+                self.wfile.write(raw)
+                return
             if u.path.startswith('/api/tutorial'):
                 if not self.admin():return self.send({'error':'Tutoriel réservé au PC hôte.'},403)
                 mode=q.get('mode',['fetlar'])[0]
@@ -977,6 +1067,17 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path.startswith('/api/tutorial') and not self.admin():
                 raise PermissionError('Tutoriel réservé au PC hôte.')
             d=self.read_json();st=self.server.store
+            if u.path=='/api/tutorial/live/start':
+                if not self.server.lan_enabled:
+                    raise PermissionError('Activez le LAN depuis le menu Réseau avant le partage.')
+                return self.send(st.start_tutorial_live(d.get('mode','fetlar'),
+                                                      d.get('lesson')))
+            if u.path=='/api/tutorial/live/publish':
+                return self.send(st.update_tutorial_live(
+                    d.get('token'),d.get('state'),d.get('selected'),d.get('legal',[]),
+                    d.get('captures',[]),d.get('hint_visible',False)))
+            if u.path=='/api/tutorial/live/stop':
+                return self.send({'stopped':st.stop_tutorial_live(d.get('token'))})
             if u.path=='/api/tutorial/move':
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
