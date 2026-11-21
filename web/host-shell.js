@@ -75,7 +75,7 @@
    x.note.textContent=visible ? (x.role==='player'
     ?'Scanner pour demander à jouer':'Scanner pour demander à regarder')
     :address?.lan_enabled?'Créez ou reprenez une partie.':
-     'Activez le réseau dans le menu Réseau.';
+     'Le LAN s’active automatiquement à la création ou reprise d’une partie.';
    if(visible){
     // The server provides a real QR bound to an invitation and the current
     // LAN address. Cache the signature to avoid breaking camera scans.
@@ -91,6 +91,9 @@
   }
  }
  function open(name){
+  // The native menu and the web dialog both use the same idempotent request.
+  if(name==='new'||name==='tutorial'||name==='tournament')
+   ensureLanForSession();
   if(name==='tutorial'){
    for(const m of Object.values(dialogs))if(m.open)m.close();
    tutorialTrigger.click();return true;
