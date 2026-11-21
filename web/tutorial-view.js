@@ -34,6 +34,8 @@
       const piece=state.board[r][c];
       const cell=document.createElement('div');
       cell.className='square'+((r+c)%2?' alt':'');
+      cell.dataset.row=String(r);
+      cell.dataset.col=String(c);
       cell.setAttribute('role','gridcell');
       const special=(r===5&&c===5) ||
         (state.mode!=='historical'&&[0,10].includes(r)&&[0,10].includes(c));
