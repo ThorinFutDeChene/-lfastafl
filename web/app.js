@@ -194,8 +194,8 @@ function clearSelectedGame(){
  sessionStorage.removeItem('alfastafl.game');
  sessionStorage.removeItem('alfastafl.session');
  render();
- window.AlfastaflShell?.syncInvites(null,null,null);
- window.AlfastaflShell?.updateStatus();
+ globalThis.AlfastaflShell?.syncInvites(null,null,null);
+ globalThis.AlfastaflShell?.updateStatus();
 }
 async function listGames(force=false){
  if(!isHost||(!force&&Date.now()-gameListUpdatedAt<5000))return;
@@ -217,7 +217,7 @@ async function listGames(force=false){
     sessionStorage.setItem('alfastafl.game',gameId);
     sessionStorage.removeItem('alfastafl.session');
     await load();showReservedBoard(popup);await listGames(true);
-    window.AlfastaflShell?.onSelected();
+    globalThis.AlfastaflShell?.onSelected();
    };
    const remove=document.createElement('button');remove.type='button';
    remove.className='game-delete';remove.textContent='Supprimer';
@@ -347,7 +347,7 @@ function render(){
                    'player-controls','draw-response','repetition-review','invitations',
                    'save-leave','resume-game'])
    $(id).hidden=true;
-  window.AlfastaflShell?.updateStatus();
+  globalThis.AlfastaflShell?.updateStatus();
   return;
  }
  $('clocks').hidden=false;
@@ -390,7 +390,7 @@ function render(){
  }
  if(focused&&focused.every(Number.isInteger)&&!gameBusy)focusGameSquare(focused);
  renderClocks();renderConnection();renderHostControls();
- window.AlfastaflShell?.updateStatus();
+ globalThis.AlfastaflShell?.updateStatus();
  $('moves').replaceChildren();
  for(const move of game.history){
   const item=document.createElement('li');
@@ -477,7 +477,7 @@ async function load(){
   if(state.invites&&isHost){
    const addr=await api('address');
    if(!currentRequest())return;
-   window.AlfastaflShell?.syncInvites(state.invites,addr,requestedGame);
+   globalThis.AlfastaflShell?.syncInvites(state.invites,addr,requestedGame);
    const origin='http://'+addr.address+':'+addr.port;
    const panel=$('invitations');
    const spectatorQR=$('host-spectator-qr');
@@ -597,7 +597,7 @@ $('create').onclick=async()=>{
   if(session)sessionStorage.setItem('alfastafl.session',session);
   else sessionStorage.removeItem('alfastafl.session');
   await load();showReservedBoard(popup);await listGames(true);
-  window.AlfastaflShell?.onCreated();
+  globalThis.AlfastaflShell?.onCreated();
   }catch(error){if(popup&&!popup.closed)popup.close();throw error;}
  }catch(error){say(error.message);}
 
