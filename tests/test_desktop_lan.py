@@ -79,7 +79,7 @@ class DesktopSession:
         self.scenario_executed = False
         self.aboutToQuit = Signal()
 
-     def make_server(self, host, _port, _store):
+    def make_server(self, host, _port, _store):
         server = Mock(lan_enabled=False, lan_address=host)
         server.shutdown.side_effect = lambda: self.events.append(host + '.shutdown')
         server.server_close.side_effect = lambda: self.events.append(host + '.close')
