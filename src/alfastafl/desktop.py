@@ -6,6 +6,19 @@ from .server import run, Store, PORT
 from .relauncher import schedule_restart
 
 
+# Native host menu definitions. Keep the 2-player entry on the existing
+# new-game command so automatic LAN activation and the setup dialog remain.
+FILE_MENU_COMMANDS = (
+    ('Sauvegarder la partie', 'save'),
+    ('Sauvegardes…', 'saves'),
+)
+PARTY_MENU_COMMANDS = (
+    ('2 joueurs', 'new'),
+    ('Tutoriel…', 'tutorial'),
+    ('Tournois et tirage des factions…', 'tournament'),
+)
+
+
 def show_main_window(window):
     """Álfastafl's single native fullscreen game window (menus remain usable)."""
     window.showFullScreen()
@@ -118,19 +131,15 @@ def main():
 
     menus = win.menuBar()
     file_menu = menus.addMenu('Fichier')
-    menu_command(file_menu, 'Nouvelle partie…', 'new')
-    menu_command(file_menu, 'Sauvegarder la partie', 'save')
-    menu_command(file_menu, 'Sauvegardes…', 'saves')
+    for label, command in FILE_MENU_COMMANDS:
+        menu_command(file_menu, label, command)
     file_menu.addSeparator()
     quit_action = file_menu.addAction('Quitter')
     quit_action.triggered.connect(win.close)
 
     game_menu = menus.addMenu('Partie')
-    menu_command(game_menu, 'Jouer / Spectateur / Arbitrage…', 'game')
-    menu_command(game_menu, 'Historique des coups…', 'history')
-    menu_command(game_menu, 'Tutoriel…', 'tutorial')
-    menu_command(game_menu, 'Tournois et tirage des factions…', 'tournament')
-    menu_command(game_menu, 'Diffusion des rencontres du tournoi…', 'tournament')
+    for label, command in PARTY_MENU_COMMANDS:
+        menu_command(game_menu, label, command)
 
     settings_menu = menus.addMenu('Paramètres')
     menu_command(settings_menu, 'Réglages du jeu, affichage et son…', 'settings')
