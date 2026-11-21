@@ -143,7 +143,7 @@ class HostPlayerHttpTests(unittest.TestCase):
         data=self.create('dwarf')
         code,reply=self.guest(data['game'],data['invites']['player'],'dwarf')
         self.assertEqual(code,400)
-        self.assertIn('occupied',reply['error'])
+        self.assertIn('occupée',reply['error'])
         code,reply=self.guest(data['game'],data['invites']['player'],'elf')
         self.assertEqual(code,200)
         self.assertIn(reply['session'],self.store.sessions)
