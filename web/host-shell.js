@@ -136,5 +136,14 @@
  // No active game should ever display dead, scannable invitations.
  updateStatus();
  syncInvites(null,null,null);
+ // Keep the ephemeral LAN open while the organizer is preparing an
+ // invitation, managing a tournament, or showing the live tournament wall.
+ // Closing those views stops heartbeats; the native idle grace closes UFW.
+ setInterval(()=>{
+  if(!(dialogs.new.open||dialogs.tournament.open||
+       globalThis.AlfastaflBroadcast?.currentTournament()))return;
+  fetch('/api/lan/activity',{method:'POST',
+   headers:{'X-Alfastafl-Host-Action':'lan-activity'}}).catch(()=>{});
+ },4500);
  window.AlfastaflShell={open,syncInvites,onCreated,onSelected,updateStatus};
 })();
