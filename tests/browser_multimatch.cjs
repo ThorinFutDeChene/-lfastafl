@@ -20,6 +20,13 @@ server=run('127.0.0.1',0,store)
 server.lan_enabled=True
 server.lan_address='127.0.0.1'
 class TestHandler(AppHandler):
+ def do_GET(self):
+  if self.path.startswith('/__test__/invitation?'):
+   from urllib.parse import urlparse,parse_qs
+   q=parse_qs(urlparse(self.path).query)
+   return self.send({'token':self.server.store.tournament_invitation(
+    q.get('tournament',[''])[0],q.get('role',['player'])[0])})
+  super().do_GET()
  def do_POST(self):
   if self.path=='/__test__/captures':
    with self.server.store.lock:
@@ -170,6 +177,40 @@ async function main(){
  console.log('PASS player automatically re-enters without a new host approval after session reset');
  await playerContext.unrouteAll({behavior:'wait'});
  await playerContext.close();
+
+ // One shared QR (not one QR per match) assigns a new player by name and
+ // still requires a deliberate, first-time approval from the host.
+ const shared=await (await hostContext.request.get(base+'/__test__/invitation?'+
+  new URLSearchParams({tournament,role:'player'}))).json();
+ const qrContext=await browser.newContext({viewport:{width:960,height:680}});
+ qrContext.setDefaultTimeout(16000);
+ await qrContext.route('**/*',async route=>{
+  const req=route.request(),url=new URL(req.url());
+  if(url.hostname!=='tournament.test')return route.abort();
+  const init={method:req.method(),headers:req.headers()};
+  if(req.postDataBuffer())init.data=req.postDataBuffer();
+  try{const response=await qrContext.request.fetch(base+url.pathname+url.search,init);
+   await route.fulfill({response});}
+  catch(_){if(!route.isInterceptResolutionHandled())await route.abort();}
+ });
+ const qrPage=await qrContext.newPage();
+ qrPage.on('pageerror',error=>errors.push(String(error)));
+ await qrPage.goto('http://tournament.test/?'+new URLSearchParams({
+  tournament,role:'player',invite:shared.token}),{waitUntil:'domcontentloaded'});
+ await qrPage.locator('#name').fill('Chloé');
+ await qrPage.locator('#request').click();
+ await qrPage.waitForFunction(()=>Boolean(gameId&&requestId),{timeout:15000});
+ const routed=await qrPage.evaluate(()=>({game:gameId,request:requestId}));
+ assert.equal(routed.game,matches[1].game,'Shared QR must route Chloé to her scheduled fixture');
+ const waiting=(await api('pending')).pending.find(x=>x.id===routed.request);
+ assert(waiting&&waiting.name==='Chloé');
+ await api('approve',{request:routed.request});
+ await qrPage.waitForFunction(()=>you?.name==='Chloé'&&you.role==='player',
+  {timeout:16000});
+ assert.equal(await qrPage.locator('#my-tournament').isVisible(),true);
+ console.log('PASS tournament-wide QR maps newcomers by name with first-time approval');
+ await qrContext.unrouteAll({behavior:'wait'});
+ await qrContext.close();
  assert.deepEqual(errors,[],'Unexpected browser errors');
  await hostContext.close();
 }
