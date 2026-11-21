@@ -194,6 +194,7 @@
  el('my-tournament').addEventListener('toggle',()=>{if(el('my-tournament').open)refreshMine().catch(()=>{});});
  window.AlfastaflTournamentLive={
   remember,restore,start,stop,refreshMine,
+  hostTournament:()=>isHost&&live?.mode==='host'?live.tournament:null,
   onState(state){
    if(captureOnly||isHost||!state?.tournament_access)return;
    remember(state.tournament_access);
