@@ -219,5 +219,11 @@ async function main(){
 const timer=setTimeout(()=>{browser?.close().catch(()=>{});server?.kill('SIGTERM')},220000);
 main().catch(error=>{console.error(error.stack||error);process.exitCode=1;})
  .finally(async()=>{clearTimeout(timer);await browser?.close().catch(()=>{});
-  if(server)server.kill('SIGTERM');
-  fs.rmSync(temporary,{recursive:true,force:true});});
+  // The server checkpoints games when SIGTERM arrives. Do not delete its
+  // temporary directory concurrently with that filesystem write.
+  if(server&&server.exitCode===null&&server.signalCode===null){
+   const exited=new Promise(resolve=>server.once('exit',resolve));
+   server.kill('SIGTERM');
+   await Promise.race([exited,new Promise(resolve=>setTimeout(resolve,3000))]);
+  }
+  fs.rmSync(temporary,{recursive:true,force:true,maxRetries:8,retryDelay:120});});
