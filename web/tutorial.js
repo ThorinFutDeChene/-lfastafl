@@ -34,6 +34,13 @@
   let returnFocus = null;
   let passed = new Set();
   let dragSelection = null;
+  let liveToken = '';
+  let liveDisabled = false;
+  let livePolling = null;
+  let liveRefreshing = false;
+  let livePublishing = false;
+  let liveDirty = false;
+  let liveSignature = '';
   const boardView = new AlfastaflBoardView({
     prefix: 'tutorial', flat: el('flat-board'), active: false,
     callbacks: {
@@ -42,6 +49,105 @@
       onDragStart: beginDrag,
       onDrop: dropPiece,
     },
+  });
+
+  // The host owns all lesson moves. Guests only read snapshots using an
+  // unpredictable, short-lived invitation from the tutorial window.
+  const liveStatus = message => { el('live-status').textContent = message; };
+  function clearLiveInvitation() {
+    el('live-qr').hidden = true;
+    el('live-link').hidden = true;
+    el('live-toggle').hidden = true;
+    el('live-qr').removeAttribute('src');
+    liveSignature = '';
+  }
+  function stopLive() {
+    const token = liveToken;
+    liveToken = '';
+    liveDirty = false;
+    clearLiveInvitation();
+    if (token) api('tutorial/live/stop', {token}).catch(() => {});
+  }
+  function publishLive() {
+    if (!active || !panel.open || !state || !liveToken) return;
+    liveDirty = true;
+    if (livePublishing) return;
+    livePublishing = true;
+    (async () => {
+      while (liveDirty && active && panel.open && liveToken) {
+        liveDirty = false;
+        const token = liveToken;
+        const payload = {
+          token, state: {...state,
+            feedback: el('feedback').textContent,
+            feedback_kind: el('feedback').dataset.kind || 'info'},
+          selected, legal, captures,
+          hint_visible: !el('hint-text').hidden
+        };
+        try { await api('tutorial/live/publish', payload); }
+        catch (error) {
+          if (token === liveToken) liveStatus('Partage suspendu : ' + error.message);
+          break;
+        }
+      }
+    })().finally(() => { livePublishing = false; });
+  }
+  async function refreshLive() {
+    if (!active || !panel.open || liveRefreshing) return;
+    liveRefreshing = true;
+    try {
+      const net = await api('address');
+      if (!active || !panel.open) return;
+      if (!net.lan_enabled) {
+        if (liveToken) stopLive();
+        liveStatus('LAN inactif. Activez le réseau dans le menu Réseau du PC hôte pour afficher le QR code.');
+        return;
+      }
+      if (liveDisabled) {
+        liveStatus('Diffusion arrêtée par le présentateur.');
+        el('live-toggle').hidden = false;
+        el('live-toggle').textContent = 'Réactiver le partage';
+        return;
+      }
+      if (!liveToken) {
+        const created = await api('tutorial/live/start', {mode, lesson:state?.lesson});
+        if (!active || !panel.open) {
+          await api('tutorial/live/stop',{token:created.token}).catch(()=>{});
+          return;
+        }
+        liveToken = created.token;
+        publishLive();
+      }
+      const url = 'http://' + net.address + ':' + net.port +
+        '/?tutorial_view=' + encodeURIComponent(liveToken);
+      const signature = liveToken + '|' + net.address + ':' + net.port;
+      if (liveSignature !== signature) {
+        el('live-qr').src='/api/tutorial/live/qr?token=' +
+          encodeURIComponent(liveToken);
+        el('live-link').href=url;
+        liveSignature=signature;
+      }
+      el('live-qr').hidden = false;
+      el('live-link').hidden = false;
+      el('live-toggle').hidden = false;
+      el('live-toggle').textContent = 'Arrêter le partage';
+      liveStatus('QR actif : les invités voient ce plateau et vos déplacements sans pouvoir jouer.');
+      publishLive(); // Also refreshes the temporary presentation's lease.
+    } catch (error) {
+      if (active && panel.open) liveStatus('Partage indisponible : ' + error.message);
+    } finally { liveRefreshing = false; }
+  }
+  el('live-toggle').addEventListener('click', () => {
+    if (liveToken) {
+      liveDisabled = true;
+      stopLive();
+      liveStatus('Diffusion arrêtée par le présentateur.');
+      el('live-toggle').hidden = false;
+      el('live-toggle').textContent = 'Réactiver le partage';
+    } else {
+      liveDisabled = false;
+      refreshLive();
+    }
   });
 
   const contains = (positions, r, c) => positions.some(p => p[0] === r && p[1] === c);
@@ -75,6 +181,7 @@
   function feedback(message, kind = 'info') {
     el('feedback').textContent = message;
     el('feedback').dataset.kind = kind;
+    publishLive();
   }
 
   function controls() {
@@ -174,6 +281,7 @@
         ? `${pieceNames[state.board[selected[0]][selected[1]]]} en ${coordinate(...selected)} sélectionné. ` +
           (legal.length ? 'Les points indiquent les destinations légales.' : 'Cette pièce n’a aucun coup légal.')
         : 'Choisissez une pièce, puis sa destination, ou faites-la glisser. Pour jouer au clavier, choisissez la vue 2D.';
+    publishLive();
   }
 
   function renderMemo() {
@@ -379,6 +487,9 @@
     if (!active) return;
     active = false;
     dragSelection = null;
+    clearInterval(livePolling);
+    livePolling = null;
+    stopLive();
     revision++;
     boardView.setActive(false);
     gameBoardView.setActive(true);
@@ -411,6 +522,8 @@
     captures = [];
     passed = new Set();
     dragSelection = null;
+    liveDisabled = false;
+    clearLiveInvitation();
     active = true;
     board.replaceChildren();
     el('lessons').replaceChildren();
@@ -428,6 +541,8 @@
     boardView.setActive(true);
     el('heading').focus({preventScroll: true});
     loadLesson();
+    refreshLive();
+    livePolling = setInterval(refreshLive, 3500);
   });
   el('close').addEventListener('click', closeTutorial);
   panel.addEventListener('cancel', event => {
@@ -446,6 +561,7 @@
     el('hint-text').hidden = !showing;
     el('hint').setAttribute('aria-expanded', String(showing));
     el('hint').textContent = showing ? 'Masquer l’indice' : 'Afficher un indice';
+    publishLive();
   });
   el('prev').addEventListener('click', () => {
     if (!busy && state && state.lesson_index > 0) loadLesson(state.lessons[state.lesson_index - 1].id);
