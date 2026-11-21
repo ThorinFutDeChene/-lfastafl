@@ -100,7 +100,7 @@ class ReleaseSelectionTests(TestCase):
 
     def test_current_source_version(self):
         expected = (Path(__file__).resolve().parents[1] / 'VERSION').read_text(encoding='utf-8').strip()
-        self.assertRegex(expected, r'^\\d+\\.\\d+\\.\\d+~dev\\d+
+        self.assertEqual(u.local_version(), expected)
 
 
 class PackageTests(TestCase):
