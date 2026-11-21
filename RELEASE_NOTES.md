@@ -1,38 +1,43 @@
-# Álfastafl 0.7.1-dev5 — Tournois : exemptions et revanches
+# Álfastafl 0.7.1-dev6 — Fermeture automatique du LAN inactif
 
-## Formats achevés
+## Un accès réseau uniquement pendant son utilisation
 
-- **Toutes rencontres :** calendrier complet à effectif impair, une
-  exemption par ronde, sans attribution de point ni partie simulée.
-- **Système suisse :** exemptions attribuées aux joueurs ayant eu
-  le moins de repos, puis aux moins bien classés ; tirage au sort
-  parmi les ex æquo. Une exemption rapporte **3 points**, sans
-  affecter l'historique des factions.
-- **Élimination directe :** effectifs non puissances de deux pris
-  en charge, exemptions aléatoires pour former un tableau équilibré.
-  Une exemption qualifie sans rencontre fictive.
-- **Match nul :** la validation des résultats crée une revanche
-  dans la même ronde, autant de fois que nécessaire. Les anciennes
-  parties restent archivées, les factions des revanches sont équilibrées.
+- Après la fermeture de la dernière activité protégée, le contrôleur
+  Qt lance une période de grâce de **60 secondes**.
+- Sans nouvelle activité, le serveur réseau sur l'adresse IP privée
+  s'arrête d'abord, puis le bail UFW temporaire est supprimé.
+- Le serveur local **127.0.0.1** continue de fonctionner et le PC hôte
+  conserve ses sauvegardes, ses tournois et la possibilité de rejouer.
 
-## Affichage et diffusions
+## Aucune fermeture pendant une activité réelle
 
-- Le gestionnaire affiche explicitement les exemptions, revanches,
-  qualifications et classements par points.
-- Les spectateurs voient prioritairement les rencontres en cours.
-  Une ancienne rencontre nulle remplacée ne revient pas dans la
-  rotation, tandis qu'une cinématique finale reste visible.
-- Sauvegardes de tournois précédentes compatibles.
+- Partie active, même si le deuxième joueur n'est pas encore connecté.
+- Partie suspendue pour déconnexion, attente de remplaçant ou arbitrage.
+- Tutoriel partagé actif avec actualisations régulières.
+- Spectateurs autorisés suivant un match terminé ou un tournoi en cours.
+- Régie de diffusion et préparation hôte d'une partie ou d'un tournoi.
 
-## Recette et publication
+Les vues hôte utilisent une activité temporaire, limitée et protégée
+par une route HTTP accessible uniquement au navigateur sur la boucle
+locale. Les invités inconnus ne peuvent pas prolonger le bail UFW.
 
-279 tests Python, tests Chromium des nouveaux formats, recette
-quatre joueurs / deux parties / spectateur / captures / reconnexion
-et finale, ainsi que la régression du menu hôte : tous validés.
-Les deux nouvelles recettes deviennent obligatoires pour les
-prochaines publications DEV et stable. Tests physiques encore requis.
+## Réouverture et compatibilité
 
-Le LAN automatique et le tutoriel collectif des DEV précédentes
-restent en place. Stable 0.7.0 inchangée.
+- Créer ou reprendre une partie, ouvrir un tournoi ou un tutoriel
+  déclenche l'ouverture LAN comme en DEV4.
+- Le bouton **Réactiver le partage** dans le tutoriel redemande
+  automatiquement le LAN si nécessaire.
+- Les historiques, les règles de jeu et les résultats de tournoi
+  ne sont pas modifiés.
 
-**Canal DEV : paquet Debian `0.7.1~dev5`.**
+## Validation
+
+Nouveaux contrôles des temporisations et de la fermeture dans l'ordre
+serveur → pare-feu, tests sur parties actives, sauvegardes, reconnexion,
+tutoriel et diffusion ; tests Python et Chromium du jeu/tournoi restent
+obligatoires dans les pipelines DEV et stable.
+
+**DEV 0.7.1-dev6 — Debian `0.7.1~dev6`. Stable 0.7.0 inchangée.**
+
+La validation réelle des périphériques, du réseau Wi-Fi et des règles
+UFW sur Ubuntu MATE reste à effectuer avant la prochaine stable.
