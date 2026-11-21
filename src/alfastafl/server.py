@@ -977,7 +977,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         tournament_id=tournament['id'] if tournament else ''
                     if not tournament_id or tournament_id not in st.tournaments:
                         raise ValueError('Tournoi inconnu.')
-                    return self.send(st.tournament_live(tournament_id)))
+                    return self.send(st.tournament_live(tournament_id))
             return self.static(u.path)
         except PermissionError as e:return self.send({'error':str(e)},403)
         except (ValueError,TypeError,KeyError,IndexError) as e:return self.send({'error':str(e)},400)
