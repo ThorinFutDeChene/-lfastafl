@@ -134,7 +134,8 @@ async function main(){
  assert.equal(await guest.locator('#my-tournament').isVisible(),true);
  const current=await guest.evaluate(()=>gameId);
  await guest.waitForFunction(old=>gameId!==old,current,{timeout:14000});
- assert(matches.some(m=>m.game===(await guest.evaluate(()=>gameId))));
+ const switched=await guest.evaluate(()=>gameId);
+ assert(matches.some(m=>m.game===switched));
  console.log('PASS spectator automatically rotates all fixtures with a single authorization');
  await guestContext.unrouteAll({behavior:'wait'});
  await guestContext.close();
