@@ -1,5 +1,5 @@
 """Local-network web service. All game mutations are server-authoritative."""
-import json, threading, secrets, hashlib, os, tempfile, pathlib, time, socket, io, uuid
+import json, threading, secrets, hashlib, hmac, os, tempfile, pathlib, time, socket, io, uuid
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
@@ -27,6 +27,9 @@ class Store:
         self.pending={}
         self.sessions={}
         self.tournaments={}
+        # Temporary QR invitations authorize a REQUEST, not access. A host
+        # must approve once before a durable device credential is issued.
+        self.tournament_invites={}
         self.repetition_votes={}
         # Tournament faction history must survive app restarts, unlike
         # authorization sessions, which are deliberately ephemeral.
@@ -157,6 +160,42 @@ class Store:
         self.save_tournament_credentials()
         session['tournament_credential']=credential
         session['tournament_id']=tournament['id']
+
+    def tournament_invitation(self,tournament_id,role):
+        with self.lock:
+            if tournament_id not in self.tournaments or role not in ('player','spectator'):
+                raise ValueError('Invitation de tournoi inconnue.')
+            invites=self.tournament_invites.setdefault(tournament_id,{})
+            if role not in invites:
+                invites[role]=secrets.token_urlsafe(32)
+            return invites[role]
+
+    def tournament_join(self,tournament_id,invite,name,role):
+        with self.lock:
+            if not isinstance(name,str) or not 1<=len(name.strip())<=60:
+                raise ValueError('Nom de participant invalide.')
+            if not isinstance(invite,str) or not hmac.compare_digest(
+                    invite,self.tournament_invitation(tournament_id,role)):
+                raise PermissionError('Code d’invitation de tournoi invalide.')
+            tournament=self.tournaments[tournament_id]
+            matches=tournament.get('matches',[])
+            if role=='player':
+                if name.strip() not in tournament['players']:
+                    raise PermissionError('Vous n’êtes pas inscrit à ce tournoi.')
+                candidates=[m for m in matches if name.strip() in (m['a'],m['b'])
+                    and m.get('game') in self.games
+                    and self.games[m['game']].status=='active']
+            else:
+                candidates=[m for m in matches if m.get('game') in self.games
+                    and self.games[m['game']].status=='active']
+                if not candidates:
+                    candidates=[m for m in matches if m.get('game') in self.games]
+            if not candidates:
+                raise ValueError('Aucune rencontre disponible pour ce participant.')
+            selected=candidates[0]
+            gid=selected['game']
+            request_id=self.request(gid,self.invites[gid][role],name.strip())
+            return {'request':request_id,'game':gid,'tournament':tournament_id}
 
     def tournament_identify(self,gid):
         t,m=self.tournament_for_game(gid)
@@ -825,16 +864,22 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_response(200);self.send_header('Content-Type',typ+'; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-cache');self.end_headers();self.wfile.write(raw)
     def do_GET(self):
         u=urlparse(self.path);q=parse_qs(u.query)
-        if u.path=='/api/qr':
+        if u.path in ('/api/qr','/api/tournament/qr'):
             try:
                 import qrcode
                 gid=q.get('game',[''])[0];role=q.get('role',[''])[0]
                 if not self.admin() or role not in ('player','spectator'):return self.send({'error':'Forbidden'},403)
                 if not self.server.lan_enabled:return self.send({'error':'Le réseau local est désactivé'},503)
                 st=self.server.store
-                if gid not in st.invites:return self.send({'error':'Unknown game'},404)
                 ip=self.server.lan_address
-                url='http://'+ip+':'+str(self.server.server_address[1])+'/?game='+gid+'&invite='+st.invites[gid][role]
+                base='http://'+ip+':'+str(self.server.server_address[1])+'/'
+                if u.path=='/api/tournament/qr':
+                    tournament_id=q.get('tournament',[''])[0]
+                    invite=st.tournament_invitation(tournament_id,role)
+                    url=base+'?tournament='+tournament_id+'&role='+role+'&invite='+invite
+                else:
+                    if gid not in st.invites:return self.send({'error':'Unknown game'},404)
+                    url=base+'?game='+gid+'&invite='+st.invites[gid][role]
                 img=qrcode.make(url);output=io.BytesIO();img.save(output,format='PNG');raw=output.getvalue()
                 self.send_response(200);self.send_header('Content-Type','image/png');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw);return
             except ImportError:return self.send({'error':'Install python3-qrcode'},503)
@@ -975,6 +1020,11 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path=='/api/delete':return self.send({'deleted':st.delete_game(d['game'])})
             if u.path=='/api/disconnect/decide':
                 return self.send({'game':st.disconnect_decision(d['game'],d['action'],d.get('camp'))})
+            if u.path=='/api/tournament/join':
+                if not self.server.lan_enabled:
+                    raise PermissionError('Accès réseau local désactivé.')
+                return self.send(st.tournament_join(d.get('tournament'),
+                    d.get('invite'),d.get('name'),d.get('role','player')))
             if u.path=='/api/tournament/mine':
                 return self.send(st.tournament_my_matches(d.get('credential')))
             if u.path=='/api/tournament/enter':
