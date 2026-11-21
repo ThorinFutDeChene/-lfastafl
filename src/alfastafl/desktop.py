@@ -1,5 +1,6 @@
-"""Qt6 native host: open a scoped LAN lease automatically when sharing a session."""
+"""Qt6 native host: open and retire a scoped LAN lease for live sessions."""
 import threading
+import time
 
 from .server import run, Store, PORT
 from .relauncher import schedule_restart
@@ -181,6 +182,8 @@ def main():
             remote.shutdown()
             remote.server_close()
 
+    LAN_IDLE_SECONDS = 60  # Grace for preparing or reopening a session.
+
     class LanController(QObject):
         ready = pyqtSignal(object, object)
         error = pyqtSignal(str)
@@ -191,6 +194,7 @@ def main():
             self.lease = None
             self.activating = False
             self.closing = False
+            self.idle_since = None
             self.ready.connect(self.on_ready)
             self.error.connect(self.on_error)
             # The host-only HTTP endpoint is served from a worker thread.
@@ -201,7 +205,11 @@ def main():
             self.timer.start(1500)
 
         def start(self):
-            if self.activating or self.lease or self.closing:
+            if self.closing:
+                return
+            # A renewed host activity cancels a previous idle countdown.
+            self.idle_since = None
+            if self.activating or self.lease:
                 return
             self.activating = True
             win.statusBar().showMessage('Ouverture automatique du réseau local…')
@@ -236,6 +244,7 @@ def main():
                                     'Le jeu reste disponible sur cet ordinateur.')
                 return
             self.lease = lease
+            self.idle_since = None
             win.statusBar().showMessage(
                 f'Partage local actif : http://{network.address}:{PORT}/', 10000)
 
@@ -248,6 +257,7 @@ def main():
                                 'Aucune ouverture générale du pare-feu n’a été effectuée.')
 
         def stop(self):
+            self.idle_since = None
             close_network_server()
             if self.lease is not None:
                 self.lease.close()
@@ -255,11 +265,26 @@ def main():
             win.statusBar().showMessage('Réseau local fermé')
 
         def monitor(self):
-            if self.lease and not self.lease.alive():
+            if self.closing or not self.lease:
+                return
+            if not self.lease.alive():
                 self.stop()
                 QMessageBox.warning(win, 'Pare-feu LAN',
                                     'Le service de surveillance du pare-feu s’est arrêté. '
                                     'L’accès réseau a été désactivé par précaution.')
+                return
+            if store.lan_in_use():
+                self.idle_since = None
+                return
+            now = time.monotonic()
+            if self.idle_since is None:
+                self.idle_since = now
+            elif now - self.idle_since >= LAN_IDLE_SECONDS:
+                # Listener is closed BEFORE the privileged UFW lease.
+                # The local host and its saved games remain untouched.
+                self.stop()
+                win.statusBar().showMessage(
+                    'LAN fermé automatiquement : aucune activité réseau', 10000)
 
         def quit(self):
             self.closing = True
