@@ -1,4 +1,4 @@
-"""Qt6 native host: local-only startup with optional session-scoped LAN access."""
+"""Qt6 native host: open a scoped LAN lease automatically when sharing a session."""
 import threading
 
 from .server import run, Store, PORT
@@ -99,17 +99,20 @@ def main():
     bar = QToolBar('Contrôles internes')
     win.addToolBar(bar)
     bar.hide()
-    lan_action = QAction('Activer accès LAN', win)
-    lan_action.setCheckable(True)
-    # Sharing is opt-in for each application session, never restored on startup.
-    lan_action.setChecked(False)
+    # LAN is activated by an explicit activity (new game, resumed saved game,
+    # tutorial or tournament), never via another manual toggle.
     # Menu commands reach the live page and open its existing controls in
     # modal windows. The game board stays the sole WebGL rendering surface.
     def menu_command(menu, label, command):
         action = menu.addAction(label)
-        action.triggered.connect(
-            lambda *_: view.page().runJavaScript(
-                "window.AlfastaflShell?.open(" + repr(command) + ")"))
+        def dispatch(*_):
+            if command in ('new', 'tutorial', 'tournament'):
+                # Start immediately on the real native-menu action. The
+                # asynchronous firewall helper never blocks the Qt UI.
+                controller.start()
+            view.page().runJavaScript(
+                "window.AlfastaflShell?.open(" + repr(command) + ")")
+        action.triggered.connect(dispatch)
         return action
 
     menus = win.menuBar()
@@ -132,7 +135,6 @@ def main():
     menu_command(settings_menu, 'Réglages du jeu, affichage et son…', 'settings')
 
     network_menu = menus.addMenu('Réseau')
-    network_menu.addAction(lan_action)
     menu_command(network_menu, 'Connexions et demandes d’accès…', 'connections')
 
     view_menu = menus.addMenu('Affichage')
@@ -182,6 +184,7 @@ def main():
     class LanController(QObject):
         ready = pyqtSignal(object, object)
         error = pyqtSignal(str)
+        requested = pyqtSignal()
 
         def __init__(self):
             super().__init__(win)
@@ -190,23 +193,18 @@ def main():
             self.closing = False
             self.ready.connect(self.on_ready)
             self.error.connect(self.on_error)
+            # The host-only HTTP endpoint is served from a worker thread.
+            # Qt automatically delivers this signal on its UI thread.
+            self.requested.connect(self.start)
             self.timer = QTimer(self)
             self.timer.timeout.connect(self.monitor)
             self.timer.start(1500)
-
-        def set_action(self, active, label):
-            lan_action.blockSignals(True)
-            lan_action.setChecked(active)
-            lan_action.setText(label)
-            lan_action.setEnabled(True)
-            lan_action.blockSignals(False)
 
         def start(self):
             if self.activating or self.lease or self.closing:
                 return
             self.activating = True
-            lan_action.setEnabled(False)
-            lan_action.setText('Ouverture sécurisée du LAN…')
+            win.statusBar().showMessage('Ouverture automatique du réseau local…')
 
             def worker():
                 lease = FirewallLease()
@@ -233,13 +231,11 @@ def main():
                 open_network_server(network)
             except OSError as exc:
                 lease.close()
-                self.set_action(False, 'Activer accès LAN')
                 QMessageBox.warning(win, 'Serveur local',
                                     f'Ouverture du serveur LAN impossible : {exc}\n'
                                     'Le jeu reste disponible sur cet ordinateur.')
                 return
             self.lease = lease
-            self.set_action(True, 'Accès LAN actif — désactiver')
             win.statusBar().showMessage(
                 f'Partage local actif : http://{network.address}:{PORT}/', 10000)
 
@@ -247,7 +243,6 @@ def main():
             self.activating = False
             if self.closing:
                 return
-            self.set_action(False, 'Activer accès LAN')
             QMessageBox.warning(win, 'Réseau local indisponible',
                                 message + '\n\nLe plateau local reste utilisable. '
                                 'Aucune ouverture générale du pare-feu n’a été effectuée.')
@@ -257,7 +252,7 @@ def main():
             if self.lease is not None:
                 self.lease.close()
                 self.lease = None
-            self.set_action(False, 'Activer accès LAN')
+            win.statusBar().showMessage('Réseau local fermé')
 
         def monitor(self):
             if self.lease and not self.lease.alive():
@@ -266,19 +261,15 @@ def main():
                                     'Le service de surveillance du pare-feu s’est arrêté. '
                                     'L’accès réseau a été désactivé par précaution.')
 
-        def toggle(self, enabled):
-            if enabled:
-                self.start()
-            else:
-                self.stop()
-
         def quit(self):
             self.closing = True
             self.timer.stop()
             self.stop()
 
     controller = LanController()
-    lan_action.toggled.connect(controller.toggle)
+    # The local server alone can enqueue the native activation. LAN peers
+    # have no handler for this endpoint and cannot obtain a privileged action.
+    server[0].lan_activation_requested = controller.requested.emit
     restart_pending = [False]
 
     def restart_after_update():
@@ -305,7 +296,7 @@ def main():
 
     app.aboutToQuit.connect(shutdown)
     show_main_window(win)
-    # LAN remains opt-in via its native Réseau menu; never restored on startup.
+    # No LAN listener until game creation, selected save or tutorial use.
     sys.exit(app.exec())
 
 
