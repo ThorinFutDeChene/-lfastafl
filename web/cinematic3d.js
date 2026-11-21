@@ -7,6 +7,7 @@ import {createFigurine} from './figurines3d.js';
 import {duelWindow,combatVariant,duelMotion,smooth} from './combat-motion.js';
 import {flankPlan} from './flank-capture.js';
 import {FlankCinematic} from './flank-cinematic3d.js';
+import {poseDuelArrow} from './archery3d.js';
 import {throneCapturePlan} from './throne-capture.js';
 import {ThroneCinematic} from './throne-cinematic3d.js';
 
@@ -398,14 +399,9 @@ export class CaptureCinematic {
    this.trailMaterial.opacity=.48*trailPower;
   }
   if(this.projectile){
-   this.projectile.visible=m.p>.63&&m.p<.78;
-   if(this.projectile.visible){
-    const origin=attacker.position.clone().add(new THREE.Vector3(0,.92,0));
-    const target=opponent.place.clone().add(new THREE.Vector3(0,.82,0));
-    this.projectile.position.copy(origin).lerp(target,phase(m.p,.63,.78));
-    this.projectile.quaternion.setFromUnitVectors(
-     new THREE.Vector3(0,1,0),target.sub(origin).normalize());
-   }
+   // A regular duel uses the same moving bowstring as flank/throne scenes.
+   const target=opponent.place.clone().add(new THREE.Vector3(0,.82,0));
+   poseDuelArrow(this.projectile,attacker,target,m.p);
   }
   const ringPower=Math.max(m.clash,m.burst);
   this.ring.position.copy(opponent.place);

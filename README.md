@@ -1,13 +1,44 @@
-# Álfastafl — 0.7.0-dev6 (canal DEV)
+# Álfastafl — 0.7.0-dev7 (canal DEV)
 
-La **0.7.0-dev6** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev7** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev6` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev7` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev7 : flèches enfin tirées depuis l'arc, pas depuis la poitrine
+
+**Correction de position d'origine du tir elfique.** La DEV6
+positionnait la flèche par une hauteur fixe au-dessus du corps de
+l'archer : elle pouvait sembler jaillir de sa poitrine, sans utiliser
+l'arc déjà sculpté dans sa main.
+
+La **flèche est maintenant encochée sur la corde du vrai arc 3D** :
+un ancrage invisible situé au milieu de la corde est attaché à
+l'articulation du **bras gauche**, et suit donc exactement ses
+mouvements. La flèche 3D repose physiquement sur cet ancrage
+avant le tir ; sa pointe est alignée vers la cible, puis le départ
+et la trajectoire sont calculés à partir de l'ancrage, y compris
+lorsqu'une flèche rebondit sur le bouclier du nain. La flèche décorative
+gravée à travers la poitrine est retirée **uniquement des figurines
+animées** pour éviter qu'elle continue à apparaître après le lâcher.
+Les figurines ordinaires sur le plateau conservent leur aspect initial.
+
+La correction couvre **toutes les scènes avec un elfe archer** :
+tir classique, prise en étau (flèche parée puis épée de l'elfe
+d'appui), capture contre le trône (deux flèches, première parée),
+et les captures génériques avec d'autres soutiens. Aucun changement
+de règles, de positions sur le plateau, de réseau, d'horloge,
+de permissions ou de sauvegardes. Le rendu fonctionne localement
+sur l'hôte, les autres joueurs et leurs spectateurs autorisés.
+
+Des tests Chromium contrôlent **la position de l'extrémité arrière
+de la flèche sur la vraie corde**, l'animation des deux départs
+et sa trajectoire. Les essais matériels Ubuntu MATE et mobiles
+restent nécessaires avant de passer la version en stable.
 
 ## DEV 0.7.0-dev6 : captures d'un soldat contre le trône vide, dans les deux sens
 

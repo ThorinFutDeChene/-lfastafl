@@ -158,6 +158,22 @@ for camp,attacker,victim in [('dwarf','N','E'),('elf','E','N')]:
         'throne spectator '+camp)
     seats['spectator']=store.approve(req)
     throne_battles[camp]={'game':match.id,'sessions':seats}
+# An ordinary capture: elf vs dwarf, with the KING himself as the far
+# friendly support on the throne. It is neither flank elf-elf nor
+# against an EMPTY throne, so this exercises the generic arrow path.
+generic_bow=store.create('fetlar',{'time_control':{'mode':'unlimited'},
+    'capture_cinematic_seconds':12})
+generic_bow.board=[[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(5,1,'E'),(5,4,'N'),(5,5,'R'),(1,8,'N')]:
+    generic_bow.board[row][col]=piece
+generic_bow.turn='elf'
+generic_bow.positions=[generic_bow.signature()]
+store.save(generic_bow)
+generic_sessions={}
+for side in ('elf','dwarf'):
+    req=store.request(generic_bow.id,store.invites[generic_bow.id]['player'],
+        'generic bow '+side)
+    generic_sessions[side]=store.approve(req,side)
 server = run('127.0.0.1', 0, store)
 def interrupt(*_):
     raise KeyboardInterrupt
@@ -166,7 +182,8 @@ print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions':
     'battle': {'game':battle.id, 'sessions':battle_sessions},
     'elfbattle': {'game':elfbattle.id, 'sessions':elf_sessions},
     'royal': {'game':royal.id,'sessions':royal_sessions},
-    'sieges':sieges,'throne_battles':throne_battles}), flush=True)
+    'sieges':sieges,'throne_battles':throne_battles,
+    'generic_bow':{'game':generic_bow.id,'sessions':generic_sessions}}), flush=True)
 try:
     server.serve_forever()
 except KeyboardInterrupt:
@@ -277,7 +294,7 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
        '/combat-motion.js', '/flank-capture.js', '/flank-cinematic3d.js',
        '/escape-motion.js','/king-escape3d.js','/king-siege-motion.js',
        '/king-siege3d.js','/throne-capture.js','/throne-cinematic3d.js',
-       '/soundscape.js'].includes(url.pathname)) {
+       '/archery3d.js','/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
   });
@@ -1400,6 +1417,36 @@ async function main() {
       assert.equal(stop.blocker,'N');
       assert.equal(stop.split,2,'Bronze dwarf must have two distinct clipped halves');
       assert(!sameCamera(initial,(await diagnostics(host)).camera));
+      // The shaft is nocked on the real LEFT-ARM BOWSTRING, never the
+      // figurine's chest. The first flight frame begins at that same point.
+      const bow=await host.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        const v=cut.actors[0],from=v.start,width=v.end-v.start;
+        cut.flank.update(from+width*.20);
+        const anchor=cut.attacker.getObjectByName('combat-bow-nock');
+        const arrow=cut.projectile;
+        const nock=anchor?.getWorldPosition(cut.attacker.position.clone());
+        const tail=arrow.position.clone().add(
+          arrow.position.clone().set(0,-.205,0).applyQuaternion(arrow.quaternion));
+        const initialError=tail.distanceTo(nock);
+        const initiallyVisible=arrow.visible;
+        const originOnString=arrow.userData.bowOrigin?.every((x,i)=>
+          Math.abs(x-nock.toArray()[i])<.001);
+        cut.flank.update(from+width*.25);
+        const released=arrow.position.clone();
+        const releaseOrigin=arrow.userData.bowOrigin;
+        cut.flank.update(from+width*.32);
+        const advanced=arrow.position.distanceTo(released);
+        return {initialError,initiallyVisible,originOnString,
+          releaseOrigin,advanced,phase:arrow.userData.bowStage,
+          anchorParent:anchor.parent.name};
+      });
+      assert.equal(bow.anchorParent,'combat-left-arm');
+      assert.equal(bow.initiallyVisible,true);
+      assert.equal(bow.originOnString,true);
+      assert(bow.initialError<.005,'Elven arrow tail must touch the actual bowstring');
+      assert(bow.advanced>.05,'Arrow must fly forward FROM the bowstring');
+      assert.equal(bow.phase,'flight');
       // Dwarf's shield blocks a real 3D arrow, then the ally draws a sword.
       const swordState=await host.evaluate(()=>{
         const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
@@ -1710,6 +1757,23 @@ async function main() {
         assert.equal(d.cinematic.throne.rubble,12);
         const early=await host.evaluate(camp=>{
           const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+          let shots=null;
+          if(camp==='elf'){
+            const anchor=cut.attacker.getObjectByName('combat-bow-nock');
+            const locate=()=>{
+              const arrow=cut.projectile;
+              const string=anchor.getWorldPosition(cut.attacker.position.clone());
+              const tail=arrow.position.clone().add(
+                arrow.position.clone().set(0,-.205,0).applyQuaternion(arrow.quaternion));
+              return {error:tail.distanceTo(string),stage:arrow.userData.bowStage,
+                nock:arrow.userData.bowOrigin,visible:arrow.visible};
+            };
+            cut.throne.update(.27);
+            const first=locate();
+            cut.throne.update(.65);
+            const second=locate();
+            shots={first,second,anchorParent:anchor.parent.name};
+          }
           cut.throne.update(.42);
           return {
             x:cut.attacker.position.x,z:cut.attacker.position.z,
@@ -1717,6 +1781,7 @@ async function main() {
             pause:cut.throne.pauseAt.toArray(),
             guard:cut.actors[0].rig.left.rotation.z,
             arrow:cut.projectile?.visible || false,
+            bow:shots,
           };
         },camp);
         assert(Math.abs(early.guard)>1.0,
@@ -1728,16 +1793,28 @@ async function main() {
           assert(Math.abs(early.x-early.pause[0])<.01,
             'The elven archer must stop one square before its destination');
           assert.equal(early.arrow,true,'The shield must deflect a visible arrow');
+          assert.equal(early.bow.anchorParent,'combat-left-arm');
+          for(const label of ['first','second']){
+            const shot=early.bow[label];
+            assert.equal(shot.visible,true);
+            assert.equal(shot.stage,'nocked');
+            assert(shot.error<.005,
+              'Both '+label+' elven shots must be drawn from the real bowstring');
+          }
         }
         const impact=await host.evaluate(()=>{
           const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
           cut.throne.update(.78);
           return {displacement:cut.actors[0].figure.position.distanceTo(
             cut.actors[0].place),arrow:cut.projectile?.visible || false,
-            stage:cut.stage};
+            arrowStage:cut.projectile?.userData.bowStage,stage:cut.stage};
         });
         assert(impact.displacement>.04,'The victim is thrown toward the throne');
-        if(camp==='elf')assert.equal(impact.arrow,true,'A second arrow causes the impact');
+        if(camp==='elf'){
+          assert.equal(impact.arrow,true,'A second arrow causes the impact');
+          assert.equal(impact.arrowStage,'flight',
+            'The second shot leaves the bowstring toward the trapped dwarf');
+        }
         const rubble=await spectator.evaluate(()=>{
           const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
           cut.throne.update(.98);
@@ -1777,13 +1854,82 @@ async function main() {
     }
   });
 
+  await scenario('Ordinary elven capture releases both arrows from the existing bowstring',async()=>{
+    const match=fixture.generic_bow;
+    assert(match.game&&match.sessions.elf);
+    const host=await context.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(match.game)+
+        '&session='+encodeURIComponent(match.sessions.elf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',4);
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:match.game,session:match.sessions.elf,from:[5,1],to:[5,3]
+      }});
+      assert.equal(move.status(),200);
+      const event=(await move.json()).event;
+      assert.deepEqual(event.captured,[[5,4,'N']]);
+      await host.waitForFunction(()=>document.getElementById('game-board-3d')
+        ?.board3d?.captureCinematic?.active);
+      const d=await diagnostics(host);
+      assert.equal(d.cinematic.style,'combo',
+        'The king is a supporting ally, not an elven swordfighter or empty throne');
+      const arrows=await host.evaluate(async()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        const {poseDuelArrow}=await import('/archery3d.js');
+        const bow=cut.attacker.getObjectByName('combat-bow-nock');
+        const target=cut.actors[0].place.clone();target.y+=.82;
+        const measure=p=>{
+          poseDuelArrow(cut.projectile,cut.attacker,target,p);
+          const origin=bow.getWorldPosition(cut.attacker.position.clone());
+          const tail=cut.projectile.position.clone().add(
+            cut.projectile.position.clone().set(0,-.205,0)
+              .applyQuaternion(cut.projectile.quaternion));
+          return {tailError:tail.distanceTo(origin),
+            stage:cut.projectile.userData.bowStage,
+            visible:cut.projectile.visible,
+            place:cut.projectile.position.toArray(),
+            nock:origin.toArray()};
+        };
+        const first=measure(.07);
+        const released=measure(.11);
+        const flying=measure(.18);
+        const second=measure(.60);
+        const finalFlight=measure(.68);
+        return {first,released,flying,second,finalFlight,
+          anchorParent:bow.parent.name,
+          hasRig:Boolean(cut.attacker.getObjectByName('combat-left-arm'))};
+      });
+      assert.equal(arrows.anchorParent,'combat-left-arm');
+      assert.equal(arrows.hasRig,true);
+      assert.equal(arrows.first.stage,'nocked');
+      assert.equal(arrows.first.visible,true);
+      assert(arrows.first.tailError<.005);
+      assert.equal(arrows.released.stage,'flight');
+      assert(arrows.released.tailError<.005,'First arrow begins at bowstring');
+      assert(arrows.flying.place.some((x,i)=>Math.abs(x-arrows.released.place[i])>.06),
+        'First arrow travels away from the bowstring');
+      assert.equal(arrows.second.stage,'nocked');
+      assert(arrows.second.tailError<.005,'Second arrow must also be nocked');
+      assert.equal(arrows.finalFlight.stage,'flight');
+      await host.evaluate(()=>document.getElementById('capture-skip').click());
+      const state=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+      assert.equal(state.game.history.length,1);
+      assert.equal(state.game.board[5][3],'E');
+      assert.equal(state.game.board[5][5],'R');
+    }finally{
+      await host.close();failurePage=page;
+    }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
       '/move3d.js', '/cinematic3d.js', '/combat-motion.js',
       '/flank-capture.js', '/flank-cinematic3d.js',
       '/escape-motion.js', '/king-escape3d.js',
       '/king-siege-motion.js', '/king-siege3d.js',
-      '/throne-capture.js', '/throne-cinematic3d.js', '/soundscape.js',
+      '/throne-capture.js', '/throne-cinematic3d.js',
+      '/archery3d.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);

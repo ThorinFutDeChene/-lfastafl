@@ -1,44 +1,41 @@
-# Álfastafl 0.7.0-dev6 — Capture contre le trône vide, dans les deux sens
+# Álfastafl 0.7.0-dev7 — Origine des flèches sur l'arc elfique
 
-## Deux scènes de capture cinématographique
+## Correctif 3D
 
-**1 nain capture 1 elfe contre le trône :**
-1. Le nain atteint sa vraie case d'arrivée avant de frapper au contact.
-2. Il porte un coup de hache, paré par l'elfe avec son bras protégeant l'arc.
-3. Le nain frappe de nouveau et projette la sculpture elfique contre le trône.
-4. Impact sur le socle, étincelles et **18 fragments de l'elfe** en 3D.
+**Défaut :** les flèches semblaient sortir de la poitrine des elfes,
+car les cinématiques utilisaient une hauteur fixe par rapport au corps
+plutôt que la géométrie de l'arme.
 
-**1 elfe capture 1 nain contre le trône :**
-1. L'archer s'arrête une case avant sa destination.
-2. Il tire une flèche parée par le bouclier du nain.
-3. Une seconde flèche pousse la sculpture de bronze contre le trône.
-4. Éclats de la sculpture (18 fragments), **12 petits débris visuels**
-   sur le socle, puis l'archer finit son déplacement réel.
+**Correction :**
+- Point d'ancrage `combat-bow-nock` ajouté au **milieu de la corde de
+  l'arc déjà sculpté**, attaché au bras gauche articulé.
+- La flèche devient visible **encochée et alignée** vers la cible avant
+  le lâcher. Son extrémité arrière rejoint exactement la corde, même
+  lorsque l'elfe tourne ou lève le bras.
+- Trajectoires calculées à partir du nock 3D transformé en coordonnées
+  monde, y compris les impacts et ricochets contre le bouclier.
+- L'ancienne flèche décorative figée en travers du buste reste
+  présente sur les figurines de jeu immobiles mais est retirée
+  des versions articulées, qui utilisent une véritable flèche animée.
+- Mise en cohérence de **tous les tirs elfes** : prise en étau,
+  capture contre le trône vide (première flèche parée et seconde
+  flèche décisive) et captures ordinaires. Les combats de nains,
+  les attaques collectives contre le roi et la fuite à cheval ne
+  sont pas modifiés.
 
-Les deux scènes bénéficient d'une caméra locale mobile, des
-animations d'armes articulées et de sons de choc contre la pierre,
-entièrement synthétisés et disponibles hors ligne.
+## Validation
 
-## Déclenchement conforme aux règles
+- Régression Chromium : le test compare la vraie position du nock
+  et la pointe arrière du projectile (tolérance < 0,005 case),
+  vérifie son départ depuis l'arc et le deuxième tir en situation
+  contre le trône et en duel classique.
+- Aucune modification du Tafl (coups légaux, captures, horloges),
+  de la sauvegarde, de l'état de la partie ou des accès réseau.
+- Articulations et flèches procédurales 3D locales, sans nouveaux
+  téléchargements ni données réseau.
+- Essais visuels sur Ubuntu MATE, tablette et téléphone à confirmer.
 
-- Le trône doit être **vide** ; le centre est hostile aux soldats des deux
-  camps dans les trois variantes. Les cas d'un roi sur le trône, d'une
-  capture en étau par deux pièces, d'un mur de boucliers ou d'une
-  capture du roi suivent leurs propres règles et scènes.
-- Une unique capture doit avoir été **confirmée par le serveur**,
-  sur la case exactement comprise entre l'attaquant et le trône.
-- **Aucun changement** des règles Tafl, des tours, du chronomètre, des
-  permissions réseau, de l'historique et des sauvegardes. Le trône ne
-  change ni de case ni d'occupation après la scène.
-- Durées existantes 4/8/12 s, Désactivées, Passer, Réduire les animations,
-  affichage 2D et spectateurs inchangés.
-- Tests de captures réelles Python (2 camps × 3 variantes), déterminisme
-  Node et scénarios Chromium avec les deux camps, caméra, fragments,
-  spectateur et retour au plateau.
-- Validation matérielle Ubuntu MATE, tablette et smartphone à réaliser
-  avant promotion en stable.
+## Distribution
 
-## Publication
-
-- Paquet Debian **0.7.0~dev6**, canal **Développement (DEV)**.
+- Paquet Debian **0.7.0~dev7** sur le canal **DEV**.
 - Stable 0.5.0 inchangée.

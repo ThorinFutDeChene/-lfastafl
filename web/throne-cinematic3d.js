@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import {thronePhases} from './throne-capture.js';
 import {smooth,pulse} from './combat-motion.js';
+import {nockArrow,flightArrow,deflectArrow} from './archery3d.js';
 
 const SURFACE=.12;
 const Y=new THREE.Vector3(0,1,0);
@@ -148,25 +149,22 @@ export class ThroneCinematic {
     hitPoint.z+Math.sin(theta)*.34*m.knockback);
    spark.scale.setScalar(Math.max(.01,flash)*(.55+.25*m.knockback));
   }
-  // In the elven version one arrow is deflected off the shield and a
-  // second arrow hits lower to push the bronze dwarf into the throne.
+  // TWO arrows: both are visibly nocked against the EXISTING bow's
+  // string on the left arm before release. The first one ricochets from
+  // the dwarf shield; the second makes the statue hit the throne.
   const arrow=cut.projectile;
   if(arrow&&!contact){
-   const first=t>=.28&&t<.51;
-   const second=t>=.70&&t<.87;
-   arrow.visible=first||second;
+   arrow.visible=(t>=.22&&t<.51)||(t>=.60&&t<.87);
    if(arrow.visible){
-    const origin=front.position.clone().add(new THREE.Vector3(0,.87,0));
     const shield=this.victimAt.clone().add(new THREE.Vector3(0,.70,0));
-    const bounce=shield.clone().add(new THREE.Vector3(.29,.42,-.20));
     const foot=this.victimAt.clone().add(new THREE.Vector3(0,.32,0));
-    const target=first&&t<.41?shield:first?bounce:foot;
-    const from=first&&t<.41?origin:first?shield:origin;
-    const progress=first&&t<.41?smooth(t,.28,.41):
-     first?smooth(t,.41,.51):smooth(t,.70,.87);
-    arrow.position.copy(from).lerp(target,progress);
-    const direction=target.clone().sub(from).normalize();
-    arrow.quaternion.setFromUnitVectors(Y,direction);
+    if(t<.34)nockArrow(arrow,front,shield);
+    else if(t<.41)flightArrow(arrow,front,shield,smooth(t,.34,.41));
+    else if(t<.51){
+     const bounce=shield.clone().add(new THREE.Vector3(.29,.42,-.20));
+     deflectArrow(arrow,front,shield,bounce,smooth(t,.41,.51));
+    }else if(t<.73)nockArrow(arrow,front,foot);
+    else flightArrow(arrow,front,foot,smooth(t,.73,.87));
    }
   }
   const trailPower=Math.max(m.opening*.68,m.killingBlow);

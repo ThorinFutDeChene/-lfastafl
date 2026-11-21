@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import {createFigurine} from './figurines3d.js';
 import {flankPhases,attackAnchor} from './flank-capture.js';
 import {clamp01,smooth,pulse} from './combat-motion.js';
+import {nockArrow,flightArrow,deflectArrow} from './archery3d.js';
 
 const SURFACE=.12;
 const Y=new THREE.Vector3(0,1,0);
@@ -272,22 +273,20 @@ export class FlankCinematic {
     v.place.z+Math.cos(theta)*.32*m.cleave);
    spark.scale.setScalar(.4+.7*sparkle);
   }
-  // Incoming elf actually shoots a 3D arrow into the dwarf's shield; it
-  // deflects off instead of piercing the sculpted bronze.
+  // Nock the arrow on the sculpted bow held in the LEFT hand. The
+  // physical bow-string anchor follows its animated left-arm joint, so the
+  // shaft genuinely comes out of the bow rather than the elf's chest.
   if(cut.projectile&&elf){
-   const q=p;
    const arrow=cut.projectile;
-   arrow.visible=q>=.22&&q<.52;
-   if(arrow.visible) {
-    const start=front.position.clone().add(new THREE.Vector3(0,.88,0));
+   arrow.visible=p>=.12&&p<.52;
+   if(arrow.visible){
     const shield=v.place.clone().add(new THREE.Vector3(0,.65,0));
-    const bounce=shield.clone().add(new THREE.Vector3(.47,.30,-.28));
-    const goal=q<.38?shield:bounce;
-    const u=q<.38?smooth(q,.22,.38):smooth(q,.38,.52);
-    const from=q<.38?start:shield;
-    arrow.position.copy(from).lerp(goal,u);
-    const direction=goal.clone().sub(from).normalize();
-    arrow.quaternion.setFromUnitVectors(Y,direction);
+    if(p<.25)nockArrow(arrow,front,shield);
+    else if(p<.38)flightArrow(arrow,front,shield,smooth(p,.25,.38));
+    else {
+     const bounce=shield.clone().add(new THREE.Vector3(.47,.30,-.28));
+     deflectArrow(arrow,front,shield,bounce,smooth(p,.38,.52));
+    }
    }
   }
   // The second attacking sculpture drives the visible weapon-trail.

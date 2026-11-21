@@ -213,6 +213,19 @@ function sculptor(kind, articulated = false) {
         mesh.geometry.computeBoundingSphere();
       }
     }
+    if (articulated && kind === 'E') {
+      // The bow (and its string) are carved into the left-arm mesh.
+      // This invisible transform is EXACTLY at the middle of that string in
+      // the same sculptor coordinates. It inherits every bow-arm rotation.
+      // Never approximate the origin from the figurine's chest or head.
+      const arm = joints.get('left-arm');
+      const nock = new THREE.Object3D();
+      nock.name = 'combat-bow-nock';
+      nock.position.set(-0.318 * horizontal - arm.position.x,
+        (0.813 - bounds.min.y) * vertical - arm.position.y,
+        0.12 * horizontal - arm.position.z);
+      arm.add(nock);
+    }
     group.updateMatrixWorld(true);
     const finalBounds = new THREE.Box3().setFromObject(group);
     const size = finalBounds.getSize(new THREE.Vector3());
@@ -336,16 +349,19 @@ function elf(articulated = false) {
   b.ellipsoid('body', [0.11, 0.77, 0.149], [0.036, 0.031, 0.027]);
 
   b.part('left-arm');
-  // Carved bow and a fine arrow held across the body. The bow is a solid 3D
-  // curved tube, not a transparent plane or a symbol painted on a base.
+  // Existing stone-carved bow and bowstring, held by the left hand.
+  // In cutscenes a separate animated arrow nocks at the REAL bowstring;
+  // keeping this static cross-chest arrow would leave a ghost after release.
   const bow = new THREE.QuadraticBezierCurve3(vector([-0.318, 0.43, 0.12]),
     vector([-0.53, 0.82, 0.12]), vector([-0.318, 1.195, 0.12]));
   b.add('ornament', new THREE.TubeGeometry(bow, 16, 0.018, 6, false));
   b.rod('recess', [-0.318, 0.43, 0.12], [-0.318, 1.195, 0.12], 0.0055, 0.0055, 5);
   b.part('right-arm');
-  b.rod('ornament', [-0.34, 0.777, 0.147], [0.228, 0.76, 0.147], 0.008, 0.008, 5);
-  b.relief('body', [[0.017, 0], [-0.017, 0.018], [-0.009, 0], [-0.017, -0.018]],
-    0.012, [0.24, 0.76, 0.147], 0.002);
+  if (!articulated) {
+    b.rod('ornament', [-0.34, 0.777, 0.147], [0.228, 0.76, 0.147], 0.008, 0.008, 5);
+    b.relief('body', [[0.017, 0], [-0.017, 0.018], [-0.009, 0], [-0.017, -0.018]],
+      0.012, [0.24, 0.76, 0.147], 0.002);
+  }
   b.part('body');
   b.cylinder('recess', [0.12, 0.73, -0.13], 0.058, 0.045, 0.34, [0, 0, -0.19]);
   for (let index = 0; index < 3; index++) {
