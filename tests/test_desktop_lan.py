@@ -141,6 +141,23 @@ class DesktopSession:
             # return immediately and worker results use the queued signals.
             return Mock(start=Mock(side_effect=target))
 
+        class FakeWebEngineView:
+            """Test double subclassable like Qt's real QWebEngineView."""
+            def __init__(self, *_):
+                self.setUrl = Mock()
+                self.settings = Mock(return_value=Mock())
+
+        class FakeQt:
+            class WidgetAttribute:
+                WA_DeleteOnClose = 0
+
+        class FakeWebAttribute:
+            JavascriptCanOpenWindows = 1
+            JavascriptCanCloseWindows = 2
+
+        class FakeSettings:
+            WebAttribute = FakeWebAttribute
+
         definitions = {
             'PyQt6': {},
             'PyQt6.QtWidgets': {
@@ -149,12 +166,15 @@ class DesktopSession:
                 'QToolBar': lambda *_: Mock(),
                 'QMessageBox': Mock(warning=self.warning),
             },
-            'PyQt6.QtGui': {'QAction': action_factory},
+            'PyQt6.QtGui': {
+                'QAction': action_factory, 'QShortcut': Mock, 'QKeySequence': Mock,
+            },
             'PyQt6.QtCore': {
                 'QUrl': str, 'QObject': QObject, 'QTimer': QTimer,
-                'pyqtSignal': lambda *_: Signal(self.pending),
+                'Qt': FakeQt, 'pyqtSignal': lambda *_: Signal(self.pending),
             },
-            'PyQt6.QtWebEngineWidgets': {'QWebEngineView': lambda *_: Mock()},
+            'PyQt6.QtWebEngineCore': {'QWebEngineSettings': FakeSettings},
+            'PyQt6.QtWebEngineWidgets': {'QWebEngineView': FakeWebEngineView},
             'alfastafl.updater_ui': {'UpdateController': self.updater_factory},
         }
         modules = {}
