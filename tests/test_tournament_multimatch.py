@@ -135,6 +135,130 @@ class ConcurrentTournamentTests(unittest.TestCase):
         self.assertEqual(result['game'],next_game)
         self.assertEqual(reloaded.games[next_game].status,'active')
 
+    def test_complete_knockout_final_results_persist_and_no_extra_round(self):
+        """Four authenticated players finish both semifinals and the actual final."""
+        code, created = self.http('tournament/create', {
+            'name': 'Finale complète', 'format': 'knockout',
+            'players': ['Alice', 'Bruno', 'Chloé', 'David']})
+        self.assertEqual(code, 200, created)
+        tid = created['tournament']['id']
+        code, opening = self.http('tournament/round', {
+            'tournament': tid, 'mode': 'fetlar'})
+        self.assertEqual(code, 200, opening)
+        semifinals = opening['matches']
+        self.assertEqual(len(semifinals), 2)
+        credentials = {}
+        sessions = {}
+        for name in ('Alice', 'Bruno', 'Chloé', 'David'):
+            pending, accepted, credential = self.authorize(tid, name)
+            credentials[name] = credential
+            sessions[name] = accepted['session']
+
+        winners = []
+        for match in semifinals:
+            # The player who resigns is the loser; server computes the winner.
+            losing_name = match['b']
+            status, result = self.http('resign', {
+                'game': match['game'], 'session': sessions[losing_name]})
+            self.assertEqual(status, 200, result)
+            self.assertEqual(result['game']['status'], 'finished')
+            self.assertEqual(result['game']['winner'], match['camp_a'])
+            winners.append(match['a'])
+
+        code, round_two = self.http('tournament/round', {
+            'tournament': tid, 'mode': 'fetlar'})
+        self.assertEqual(code, 200, round_two)
+        self.assertEqual(len(round_two['matches']), 1)
+        final = round_two['matches'][0]
+        self.assertEqual(final['round'], 2)
+        self.assertEqual({final['a'], final['b']}, set(winners))
+        self.assertNotIn(final['game'], {m['game'] for m in semifinals})
+
+        final_sessions = {}
+        for name in winners:
+            pending_before = len(self.store.pending)
+            restored = self.register(tid, name, credential=credentials[name])
+            self.assertEqual(restored['status'], 'approved')
+            self.assertEqual(restored['game'], final['game'])
+            self.assertEqual(len(self.store.pending), pending_before)
+            final_sessions[name] = restored['session']
+        self.assertEqual(self.store.games[final['game']].status, 'active')
+
+        # Conclude the championship through the public player endpoint.
+        code, result = self.http('resign', {
+            'game': final['game'], 'session': final_sessions[final['b']]})
+        self.assertEqual(code, 200, result)
+        self.assertEqual(result['game']['winner'], final['camp_a'])
+        self.assertEqual(result['game']['status'], 'finished')
+        code, finished = self.http('tournament/round', {'tournament': tid})
+        self.assertEqual(code, 200, finished)
+        self.assertEqual(finished['matches'], [],
+                         'An ended knockout must not create a third round')
+
+        tournament = self.store.tournaments[tid]
+        self.assertEqual(tournament['round_no'], 2)
+        played = [m for m in tournament['matches'] if not m.get('bye')]
+        self.assertEqual(len(played), 3)
+        self.assertEqual(len([m for m in played if m['winner'] is not None]), 3)
+        self.assertEqual(next(m for m in played if m['id'] == final['id'])['winner'],
+                         final['a'])
+        self.assertEqual(sum(m['winner'] == final['a'] for m in played), 2)
+        self.assertEqual(self.http('tournament/round', {'tournament': tid})[1]['matches'], [])
+
+        reloaded = Store(self.tmp.name)
+        self.assertEqual(reloaded.tournaments[tid], tournament,
+                         'The final result and standings must survive host restart')
+        self.assertEqual(reloaded.games[final['game']].status, 'finished')
+        self.assertEqual(reloaded.games[final['game']].winner, final['camp_a'])
+
+    def test_two_real_capture_moves_generate_independent_broadcast_scenes(self):
+        """Two authorized players capture on independent boards using /api/move."""
+        from concurrent.futures import ThreadPoolExecutor
+        from alfastafl import tutorial
+
+        tid, matches = self.setup_tournament()
+        sessions = {}
+        for name in ('Alice', 'Bruno', 'Chloé', 'David'):
+            pending, approved, _ = self.authorize(tid, name)
+            sessions[name] = approved['session']
+        _, spectator, _ = self.authorize(tid, 'Public', role='spectator')
+        lesson = tutorial.lesson_state('fetlar', 'capture')
+        start, end = tutorial.SOLUTIONS['fetlar']['capture']
+        for match in matches:
+            with self.store.lock:
+                game = self.store.games[match['game']]
+                game.board = [row[:] for row in lesson['board']]
+                game.turn = lesson['camp']
+                game.positions = [game.signature()]
+                game.settings['capture_cinematic_seconds'] = 12
+                self.store.save(game)
+
+        def capture(match):
+            moving_player = match['a'] if match['camp_a'] == lesson['camp'] else match['b']
+            return self.http('move', {
+                'game': match['game'], 'session': sessions[moving_player],
+                'from': list(start), 'to': list(end)})
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            events = list(pool.map(capture, matches))
+        for status, response in events:
+            self.assertEqual(status, 200, response)
+            self.assertTrue(response['event']['captured'],
+                            'Capture must be generated by the rules engine')
+        for match in matches:
+            self.assertIsNotNone(self.store.cinematic_state(match['game']))
+            self.assertEqual(len(self.store.games[match['game']].history), 1)
+
+        data = self.store.broadcast(tid, spectator['session'], admin=False)
+        self.assertEqual({m['game'] for m in data['matches']},
+                         {match['game'] for match in matches})
+        self.assertTrue(all(m['cinematic'] for m in data['matches']))
+        for item in data['matches']:
+            self.assertTrue(item['cinematic']['move']['captured'])
+            self.assertEqual(item['cinematic']['move']['from'], list(start))
+            self.assertEqual(item['cinematic']['move']['to'], list(end))
+        self.assertEqual(len({m['game'] for m in data['matches']}), 2)
+
     def test_spectators_view_all_matches_and_several_captures_without_play_rights(self):
         tid,matches=self.setup_tournament()
         pending,approved,secret=self.authorize(tid,'Public','spectator')
