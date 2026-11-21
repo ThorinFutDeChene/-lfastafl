@@ -61,6 +61,7 @@ async function main(){
   document.getElementById('tutorial-live-qr').naturalWidth>0);
  const url=await host.locator('#tutorial-live-link').getAttribute('href');
  assert.equal(new URL(url).host,new URL(base).host);
+ assert.equal(new URL(url).pathname,'/tutorial-view.html');
  const token=new URL(url).searchParams.get('tutorial_view');
  assert(token&&token.length>48,'QR must use a cryptographic session secret');
  console.log('PASS QR available directly in the open host tutorial');
@@ -78,8 +79,8 @@ async function main(){
  });
  const guest=await guestContext.newPage();
  guest.on('pageerror',e=>pageErrors.push('guest: '+e.message));
- await guest.goto('http://guest.test/tutorial-view.html?tutorial_view='+
-  encodeURIComponent(token),{waitUntil:'domcontentloaded'});
+ await guest.goto('http://guest.test'+new URL(url).pathname+new URL(url).search,
+  {waitUntil:'domcontentloaded'});
  await guest.waitForFunction(()=>document.querySelectorAll(
   '#tutorial-board [role="gridcell"]').length===121 &&
   document.getElementById('tutorial-remote-connection').dataset.status==='live');
@@ -124,9 +125,11 @@ async function main(){
  const newToken=new URL(await host.locator('#tutorial-live-link').getAttribute('href'))
   .searchParams.get('tutorial_view');
  await host.locator('#tutorial-close').click();
- const closed=await hostContext.request.get(base+'/api/tutorial/live/state?token='+
-  encodeURIComponent(newToken));
- assert.equal(closed.status(),403,'Closing the tutorial must revoke its own live session');
+ await host.waitForFunction(async key=>{
+  const response=await fetch('/api/tutorial/live/state?token='+encodeURIComponent(key),
+   {cache:'no-store'});
+  return response.status===403;
+ },newToken,{timeout:9000});
  console.log('PASS closing the tutorial shuts the stream without touching saved games');
  const games=(await (await hostContext.request.get(base+'/api/games')).json()).games;
  assert.deepEqual(games,[]);

@@ -1,38 +1,35 @@
-# Álfastafl 0.7.1-dev2 — Tournois multirencontres
+# Álfastafl 0.7.1-dev3 — Tutoriel partagé en direct
 
-## Plusieurs matchs simultanés
-- Quatre inscrits : **deux parties jouables en parallèle** sur
-  quatre appareils, avec chronomètres et sauvegardes indépendants.
-- Chacun démarre lorsqu'il est disponible et retrouve sa partie
-  si son adversaire n'a pas encore commencé. Nouvelle ronde
-  préparée par l'organisateur après validation des résultats.
+## Présentation depuis le PC hôte
 
-## QR de tournoi et réassociation à un appareil
-- **QR joueur et QR spectateur de tournoi** dans la colonne de gauche,
-  uniquement lorsque le LAN est volontairement ouvert.
-- Première connexion après **accord explicite de l'hôte** ; un
-  jeton cryptographique fort et propre au navigateur est enregistré.
-- Les rencontres suivantes se rejoignent sans réautorisation
-  si ce jeton est reconnu pour le même nom et tournoi.
-- Adresse MAC inaccessible depuis le navigateur ; seules les
-  **empreintes SHA-256 des jetons** sont enregistrées au serveur.
-- Possibilité de **révoquer** les appareils d'un participant.
-  Changer d'appareil ou effacer ses données exige un nouvel accord.
+- Le tutoriel reste piloté exclusivement depuis le PC Ubuntu hôte :
+  choix de l'exercice, sélection, coups et navigation.
+- Un QR code est visible **dans la fenêtre du tutoriel** lorsque le LAN
+  est volontairement activé. Il mène directement à la page spectateur.
+- Téléphones, tablettes et autres ordinateurs voient les positions du
+  plateau 3D, les indications, les cases sélectionnées, les coups légaux,
+  les déplacements confirmés et le passage à l'exercice suivant.
+- L'invité peut régler sa caméra, la qualité 3D ou choisir la vue 2D,
+  mais ne peut modifier aucune pièce.
+- Une invitation peut être utilisée par plusieurs appareils.
 
-## Diffusion du tournoi
-- Sur le PC hôte et les appareils spectateurs autorisés, rotation
-  automatique des rencontres toutes les **12 secondes**.
-- Noms des deux adversaires, camps et nombre de coups affichés.
-- L'hôte peut afficher la rencontre suivante ou arrêter le défilement.
-- Chaque prise provoque un **encart 3D** légendé avec les noms
-  des joueurs concernés. Plusieurs encarts indépendants sont
-  affichés simultanément (jusqu'à six selon la puissance du matériel).
-- Flux de plateaux 3D en direct : pas de vidéo du bureau de l'hôte.
+## Réseau et sécurité
 
-## Compatibilité et recette
-La stable **0.7.0** n'est pas modifiée. Le correctif plein écran F11
-et l'aide des formats de tournoi restent intégrés depuis la DEV1.
-Les tests couvrent la concurrence, les jetons, les accès spectateurs
-et les scènes multiples. Les appareils réels restent à tester.
+- Partage en lecture seule, avec jeton temporaire imprévisible.
+- Le serveur synchronise les positions du cours et non une capture
+  vidéo du bureau Ubuntu.
+- Bouton d'arrêt et de réactivation du partage dans le tutoriel.
+- Fermer la présentation, couper le LAN ou laisser expirer le serveur
+  révoque l'accès ; fermer la fenêtre native tente aussi une révocation
+  immédiate.
+- L'ouverture du LAN exige toujours l'action explicite de l'hôte.
+- Aucun changement aux sauvegardes, parties, tournois ou rôles joueurs.
 
-**Canal DEV — paquet `0.7.1~dev2`.**
+## Tests
+
+Tests Python des droits d'accès, du QR, des coups, de la révocation et
+de l'absence de persistance. Recette Chromium de la véritable URL
+du QR, des sélections, du changement de leçon et de la fermeture.
+Régressions existantes Qt, tutoriel, tournois et 3D conservées.
+
+**DEV 0.7.1-dev3 — paquet Debian `0.7.1~dev3`. Stable 0.7.0 inchangée.**

@@ -971,7 +971,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 except ImportError:
                     return self.send({'error':'Module QR indisponible'},503)
                 url=('http://'+self.server.lan_address+':'+
-                     str(self.server.server_address[1])+'/?tutorial_view='+token)
+                     str(self.server.server_address[1])+'/tutorial-view.html?tutorial_view='+token)
                 output=io.BytesIO()
                 qrcode.make(url).save(output,format='PNG')
                 raw=output.getvalue()

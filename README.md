@@ -1,13 +1,29 @@
-# Álfastafl — 0.7.1-dev2 (canal DEV)
+# Álfastafl — 0.7.1-dev3 (canal DEV)
 
-La **0.7.1-dev2** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.1-dev3** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev2` est plus récent que la stable `0.7.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev3` est plus récent que la stable `0.7.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.1-dev3 : tutoriel partagé en direct sur le réseau local
+
+Le PC hôte conserve seul le contrôle du tutoriel. Lorsque le réseau
+local a été volontairement activé, un **QR code directement dans la
+fenêtre du tutoriel** ouvre une page de spectateur dédiée. Les invités
+voient le même exercice, les indications, les sélections, les coups
+légaux et les déplacements confirmés, avec leur propre caméra 3D.
+La vue 2D reste disponible pour les appareils sans WebGL.
+
+Les accès invités sont strictement en **lecture seule** : aucune
+commande du jeu ou du tutoriel ne peut être exécutée à distance.
+Le QR est lié à une session temporaire avec jeton aléatoire ;
+l'arrêt du partage, la fermeture du tutoriel ou l'arrêt du LAN
+invalident l'accès. La session ne conserve aucune donnée sur disque.
+Les parties et tournois existants restent inchangés.
 
 ## DEV 0.7.1-dev2 : tournois multirencontres, reconnaissance et diffusion
 

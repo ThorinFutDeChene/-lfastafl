@@ -90,7 +90,10 @@
           break;
         }
       }
-    })().finally(() => { livePublishing = false; });
+    })().finally(() => {
+      livePublishing = false;
+      if (liveDirty && liveToken) publishLive();
+    });
   }
   async function refreshLive() {
     if (!active || !panel.open || liveRefreshing) return;
@@ -119,7 +122,7 @@
         publishLive();
       }
       const url = 'http://' + net.address + ':' + net.port +
-        '/?tutorial_view=' + encodeURIComponent(liveToken);
+        '/tutorial-view.html?tutorial_view=' + encodeURIComponent(liveToken);
       const signature = liveToken + '|' + net.address + ':' + net.port;
       if (liveSignature !== signature) {
         el('live-qr').src='/api/tutorial/live/qr?token=' +
@@ -570,6 +573,17 @@
     if (busy || !state) return;
     if (state.lesson_index + 1 < state.lesson_count) loadLesson(state.lessons[state.lesson_index + 1].id);
     else closeTutorial();
+  });
+  // The native Qt window can be closed by the OS rather than its button.
+  // A best-effort beacon revokes the viewer QR; the server also expires it.
+  window.addEventListener('pagehide', () => {
+    if (!liveToken) return;
+    const token=liveToken;
+    liveToken='';
+    try {
+      navigator.sendBeacon('/api/tutorial/live/stop',
+        new Blob([JSON.stringify({token})],{type:'application/json'}));
+    } catch (_) { /* The short server lease still applies after a crash. */ }
   });
   if(isDesktopTutorial)trigger.click();
 })();

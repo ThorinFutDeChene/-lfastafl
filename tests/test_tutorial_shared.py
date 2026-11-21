@@ -3,6 +3,8 @@ import http.client
 import io
 import json
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs
+from unittest.mock import patch
 import tempfile
 import threading
 import unittest
@@ -67,9 +69,19 @@ class SharedTutorialHTTPTests(unittest.TestCase):
         self.assertEqual(self.request('tutorial/live/publish',{'token':token},visitor=True)[0],403)
         self.assertEqual(self.request('tutorial/live/stop',{'token':token},visitor=True)[0],403)
         self.server.lan_address='192.168.10.24'
-        code,png=self.request('tutorial/live/qr?token='+quote(token),raw=True)
+        import qrcode
+        links=[]
+        original=qrcode.make
+        def spy(url):
+            links.append(url)
+            return original(url)
+        with patch('qrcode.make',side_effect=spy):
+            code,png=self.request('tutorial/live/qr?token='+quote(token),raw=True)
         self.assertEqual(code,200)
         self.assertTrue(png.startswith(bytes.fromhex('89504e470d0a1a0a')))
+        self.assertEqual(len(links),1)
+        self.assertEqual(urlparse(links[0]).path,'/tutorial-view.html')
+        self.assertEqual(parse_qs(urlparse(links[0]).query).get('tutorial_view'),[token])
         self.assertEqual(self.request('tutorial/live/qr?token='+quote(token),
             visitor=True)[0],403)
 
