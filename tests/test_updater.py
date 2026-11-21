@@ -99,7 +99,85 @@ class ReleaseSelectionTests(TestCase):
             u.parse_releases([], 'inconnu')
 
     def test_current_source_version(self):
-        self.assertEqual(u.local_version(), '0.7.1~dev6')
+        expected = (Path(__file__).resolve().parents[1] / 'VERSION').read_text(encoding='utf-8').strip()
+        self.assertEqual(u.local_version(), expected)
+
+
+class PackageTests(TestCase):
+    def setUp(self):
+        self.raw = b'example test deb bytes' * 200
+        self.hash = hashlib.sha256(self.raw).hexdigest()
+        self.record = u.parse_releases([release('v0.1.0-dev3', True)], 'dev')[0]
+
+    def test_parse_checksums(self):
+        self.assertEqual(u._checksum_for(self.hash + '  ' + self.record.package_name + '\n', self.record.package_name), self.hash)
+        with self.assertRaises(u.UpdateError):
+            u._checksum_for(self.hash + '  another.deb\n', self.record.package_name)
+
+    def test_verified_download(self):
+        sum_text = self.hash + '  ' + self.record.package_name + '\n'
+        with mock.patch.object(u, '_read_url', return_value=sum_text.encode()), \
+                mock.patch.object(u, 'urlopen', return_value=FakeResponse(self.raw, self.record.package_url)), \
+                mock.patch.object(u, 'validate_deb') as check:
+            path, folder = u.download_verified(self.record)
+        try:
+            self.assertEqual(path.read_bytes(), self.raw)
+            check.assert_called_once_with(path, '0.1.0~dev3')
+        finally:
+            import shutil
+            shutil.rmtree(folder)
+
+    def test_bad_checksum_refused(self):
+        bad = '0' * 64 + '  ' + self.record.package_name + '\n'
+        with mock.patch.object(u, '_read_url', return_value=bad.encode()), \
+                mock.patch.object(u, 'urlopen', return_value=FakeResponse(self.raw, self.record.package_url)):
+            with self.assertRaisesRegex(u.UpdateError, 'SHA-256'):
+                u.download_verified(self.record)
+
+    def test_mismatch_between_release_digest_and_manifest(self):
+        rec = u.parse_releases([release('v0.1.0-dev3', True, 'sha256:' + '1' * 64)], 'dev')[0]
+        sums = self.hash + '  ' + rec.package_name + '\n'
+        with mock.patch.object(u, '_read_url', return_value=sums.encode()):
+            with self.assertRaisesRegex(u.UpdateError, 'incompatible'):
+                u.download_verified(rec)
+
+    def test_cancelled_before_streaming(self):
+        cancelled = threading.Event()
+        cancelled.set()
+        sums = self.hash + '  ' + self.record.package_name + '\n'
+        with mock.patch.object(u, '_read_url', return_value=sums.encode()), \
+                mock.patch.object(u, 'urlopen', return_value=FakeResponse(self.raw, self.record.package_url)):
+            with self.assertRaises(u.UpdateCancelled):
+                u.download_verified(self.record, cancelled=cancelled)
+
+    def test_insecure_redirect_refused(self):
+        sums = self.hash + '  ' + self.record.package_name + '\n'
+        with mock.patch.object(u, '_read_url', return_value=sums.encode()), \
+                mock.patch.object(u, 'urlopen', return_value=FakeResponse(self.raw, 'http://download.example/file.deb')):
+            with self.assertRaisesRegex(u.UpdateError, 'non sécurisée'):
+                u.download_verified(self.record)
+
+    def test_install_requires_polkit(self):
+        with mock.patch.object(u, 'validate_deb'), mock.patch.object(Path, 'is_file', return_value=False):
+            with self.assertRaisesRegex(u.UpdateError, 'pkexec absent'):
+                u.install_package(Path('/tmp/alfastafl_test.deb'), '0.1.0~dev3')
+
+    def test_install_uses_argument_array_and_pkexec(self):
+        completed = mock.Mock(returncode=0, stdout='ok', stderr='')
+        with mock.patch.object(u, 'validate_deb'), \
+                mock.patch.object(Path, 'is_file', return_value=True), \
+                mock.patch.object(u.subprocess, 'run', return_value=completed) as run:
+            u.install_package(Path('/tmp/example.deb'), '0.1.0~dev3')
+        args = run.call_args.args[0]
+        self.assertEqual(args[:4], ['/usr/bin/pkexec', '/usr/bin/apt-get', 'install', '-y'])
+        self.assertEqual(args[4], '/tmp/example.deb')
+
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()
+)
+        self.assertEqual(u.local_version(), expected)
 
 
 class PackageTests(TestCase):
