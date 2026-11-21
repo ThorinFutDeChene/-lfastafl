@@ -1,13 +1,25 @@
-# Álfastafl — 0.7.1-dev8 (canal DEV)
+# Álfastafl — 0.7.1-dev9 (canal DEV)
 
-La **0.7.1-dev8** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. Le réseau local est ouvert automatiquement lors de la création ou reprise d'une partie, d'un tutoriel ou d'un tournoi, et se referme automatiquement lorsque les activités réseau sont terminées, ou à l'arrêt du logiciel.
+La **0.7.1-dev9** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. Le réseau local est ouvert automatiquement lors de la création ou reprise d'une partie, d'un tutoriel ou d'un tournoi, et se referme automatiquement lorsque les activités réseau sont terminées, ou à l'arrêt du logiciel.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev8` est plus récent que la stable `0.7.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev9` est plus récent que la stable `0.7.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.1-dev9 : fiabilisation de la recette multijoueur
+
+La fermeture des contextes navigateur dans les tests Playwright de
+tournoi à quatre joueurs et de tutoriel partagé a été simplifiée :
+elle n'attend plus les requêtes HTTP de surveillance encore actives.
+Le fonctionnement du jeu, les règles, le réseau et les sauvegardes
+sont identiques à la version DEV8.
+
+La publication DEV9 reste conditionnée à la réussite des recettes
+automatisées Chromium, Firefox et WebKit. Les essais physiques
+sur Ubuntu MATE et appareils réels restent à effectuer.
 
 ## DEV 0.7.1-dev8 : vérification Firefox et moteur Safari (WebKit)
 
