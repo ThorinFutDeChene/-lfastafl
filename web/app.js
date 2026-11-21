@@ -11,12 +11,12 @@ document.body.classList.toggle('desktop-shell',isDesktopShell);
 document.body.classList.toggle('desktop-host-manager',isDesktopManager);
 document.body.classList.toggle('desktop-board-only',isDesktopBoard);
 document.body.classList.toggle('desktop-tutorial-only',isDesktopTutorial);
-let gameId=isDesktopTutorial?'':q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
+let gameId=isDesktopTutorial?'':q.has('tournament')?'':q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
 // Retain an approved device session across browser restarts for reconnection.
 function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+id)||'';}catch(_){return '';}}
 function rememberDevice(id,token){try{localStorage.setItem('alfastafl.device.'+id,token);}catch(_){} }
 function clearDevice(id){try{localStorage.removeItem('alfastafl.device.'+id);}catch(_){} }
-let session=isDesktopTutorial?'':q.get('session')||deviceSession(gameId)||
+let session=isDesktopTutorial||q.has('tournament')?'':q.get('session')||deviceSession(gameId)||
  sessionStorage.getItem('alfastafl.session')||'';
 function hostDisplayURL(kind){
  const url=new URL('/',location.href);
@@ -606,9 +606,22 @@ $('create').onclick=async()=>{
 
 };
 $('request').onclick=async()=>{
- try{gameId=$('gid').value;invalidateBoardInteraction();requestId=(await api('join',{
-  game:gameId,invite:$('invite').value,name:$('name').value})).request;
-  $('joinmsg').textContent='Demande envoyee, en attente de validation.';
+ try{
+  const tournament=q.get('tournament');
+  if(tournament){
+   const reply=await api('tournament/join',{
+    tournament,role:q.get('role')||'player',
+    invite:$('invite').value,name:$('name').value});
+   gameId=reply.game;requestId=reply.request;
+   $('gid').value=gameId;
+   sessionStorage.setItem('alfastafl.game',gameId);
+  }else{
+   gameId=$('gid').value;
+   requestId=(await api('join',{game:gameId,invite:$('invite').value,
+    name:$('name').value})).request;
+  }
+  invalidateBoardInteraction();
+  $('joinmsg').textContent='Demande envoyée à l’hôte, en attente de validation.';
  }catch(error){$('joinmsg').textContent=error.message;}
 };
 $('draw-offer').onclick=async()=>{
@@ -740,6 +753,10 @@ async function tick(){
  if(!isDesktopBoard&&!isDesktopTutorial)await listGames();
 }
 if(q.has('invite')){$('gid').value=q.get('game')||'';$('invite').value=q.get('invite')||'';}
+if(q.has('tournament')){
+ $('join').querySelector('h2').textContent='Rejoindre le tournoi';
+ $('gid').disabled=true;$('gid').placeholder='Rencontre attribuée automatiquement';
+}
 $('mode').addEventListener('change',()=>{if(!game)syncGameBoard();});
 render();
 setInterval(tick,1800);
