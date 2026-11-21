@@ -96,7 +96,9 @@ async function main(){
   '#tournament-list .tournament-match').length===2);
  await host.locator('#tournament-list .tournament-broadcast-start').click();
  await host.waitForFunction(()=>document.body.classList.contains('tournament-broadcast')&&
-  document.getElementById('tournament-broadcast-match').textContent.includes('contre'));
+  document.getElementById('tournament-broadcast-name').textContent===
+    'Tournoi à quatre • Ronde 1' &&
+  document.getElementById('tournament-broadcast-match').textContent.startsWith('Ronde 1 • '));
  assert.equal(await host.locator('#tournament-broadcast-name').textContent(),
   'Tournoi à quatre • Ronde 1');
  await host.waitForFunction(()=>['shell-player-image','shell-spectator-image'].every(id=>
