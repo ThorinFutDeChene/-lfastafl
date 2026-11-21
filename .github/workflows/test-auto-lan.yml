@@ -1,0 +1,61 @@
+name: Verify automatic LAN activation
+on:
+  push:
+    branches: [feature/activation-lan-automatique-071]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: alfastafl-auto-lan
+  cancel-in-progress: true
+jobs:
+  auto-lan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install platform and QR dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-qrcode python3-pil python3-pyqt6 python3-pyqt6.qtwebengine xvfb xauth x11-utils
+      - name: Python syntax check
+        run: python3 -m compileall -q src tests
+      - name: Complete Python suite including native network mocks
+        run: PYTHONPATH=src python3 -m unittest discover -s tests -v
+      - name: Genuine Qt WebEngine boot
+        timeout-minutes: 3
+        run: xvfb-run -a -s '-screen 0 1440x900x24' /usr/bin/python3 tests/native_qt_smoke.py
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          for file in web/*.js tests/browser_*.cjs; do node --check "$file"; done
+      - name: Chromium dependencies
+        timeout-minutes: 10
+        run: |
+          npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Browser automatic-LAN transitions
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_auto_lan.cjs
+      - name: Browser fullscreen host and tournament regression
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_desktop.cjs
+      - name: Browser read-only shared tutorial
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tutorial_shared.cjs
+      - name: Browser 3D board regression
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_board3d.cjs
+      - name: Build Debian package
+        run: |
+          sh packaging/build-deb.sh "$RUNNER_TEMP/alfastafl-auto-lan.deb"
+          dpkg-deb --info "$RUNNER_TEMP/alfastafl-auto-lan.deb"
