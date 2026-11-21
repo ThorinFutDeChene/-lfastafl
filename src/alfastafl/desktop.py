@@ -71,7 +71,7 @@ def main():
     thread[0].start()
 
     win = QMainWindow()
-    win.setWindowTitle('Álfastafl — Plateau et menus')
+    win.setWindowTitle('Álfastafl — Plateau et menus (DEV)')
     win.resize(1280, 850)
 
     # JavaScript window.open is handled by Qt, NOT an embedded browser tab:
