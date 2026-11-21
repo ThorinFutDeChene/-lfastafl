@@ -318,7 +318,7 @@ async function main(){
  console.log('PASS two winners rejoin the final without fresh permission or a stale seat');
  assert.deepEqual(errors,[],'Unexpected browser JavaScript errors');
  for(const actor of actors.values()){
-  await actor.context.unrouteAll({behavior:'wait'});
+  // Closing the browser context cancels ongoing request routing and polling.
   await actor.context.close();
  }
  await hostContext.close();
