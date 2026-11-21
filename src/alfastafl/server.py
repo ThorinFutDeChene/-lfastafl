@@ -1077,6 +1077,10 @@ class AppHandler(BaseHTTPRequestHandler):
                     auth=st.touch(gid,sid)
                     g=st.games[gid]
                     if not self.admin() and (not auth or auth['game']!=gid or not auth['active']):return self.send({'error':'Unauthorized'},403)
+                    if not self.admin() and auth and auth['role']=='spectator':
+                        # A connected, authorized viewer may still watch the
+                        # result/cinematic after a match is finished.
+                        st.keep_lan_active()
                     return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None,
                                       'seats':{camp:{'name':seat['name'],'host':bool(seat.get('local_host'))}
                                                for camp,seat in st._seats(gid).items()}
