@@ -29,9 +29,8 @@ class DesktopWindowTests(TestCase):
         self.assertEqual(popup.calls, ["fullscreen"],
                          "Board/tutorial must be separate OS-level fullscreen windows")
 
-    def test_management_window_does_not_switch_to_fullscreen_when_board_opens(self):
-        manager, board = DummyWindow(), DummyWindow()
-        show_main_window(manager)
-        show_board_window(board)
-        self.assertEqual(manager.calls, ["maximized"])
-        self.assertEqual(board.calls, ["fullscreen"])
+    def test_single_host_board_is_fullscreen_without_a_maximized_manager(self):
+        main = DummyWindow()
+        show_main_window(main)
+        self.assertEqual(main.calls, ["fullscreen"])
+        self.assertNotIn("maximized", main.calls)

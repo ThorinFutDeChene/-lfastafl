@@ -167,7 +167,9 @@ class DesktopSession:
                 'QMessageBox': Mock(warning=self.warning),
             },
             'PyQt6.QtGui': {
-                'QAction': action_factory, 'QShortcut': Mock, 'QKeySequence': Mock,
+                'QAction': action_factory,
+                'QShortcut': lambda *_: Mock(activated=Signal()),
+                'QKeySequence': lambda value: value,
             },
             'PyQt6.QtCore': {
                 'QUrl': str, 'QObject': QObject, 'QTimer': QTimer,
