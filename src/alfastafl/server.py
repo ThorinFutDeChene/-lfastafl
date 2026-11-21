@@ -1077,7 +1077,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     return self.send({'active':True,'pending':False})
                 activate=getattr(self.server,'lan_activation_requested',None)
                 if not callable(activate):
-                    return self.send({'error':'Activation LAN native indisponible.'},503)
+                    # A direct CLI/local test server has no Qt controller and
+                    # must remain offline. This is an expected capability
+                    # response, not a failing network resource (which would
+                    # also pollute 3D browser error monitoring).
+                    return self.send({'active':False,'pending':False,
+                                      'available':False,
+                                      'error':'Activation LAN native indisponible.'})
                 activate()
                 return self.send({'active':False,'pending':True},202)
             if u.path.startswith('/api/tutorial') and not self.admin():
@@ -1085,7 +1091,7 @@ class AppHandler(BaseHTTPRequestHandler):
             d=self.read_json();st=self.server.store
             if u.path=='/api/tutorial/live/start':
                 if not self.server.lan_enabled:
-                    raise PermissionError('Activez le LAN depuis le menu Réseau avant le partage.')
+                    raise PermissionError('Le LAN n’est pas encore actif : ouverture automatique en cours ou autorisation Ubuntu nécessaire.')
                 return self.send(st.start_tutorial_live(d.get('mode','fetlar'),
                                                       d.get('lesson')))
             if u.path=='/api/tutorial/live/publish':
