@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Álfastafl — Tutoriel partagé</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
+</head>
+<body class="tutorial-remote">
+<main class="tutorial-remote-main">
+  <header class="tutorial-remote-header">
+    <div>
+      <p class="tutorial-eyebrow">ÁLFASTAFL · PRÉSENTATION</p>
+      <h1>Tutoriel en direct</h1>
+      <p id="tutorial-remote-mode">Plateau contrôlé par le PC hôte</p>
+    </div>
+    <p id="tutorial-remote-connection" role="status" aria-live="polite">Connexion au tutoriel…</p>
+  </header>
+  <section class="tutorial-remote-layout">
+    <div class="tutorial-remote-play">
+      <div id="tutorial-board-view" class="board-view">
+        <div class="board-tools" role="group" aria-label="Réglages de votre affichage">
+          <label>Affichage
+            <select id="tutorial-board-mode">
+              <option value="3d">Vue 3D</option>
+              <option value="2d">Vue 2D</option>
+            </select>
+          </label>
+          <div class="board-camera-tools" role="group" aria-label="Caméra personnelle">
+            <button type="button" id="tutorial-camera-top">Vue dessus</button>
+            <button type="button" id="tutorial-camera-reset">Recentrer</button>
+            <button type="button" id="tutorial-camera-zoom-in" aria-label="Zoomer">+</button>
+            <button type="button" id="tutorial-camera-zoom-out" aria-label="Dézoomer">−</button>
+          </div>
+          <label>Qualité
+            <select id="tutorial-board-quality">
+              <option value="eco">Éco</option>
+              <option value="standard" selected>Standard</option>
+              <option value="high">Haute</option>
+            </select>
+          </label>
+        </div>
+        <p id="tutorial-board-status" class="board-status" role="status"></p>
+        <div id="tutorial-board-3d" class="board-stage" aria-label="Plateau 3D de la démonstration" hidden></div>
+        <div id="tutorial-flat-board" class="tutorial-board-frame">
+          <div id="tutorial-files" class="tutorial-files" aria-hidden="true"></div>
+          <div id="tutorial-ranks" class="tutorial-ranks" aria-hidden="true"></div>
+          <div id="tutorial-board" class="tutorial-board" role="grid" aria-label="Plateau du tutoriel en lecture seule"></div>
+        </div>
+      </div>
+      <p class="tutorial-remote-notice">Vous suivez le présentateur. Les cases, coups, captures et exercices sont synchronisés. La caméra et la qualité d'affichage restent personnelles.</p>
+    </div>
+    <aside class="tutorial-remote-instructions">
+      <span id="tutorial-remote-progress">En attente du premier exercice</span>
+      <h2 id="tutorial-remote-title">Tutoriel du PC hôte</h2>
+      <p id="tutorial-remote-camp"></p>
+      <div id="tutorial-remote-explanation"></div>
+      <div class="tutorial-objective">
+        <strong>Exercice présenté</strong>
+        <p id="tutorial-remote-objective"></p>
+      </div>
+      <p id="tutorial-remote-feedback" class="tutorial-feedback" role="status"></p>
+      <p id="tutorial-remote-hint" class="tutorial-hint" hidden></p>
+      <div class="tutorial-remote-legend">
+        <span><i class="tutorial-legend-dot" aria-hidden="true"></i>Coup légal</span>
+        <span><i class="capture-key" aria-hidden="true"></i>Capture possible</span>
+        <span><i class="tutorial-legend-target" aria-hidden="true"></i>Objectif</span>
+      </div>
+      <p class="tutorial-remote-readonly">Lecture seule. Seul le PC hôte peut déplacer les pièces et passer à l'exercice suivant.</p>
+    </aside>
+  </section>
+</main>
+<script src="/board-view.js"></script>
+<script src="/tutorial-view.js"></script>
+</body>
+</html>
