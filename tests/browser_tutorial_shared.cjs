@@ -59,6 +59,8 @@ async function main(){
  await host.waitForFunction(()=>document.getElementById('tutorial-panel').open &&
   !document.getElementById('tutorial-live-qr').hidden &&
   document.getElementById('tutorial-live-qr').naturalWidth>0);
+ const qrSize=await host.locator('#tutorial-live-qr').boundingBox();
+ assert(qrSize.width>=150&&qrSize.height>=150,'QR must be large enough for a smartphone camera');
  const url=await host.locator('#tutorial-live-link').getAttribute('href');
  assert.equal(new URL(url).host,new URL(base).host);
  assert.equal(new URL(url).pathname,'/tutorial-view.html');
