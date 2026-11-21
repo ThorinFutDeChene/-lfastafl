@@ -1,35 +1,37 @@
-# Álfastafl 0.7.1-dev3 — Tutoriel partagé en direct
+# Álfastafl 0.7.1-dev4 — Activation automatique du réseau local
 
-## Présentation depuis le PC hôte
+## Plus d'ouverture manuelle du LAN
 
-- Le tutoriel reste piloté exclusivement depuis le PC Ubuntu hôte :
-  choix de l'exercice, sélection, coups et navigation.
-- Un QR code est visible **dans la fenêtre du tutoriel** lorsque le LAN
-  est volontairement activé. Il mène directement à la page spectateur.
-- Téléphones, tablettes et autres ordinateurs voient les positions du
-  plateau 3D, les indications, les cases sélectionnées, les coups légaux,
-  les déplacements confirmés et le passage à l'exercice suivant.
-- L'invité peut régler sa caméra, la qualité 3D ou choisir la vue 2D,
-  mais ne peut modifier aucune pièce.
-- Une invitation peut être utilisée par plusieurs appareils.
+- **Fichier → Nouvelle partie** : le menu déclenche automatiquement
+  l'ouverture du réseau local. La création d'une partie fonctionne
+  également si le menu natif a été contourné.
+- **Fichier → Sauvegardes** : sélectionner une partie sauvegardée ou
+  demander la reprise d'une partie suspendue ouvre automatiquement
+  le réseau si nécessaire.
+- **Partie → Tutoriel** et les **tournois** déclenchent également
+  l'ouverture du LAN, afin de rendre leurs QR codes disponibles.
+- Suppression de la commande **Réseau → Activer accès LAN**.
+  Le menu Réseau conserve les connexions et demandes d'autorisation.
+- Les demandes répétées n'ouvrent ni second serveur ni seconde règle UFW.
 
-## Réseau et sécurité
+## Sécurité et disponibilité
 
-- Partage en lecture seule, avec jeton temporaire imprévisible.
-- Le serveur synchronise les positions du cours et non une capture
-  vidéo du bureau Ubuntu.
-- Bouton d'arrêt et de réactivation du partage dans le tutoriel.
-- Fermer la présentation, couper le LAN ou laisser expirer le serveur
-  révoque l'accès ; fermer la fenêtre native tente aussi une révocation
-  immédiate.
-- L'ouverture du LAN exige toujours l'action explicite de l'hôte.
-- Aucun changement aux sauvegardes, parties, tournois ou rôles joueurs.
+- Au lancement d'Álfastafl, aucun serveur LAN n'est encore ouvert :
+  le programme reste sur la boucle locale jusqu'à une activité de l'hôte.
+- Une éventuelle autorisation système **polkit** reste nécessaire
+  pour ajouter une règle UFW temporaire.
+- Le réseau est limité à l'adresse IPv4 et au sous-réseau privés détectés,
+  et au seul port TCP 8766.
+- En cas de refus ou d'indisponibilité réseau, le jeu reste localement
+  utilisable sans interrompre les sauvegardes.
+- L'arrêt du programme ferme automatiquement le serveur LAN
+  et sa règle UFW. La mise à jour conserve cette fermeture préalable.
+- Les clients LAN ne peuvent pas déclencher l'ouverture du pare-feu :
+  la demande exige le PC hôte local et un en-tête spécifique.
 
-## Tests
+## Compatibilité
 
-Tests Python des droits d'accès, du QR, des coups, de la révocation et
-de l'absence de persistance. Recette Chromium de la véritable URL
-du QR, des sélections, du changement de leçon et de la fermeture.
-Régressions existantes Qt, tutoriel, tournois et 3D conservées.
+Les règles, sauvegardes, tournois simultanés, tutoriel partagé, droits
+des joueurs et animations 3D sont inchangés. Stable 0.7.0 intacte.
 
-**DEV 0.7.1-dev3 — paquet Debian `0.7.1~dev3`. Stable 0.7.0 inchangée.**
+**Canal DEV : paquet Debian `0.7.1~dev4`.**

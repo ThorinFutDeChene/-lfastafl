@@ -1,13 +1,35 @@
-# Álfastafl — 0.7.1-dev3 (canal DEV)
+# Álfastafl — 0.7.1-dev4 (canal DEV)
 
-La **0.7.1-dev3** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.1-dev4** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. Le réseau local est ouvert automatiquement lors de la création ou reprise d'une partie, d'un tutoriel ou d'un tournoi, et se referme à l'arrêt du logiciel.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev3` est plus récent que la stable `0.7.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev4` est plus récent que la stable `0.7.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.1-dev4 : LAN activé automatiquement pour jouer et présenter
+
+Le menu natif **Réseau → Activer accès LAN** est supprimé. Il n'est
+plus nécessaire d'ouvrir le réseau avant de commencer à jouer.
+
+La demande est déclenchée dès **Fichier → Nouvelle partie**, lors
+de la **sélection d'une partie sauvegardée**, et lors de la commande
+de **reprise d'une partie suspendue**. Les menus du **tutoriel** et
+des **tournois** déclenchent également le partage réseau pour leurs
+QR codes. Une activité supplémentaire ne crée aucune règle doublon.
+
+L'application démarre toujours sur la boucle locale uniquement.
+L'ouverture nécessite une action de l'hôte et une autorisation système
+Ubuntu via **polkit** peut encore apparaître pour le pare-feu UFW.
+La règle est limitée à l'interface, au sous-réseau et au seul port TCP
+8766. Si l'autorisation échoue, le jeu fonctionne localement.
+
+Le menu Réseau conserve les **connexions et demandes d'autorisation**.
+À la fermeture de l'application, le serveur réseau et la règle UFW
+temporaire sont supprimés. Les sauvegardes, tournois et autorisations
+des joueurs restent inchangés.
 
 ## DEV 0.7.1-dev3 : tutoriel partagé en direct sur le réseau local
 
@@ -59,7 +81,7 @@ captures vidéo du bureau ni de fichiers multimédias enregistrés.
 
 Les appareils spectateurs n'ont aucun droit de déplacement :
 la diffusion leur est accordée par l'hôte pour le tournoi.
-Le LAN doit être activé manuellement à chaque lancement.
+Dans cette ancienne DEV2, l'activation était manuelle ; la DEV4 la déclenche automatiquement.
 L'ancien menu **Affichage → Quitter le plein écran (F11)** et le
 bouton d'aide **?** sur le format suisse/élimination de la
 DEV1 sont conservés.
@@ -567,7 +589,7 @@ Le formulaire de confirmation permet d'annuler sans aucune modification. Si le d
 
 Après accord explicite et installation réussie d'un paquet vérifié par SHA-256 via APT/pkexec, l'application **se ferme et se relance automatiquement**, sans boîte de dialogue finale demandant une relance manuelle. Un processus auxiliaire, détaché et exécuté **sans privilèges administrateur**, attend la disparition de l'ancienne instance avant d'ouvrir la nouvelle version installée. Il reconnaît également les états *zombie* et les identifiants de processus réutilisés, évitant les relances multiples.
 
-À la fermeture, les parties en cours sont **sauvegardées et mises en pause**, les horloges sont suspendues et les règles UFW temporaires ainsi que le serveur LAN sont fermés. Pour éviter toute ouverture réseau involontaire, le **LAN doit être réactivé volontairement** après redémarrage ; la partie sauvegardée peut alors être reprise et les joueurs réinvités.
+À la fermeture, les parties en cours sont **sauvegardées et mises en pause**, les horloges sont suspendues et les règles UFW temporaires ainsi que le serveur LAN sont fermés. Pour éviter toute ouverture réseau involontaire, le LAN est **rouvert automatiquement** dès que l'hôte sélectionne une sauvegarde ou demande une nouvelle partie ; les joueurs peuvent alors être réinvités.
 
 Un refus d'installation, une erreur de téléchargement ou un échec APT ne déclenche **aucun redémarrage**. Si l'installation aboutit mais que le processus de relance ne peut pas être programmé, l'application reste ouverte et indique la relance manuelle nécessaire. Le processus auxiliaire expire sans rien lancer si l'ancienne instance ne s'est pas fermée.
 
@@ -617,21 +639,21 @@ Le parcours propose **9 exercices en Historique · Tawlbwrdd**, **9 en Classique
 
 Chaque exercice présente une position, une explication et un objectif. Sélectionner une pièce affiche ses destinations légales, calculées par le moteur de règles du jeu. Un coup refusé ou un objectif non atteint reçoit une explication. Les commandes **Afficher un indice**, **Recommencer l'exercice**, **Précédent** et **Suivant**, ainsi que la liste des exercices, permettent de progresser librement. Le **mémo des règles** s'adapte à la variante et fournit les références déjà réunies dans [RULES.md](RULES.md).
 
-Le tutoriel fonctionne **sans activer l'accès LAN**. Il est réservé au PC hôte, avec un contrôle d'accès également effectué par le serveur. Ses exercices utilisent des positions indépendantes des parties, des sauvegardes et des invitations QR. La progression n'est pas conservée entre les ouvertures ; ce parcours propose des exercices ciblés, sans adversaire IA ni partie complète accompagnée.
+Le tutoriel reste utilisable **sans réseau**, même si son ouverture tente désormais d'activer automatiquement le LAN pour le partage par QR. Il est réservé au PC hôte, avec un contrôle d'accès également effectué par le serveur. Ses exercices utilisent des positions indépendantes des parties, des sauvegardes et des invitations QR. La progression n'est pas conservée entre les ouvertures ; ce parcours propose des exercices ciblés, sans adversaire IA ni partie complète accompagnée.
 
 Les limites du moteur s'appliquent aussi au tutoriel : les forteresses de sortie complexes, certains nuls théoriques de Fetlar et les interprétations historiques nécessitent encore une validation approfondie. Le mémo présente les règles de la variante retenue et les limites correspondantes.
 
-## Accès LAN volontaire et gestion automatique du pare-feu
+## Accès LAN automatique à l'ouverture d'une activité et gestion du pare-feu
 
 **Démarrage normal sur Ubuntu :** Álfastafl lance uniquement le serveur d’administration sur `127.0.0.1:8766`. L'accès LAN reste désactivé, sans demande d'autorisation du pare-feu ni nouvelle règle UFW.
 
-**Activation manuelle :** cliquer sur **Activer accès LAN** dans la barre d'outils. Álfastafl détecte alors une interface Wi-Fi/Ethernet privée et demande l’authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
+**Activation automatique :** dès la création d'une partie, la sélection d'une sauvegarde, la reprise d'une partie, l'ouverture d'un tutoriel ou la préparation d'un tournoi, Álfastafl détecte une interface Wi-Fi/Ethernet privée et demande, si nécessaire, l'authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
 
 **Fermeture normale :** Álfastafl désactive le partage, ferme le serveur LAN et retire automatiquement **sa propre règle UFW**, identifiée par un commentaire unique. Le lancement suivant reste toujours en mode local. Les règles existantes des autres programmes (par exemple Enyalië sur 8765) ne sont jamais supprimées. Un processus privilégié garde le canal ouvert : si le programme s’arrête brutalement, la fermeture de ce canal déclenche le nettoyage. Après une coupure électrique ou un arrêt forcé du service privilégié, les anciennes règles marquées Álfastafl sont nettoyées à la prochaine activation LAN autorisée.
 
-**Échec d'autorisation :** si polkit refuse, que le Wi-Fi n’est pas disponible ou qu'UFW ne confirme pas l’ouverture, aucune exposition réseau n’est lancée ; le plateau reste disponible en local. L’accès peut être réessayé dans la barre d’outils. La désactivation manuelle du LAN retire également la règle. Il faut qu’**UFW et iproute2** soient installés, ainsi qu’un agent polkit fonctionnel sur le bureau Ubuntu.
+**Échec d'autorisation :** si polkit refuse, que le Wi-Fi n’est pas disponible ou qu'UFW ne confirme pas l’ouverture, aucune exposition réseau n’est lancée ; le plateau reste disponible en local. L'accès peut être réessayé en relançant une activité ou en re-sélectionnant la sauvegarde. La fermeture d'Álfastafl retire automatiquement sa règle ; il n'existe plus de commande manuelle d'activation. Il faut qu’**UFW et iproute2** soient installés, ainsi qu’un agent polkit fonctionnel sur le bureau Ubuntu.
 
-**Limites de sécurité :** les liaisons restent en HTTP non chiffré ; utilisation exclusive sur un réseau local de confiance. L’ouverture ne concerne que le réseau privé détecté, sans redirection NAT vers Internet. Si une règle UFW équivalente existait déjà **avant** Álfastafl, elle appartient à l’administrateur et sera conservée. Si l'adresse IP change pendant la partie, il peut être nécessaire de désactiver puis réactiver le LAN.
+**Limites de sécurité :** les liaisons restent en HTTP non chiffré ; utilisation exclusive sur un réseau local de confiance. L’ouverture ne concerne que le réseau privé détecté, sans redirection NAT vers Internet. Si une règle UFW équivalente existait déjà **avant** Álfastafl, elle appartient à l’administrateur et sera conservée. Si l'adresse IP locale change pendant la partie, il peut être nécessaire de redémarrer Álfastafl puis de re-sélectionner la partie pour reconstruire la règle.
 
 ## DEV 0.3.0-dev1 : temps et continuité des parties
 
