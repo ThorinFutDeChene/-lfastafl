@@ -1,4 +1,33 @@
-# Álfastafl — 0.7.1 (stable)
+# Álfastafl — 0.7.2-dev1 (canal DEV)
+
+Cette préversion reprend la **stable 0.7.1** avec une simplification
+des menus natifs de l'hôte Ubuntu MATE, **sans modifier les règles du jeu,
+les sauvegardes, la gestion des tournois ou le protocole LAN**.
+
+## DEV 0.7.2-dev1 — Simplification des menus
+
+- **Fichier** : retrait de « Nouvelle partie… » ; les commandes de
+  sauvegarde, consultation des sauvegardes et fermeture restent disponibles.
+- **Partie** : nouvelle commande « **2 joueurs** », qui ouvre la même
+  création de partie qu'auparavant et déclenche automatiquement l'accès LAN.
+- **Partie** : retrait de « Jouer / Spectateur / Arbitrage… »,
+  « Historique des coups… » et
+  « Diffusion des rencontres du tournoi… ».
+- **Partie** : maintien du tutoriel et des tournois.
+- Les fonctionnalités du jeu sous-jacentes ne sont **pas supprimées** :
+  seuls ces points d'entrée redondants dans le menu natif disparaissent.
+
+Les tests automatisés vérifient la composition des deux menus,
+la commande de création de partie et les scénarios de partie,
+de tutoriel et de tournoi. La stable 0.7.1 reste disponible.
+
+**Version Debian** : `0.7.2~dev1` (postérieure à 0.7.1).
+Pour recevoir cette préversion, sélectionner le canal
+**Mises à jour → Développement (DEV)**.
+
+## Historique des versions stables
+
+## Álfastafl 0.7.1 (stable — référence)
 
 **Álfastafl 0.7.1 stable** reprend les développements et corrections validés en
 **0.7.1-dev9**. Cette version remplace la stable 0.7.0 et conserve le
