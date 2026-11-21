@@ -9,6 +9,7 @@
  const el=id=>document.getElementById(id);
  const key='alfastafl.tournament.credentials';
  let currentAccess=null,restoring=false,live=null,liveBusy=false,lastMine=0;
+ let broadcastSuppressed=false;
  const creds=()=>{
   try{const value=JSON.parse(localStorage.getItem(key)||'{}');
    return value&&typeof value==='object'?value:{};}catch(_){return {};}
@@ -22,13 +23,30 @@
   if(!captureOnly&&!isHost){
    el('my-tournament').hidden=false;
    refreshMine().catch(()=>{});
-   if(access.role==='spectator'&&!live)start(access.tournament,'guest');
+   if(access.role==='spectator'&&!live&&!broadcastSuppressed)start(access.tournament,'guest');
   }
  }
  async function identify(id){
   if(!id)return null;
   try{return await api('tournament/identify?game='+encodeURIComponent(id));}
   catch(_){return null;}
+ }
+ async function openExistingTournamentInvitation(){
+  const tournament=q.get('tournament');
+  if(!tournament||isHost||captureOnly)return;
+  const record=creds()[tournament];
+  if(!record||record.role!==(q.get('role')||'player'))return;
+  try{
+   const mine=await api('tournament/mine',{credential:record.credential});
+   const chosen=mine.matches.find(m=>m.status==='active')||
+    (record.role==='spectator'?mine.matches[0]:null);
+   if(!chosen){
+    el('joinmsg').textContent='Aucune rencontre en cours pour cet appareil.';
+    return;
+   }
+   currentAccess={tournament,credential:record.credential,role:record.role};
+   await switchGame(chosen.game,true);
+  }catch(error){el('joinmsg').textContent='Reconnexion au tournoi impossible : '+error.message;}
  }
  async function restore(id){
   if(isHost||captureOnly||restoring||session||!id)return false;
@@ -171,6 +189,7 @@
  }
  function start(tournament,mode){
   if(captureOnly||!tournament)return;
+  broadcastSuppressed=false;
   if(mode==='guest'&&isHost)return;
   if(mode==='host'&&!isHost)return;
   if(live?.tournament===tournament&&live.mode===mode)return;
@@ -182,7 +201,8 @@
   live.period=setInterval(poll,1600);
   poll();
  }
- function stop(){
+ function stop(manual=false){
+  if(manual)broadcastSuppressed=true;
   if(live?.period)clearInterval(live.period);
   live=null;
   document.body.classList.remove('tournament-broadcast');
@@ -190,8 +210,10 @@
   const captures=el('tournament-captures');
   captures.replaceChildren();captures.hidden=true;
  }
- el('tournament-broadcast-stop').addEventListener('click',stop);
+ el('tournament-broadcast-stop').addEventListener('click',()=>stop(true));
  el('my-tournament').addEventListener('toggle',()=>{if(el('my-tournament').open)refreshMine().catch(()=>{});});
+ if(q.has('tournament')&&!isHost&&!captureOnly)
+  openExistingTournamentInvitation().catch(()=>{});
  window.AlfastaflTournamentLive={
   remember,restore,start,stop,refreshMine,
   hostTournament:()=>isHost&&live?.mode==='host'?live.tournament:null,
