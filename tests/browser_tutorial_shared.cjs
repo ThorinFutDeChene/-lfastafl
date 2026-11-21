@@ -151,7 +151,7 @@ async function main(){
  const games=(await (await hostContext.request.get(base+'/api/games')).json()).games;
  assert.deepEqual(games,[]);
  assert.deepEqual(pageErrors,[],'No Javascript errors in either browser');
- await guestContext.unrouteAll({behavior:'wait'});
+ // Closing the context also removes its request routes.
  await guestContext.close();
  await hostContext.close();
 }
