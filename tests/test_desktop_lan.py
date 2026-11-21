@@ -252,7 +252,12 @@ class DesktopLanTests(unittest.TestCase):
 
     def test_new_game_native_menu_opens_lan_without_manual_menu(self):
         def scenario(session):
-            session.menu_actions[('Fichier','Nouvelle partie…')].triggered.emit()
+            self.assertNotIn(('Fichier', 'Nouvelle partie…'), session.menu_actions)
+            for removed in ('Jouer / Spectateur / Arbitrage…',
+                            'Historique des coups…',
+                            'Diffusion des rencontres du tournoi…'):
+                self.assertNotIn(('Partie', removed), session.menu_actions)
+            session.menu_actions[('Partie', '2 joueurs')].triggered.emit()
             session.drain()
             session.detect.assert_called_once_with()
             session.lease.start.assert_called_once_with(session.network)
