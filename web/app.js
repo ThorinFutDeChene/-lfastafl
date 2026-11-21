@@ -91,6 +91,25 @@ async function api(path,data){
  if(!response.ok)throw Error(result.error||response.status);
  return result;
 }
+// The first requested activity opens one temporary LAN lease through Qt.
+// A failed firewall authorization never prevents local play or loading a save.
+let lanRequestPromise=null;
+function ensureLanForSession(){
+ if(!isHost)return Promise.resolve(false);
+ if(lanRequestPromise)return lanRequestPromise;
+ lanRequestPromise=(async()=>{
+  const response=await fetch('/api/lan/activate',{
+   method:'POST',headers:{'X-Alfastafl-Host-Action':'lan-activate'}
+  });
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||response.status);
+  return Boolean(result.active||result.pending);
+ })().catch(error=>{
+  say('Réseau local indisponible ; la partie reste accessible sur le PC hôte. '+error.message);
+  return false;
+ }).finally(()=>{lanRequestPromise=null;});
+ return lanRequestPromise;
+}
 function captureKey(cue){
  const e=cue?.move;
  return e ? [gameId,e.n,e.piece,e.from?.join(','),e.to?.join(','),
@@ -213,6 +232,8 @@ async function listGames(force=false){
    button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
    button.title='Sélectionner cette partie';
    button.onclick=async()=>{
+    // Selecting an existing save is the moment multiplayer access is needed.
+    ensureLanForSession();
     clearCinematic();
     gameId=g.id;session='';game=null;you=null;hostSeats={};invalidateBoardInteraction();render();
     const popup=reserveHostBoard();
@@ -586,6 +607,8 @@ async function dropGamePiece(from,to){
 }
 $('create').onclick=async()=>{
  try{
+  // Direct game creation works even when the native menu was bypassed.
+  ensureLanForSession();
   const timeMode=$('time-mode').value;
   const seconds=timeMode==='unlimited'?0:Number($('time-seconds').value);
   const reconnect=Number($('reconnect-minutes').value)*60;
@@ -641,6 +664,7 @@ for(const button of $('repetition-options').querySelectorAll('button')){
 }
 async function hostAction(path,body,confirmation){
  if(confirmation&&!confirm(confirmation))return;
+ if(path==='resume')ensureLanForSession();
  try{await api(path,body);say('Opération enregistrée.');await load();await listGames(true);}
  catch(error){say(error.message);}
 }
@@ -725,7 +749,7 @@ async function pending(){
 async function tick(){
  if(isHost&&!isDesktopBoard&&!isDesktopTutorial){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
   `Serveur réseau actif : http://${n.address}:${n.port}/`:
-  'Mode local. Activez l’accès LAN depuis le menu Réseau pour connecter des joueurs.';
+  'Mode local · le LAN s’ouvre automatiquement à la création ou reprise d’une partie.';
  }catch(error){$('lan-status').textContent='Etat du réseau indisponible.';}}
  if(requestId&&!session){
   try{
