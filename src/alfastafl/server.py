@@ -1,5 +1,5 @@
 """Local-network web service. All game mutations are server-authoritative."""
-import json, threading, secrets, os, tempfile, pathlib, time, socket, io
+import json, threading, secrets, os, tempfile, pathlib, time, socket, io, uuid
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
@@ -18,6 +18,7 @@ class Store:
         self.wall_clock = wall_clock or time.time
         self._anchors = {}
         self._checkpoints = {}
+        self._cinematics = {}
         self.path=pathlib.Path(root) if root is not None else data_directory()
         self.path.mkdir(parents=True,exist_ok=True)
         self.lock=threading.RLock()
@@ -27,6 +28,20 @@ class Store:
         self.sessions={}
         self.tournaments={}
         self.repetition_votes={}
+        # Tournament faction history must survive app restarts, unlike
+        # authorization sessions, which are deliberately ephemeral.
+        self._tournament_file=self.path/'.tournaments.json'
+        if self._tournament_file.is_file():
+            try:
+                saved=json.loads(self._tournament_file.read_text('utf-8'))
+                if isinstance(saved,dict):
+                    from .tournament import Tournament
+                    for identifier,data in saved.items():
+                        tournament=Tournament.from_dict(data)
+                        if tournament.id==identifier:
+                            self.tournaments[identifier]=tournament.as_dict()
+            except (OSError,ValueError,TypeError,KeyError):
+                pass
         for f in self.path.glob('*.alfastafl'):
             try:
                 d=json.loads(f.read_text('utf-8'))
@@ -64,6 +79,53 @@ class Store:
             except (OSError,AttributeError):pass
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
+    def save_tournaments(self):
+        """Durably checkpoint standings and faction histories, atomically."""
+        payload=json.dumps(self.tournaments,ensure_ascii=False,indent=2)
+        fd,tmp=tempfile.mkstemp(prefix='.alfastafl-tournaments-',dir=self.path)
+        try:
+            with os.fdopen(fd,'w',encoding='utf-8') as file:
+                file.write(payload);file.flush();os.fsync(file.fileno())
+            os.replace(tmp,self._tournament_file)
+            try:
+                directory_fd=os.open(self.path,os.O_DIRECTORY|os.O_RDONLY)
+                try:os.fsync(directory_fd)
+                finally:os.close(directory_fd)
+            except (OSError,AttributeError):pass
+        finally:
+            if os.path.exists(tmp):os.unlink(tmp)
+
+    def tournament_match(self,gid):
+        """The scheduled identities and immutable camps for a tournament game."""
+        for t in self.tournaments.values():
+            for match in t.get('matches',[]):
+                if match.get('game')==gid:
+                    return match
+        return None
+
+    def available_camps(self,gid,name=None):
+        """Server-authoritative choices for the host's approval dialog.
+
+        A single free camp is automatically assigned. Tournament players
+        never choose a camp: it comes from the precomputed round draw.
+        """
+        g=self.games.get(gid)
+        if g is None:
+            return []
+        substitutes=g.status=='paused' and g.reason=='awaiting_substitute'
+        if g.status!='active' and not substitutes:
+            return []
+        occupied=self._seats(gid)
+        replacements=(g.disconnect or {}).get('replacement_camps',[]) if substitutes else []
+        available=[camp for camp in ('elf','dwarf')
+                   if camp not in occupied or camp in replacements]
+        match=self.tournament_match(gid)
+        if match is not None:
+            assigned=next((match['camp_'+role] for role in ('a','b')
+                           if match[role]==name),None)
+            return [assigned] if assigned in available else []
+        return available
+
     def create(self,mode='fetlar',settings=None):
         config=normalize_settings(settings)
         g=Game(mode=mode,settings=config,clock=new_clock(config))
@@ -71,6 +133,55 @@ class Store:
             self.games[g.id]=g;self.save(g)
             self.invites[g.id]={'player':secrets.token_urlsafe(24),'spectator':secrets.token_urlsafe(24)}
         return g
+    def seat_host(self, gid, camp):
+        """Assign a local host player through the same session/clock rules as guests.
+
+        Called only by host-only HTTP endpoints; regular move endpoints still
+        require a valid player session, including on 127.0.0.1.
+        """
+        with self.lock:
+            game=self.games.get(gid)
+            if game is None:
+                raise ValueError('Partie inconnue.')
+            if camp not in (None,'elf','dwarf'):
+                raise ValueError('Choisissez Elfes, Nains ou Hôte spectateur.')
+            if game.status!='active':
+                raise ValueError('Reprenez la partie avant de choisir un camp.')
+            previous=[(sid,s) for sid,s in self.sessions.items()
+                      if s['game']==gid and s['role']=='player' and
+                      s.get('local_host') and s['active']]
+            if previous and previous[0][1]['camp']==camp:
+                return previous[0][0]
+            # A local player must not silently change identity after playing or
+            # while clocks are already running with both participants.
+            if previous and (game.history or game.clock['started']):
+                raise ValueError('Impossible de changer de camp après le début de la partie.')
+            if camp is not None:
+                match=self.tournament_match(gid)
+                if match is not None:
+                    scheduled=next((match['camp_'+role] for role in ('a','b')
+                                    if match[role]=='PC hôte'),None)
+                    if scheduled!=camp:
+                        raise ValueError('En tournoi, seul le camp attribué au PC hôte est autorisé.')
+                occupied=self._seats(gid).get(camp)
+                if occupied is not None and not occupied.get('local_host'):
+                    raise ValueError('Ce camp est déjà occupé par un joueur distant.')
+            for sid,old in previous:
+                old['active']=False
+                if game.players.get(old['camp'])==old['name']:
+                    game.players.pop(old['camp'],None)
+            if camp is None:
+                if previous:self.save(game)
+                return None
+            sid=secrets.token_urlsafe(30)
+            now=self.monotonic()
+            self.sessions[sid]={'game':gid,'role':'player','camp':camp,'name':'PC hôte',
+                                'local_host':True,'active':True,'seen':False,
+                                'connected':True,'last_seen':now}
+            game.players[camp]='PC hôte'
+            self.save(game)
+            return sid
+
     def _seats(self, gid):
         return {s['camp']:s for s in self.sessions.values()
                 if s['game']==gid and s['role']=='player' and s['active']}
@@ -84,6 +195,7 @@ class Store:
                    for camp in ('elf','dwarf'))
 
     def _start_if_ready(self, g, now):
+        if g.id in self._cinematics:return
         if g.status=='active' and not g.clock['started'] and self._ready(g.id,now):
             g.clock['started']=True
             self._anchors[g.id]=now
@@ -114,6 +226,15 @@ class Store:
     def _tick_locked(self, now=None):
         now=self.monotonic() if now is None else now
         for g in list(self.games.values()):
+            cutscene=self._cinematics.get(g.id)
+            if cutscene:
+                if now < cutscene['deadline']:
+                    continue  # No chess clock advances or disconnects during combat.
+                del self._cinematics[g.id]
+                self._anchors.pop(g.id,None)
+                self._checkpoints.pop(g.id,None)
+                if g.status=='active':
+                    self._start_if_ready(g,now)
             if g.status=='active':
                 if not g.clock['started']:
                     self._start_if_ready(g,now)
@@ -180,6 +301,66 @@ class Store:
                     self._start_if_ready(g,now)
             return s
 
+    def cinematic_state(self, gid):
+        """Time remaining and capture event for every authenticated viewer."""
+        scene=self._cinematics.get(gid)
+        if not scene:return None
+        remaining=max(0.0,scene['deadline']-self.monotonic())
+        if remaining<=0:return None
+        return {'move':scene['move'],'duration':scene['duration'],'remaining':remaining}
+
+    def delete_game(self, gid):
+        """Permanently delete a paused/finished match, never a live match.
+
+        The host confirmation is handled by the UI; the status and filesystem
+        checks are enforced here regardless of how the endpoint is called.
+        """
+        with self.lock:
+            game = self.games.get(gid)
+            if game is None:
+                raise KeyError('Partie inconnue ou déjà supprimée.')
+            if game.status not in ('paused', 'finished'):
+                raise ValueError('Partie en cours : sauvegardez et quittez avant de la supprimer.')
+            if any(match.get('game') == gid
+                   for tournament in self.tournaments.values()
+                   for match in tournament.get('matches', [])):
+                raise ValueError('Cette partie appartient à un tournoi et ne peut pas être supprimée.')
+            # No user-supplied path: only a known game with a canonical UUID.
+            try:
+                valid_id = str(uuid.UUID(game.id)) == game.id
+            except (ValueError, AttributeError, TypeError):
+                valid_id = False
+            if not valid_id:
+                raise ValueError('Identifiant de partie invalide.')
+            saved_file = self.path / (game.id + '.alfastafl')
+            try:
+                saved_file.unlink()
+            except FileNotFoundError:
+                pass  # The in-memory entry may outlive an externally removed save.
+            # Deleting the checkpoint first means an I/O error cannot silently
+            # remove the match from the UI while leaving the save on disk.
+            try:
+                directory_fd = os.open(self.path, os.O_DIRECTORY | os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except (OSError, AttributeError):
+                pass
+            self.games.pop(gid)
+            self.invites.pop(gid, None)
+            self._anchors.pop(gid, None)
+            self._checkpoints.pop(gid, None)
+            self._cinematics.pop(gid, None)
+            self.repetition_votes.pop(gid, None)
+            for sid in [key for key, item in self.sessions.items() if item['game'] == gid]:
+                del self.sessions[sid]
+            for request in self.pending.values():
+                if request['game'] == gid:
+                    request['status'] = 'rejected'
+                    request['session'] = None
+            return True
+
     def pause(self,gid):
         """Host saves and leaves. Old authorizations and invite URLs are revoked."""
         with self.lock:
@@ -194,6 +375,7 @@ class Store:
             g.disconnect=None
             g.clock['started']=False
             self._anchors.pop(gid,None)
+            self._cinematics.pop(gid,None)
             for session in self.sessions.values():
                 if session['game']==gid:session['active']=False
             for pending in self.pending.values():
@@ -218,6 +400,7 @@ class Store:
             g.disconnect=None
             g.clock['started']=False
             self._anchors.pop(gid,None)
+            self._cinematics.pop(gid,None)
             for session in self.sessions.values():
                 if session['game']==gid:session['active']=False
             for pending in self.pending.values():
@@ -262,6 +445,7 @@ class Store:
         """Persist the current clocks; host closure cannot silently burn time."""
         with self.lock:
             self._tick_locked()
+            self._cinematics.clear()
             for g in self.games.values():
                 if g.status=='active' or (g.status=='paused' and
                      g.reason in ('repetition_review','draw_proposal')):
@@ -278,6 +462,8 @@ class Store:
             role=next((k for k,v in invites.items() if v==token),None)
             if role is None:raise ValueError('Invalid invitation')
             if not 1<=len(name.strip())<=60:raise ValueError('Invalid name')
+            if role=='player' and not self.available_camps(gid,name.strip()):
+                raise ValueError('Aucune faction disponible pour ce joueur sur cette partie.')
             request_id=secrets.token_urlsafe(18)
             self.pending[request_id]={'game':gid,'role':role,'name':name.strip(),'status':'waiting','session':None}
             return request_id
@@ -287,7 +473,15 @@ class Store:
             if req['status']!='waiting':raise ValueError('Already processed')
             gid=req['game']
             if req['role']=='player':
-                if team_name not in ('elf','dwarf'):raise ValueError('Select a camp')
+                choices=self.available_camps(gid,req['name'])
+                if not choices:
+                    raise ValueError('Aucune faction disponible pour cette demande.')
+                if team_name is None:
+                    if len(choices)!=1:
+                        raise ValueError('Le premier joueur doit choisir une faction.')
+                    team_name=choices[0]
+                if team_name not in choices:
+                    raise ValueError('Cette faction est occupée ou réservée à un autre joueur.')
                 existing=[s for s in self.sessions.values() if s['game']==gid and
                           s['role']=='player' and s['camp']==team_name and s['active']]
                 g=self.games[gid]
@@ -411,6 +605,8 @@ class Store:
             camp=self.player(gid,sid)
             self._tick_locked()
             g=self.games[gid]
+            if gid in self._cinematics:
+                raise ValueError('La cinématique de capture est en cours.')
             if camp!=g.turn:raise PermissionError('Not your turn')
             if g.clock['mode']!='unlimited' and not g.clock['started']:
                 raise ValueError('Waiting for both players before starting the clock')
@@ -421,6 +617,12 @@ class Store:
             if g.status=='active':
                 self._anchors[gid]=self.monotonic()
             else:
+                self._anchors.pop(gid,None)
+            duration=g.settings.get('capture_cinematic_seconds',0)
+            if duration and (event['captured'] or event.get('reason') in ('king_captured', 'escape')):
+                now=self.monotonic()
+                self._cinematics[gid]={'deadline':now+duration,'duration':duration,'move':event}
+                g.clock['started']=False
                 self._anchors.pop(gid,None)
             self.save(g)
             return event
@@ -439,8 +641,11 @@ class AppHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError,UnicodeDecodeError):raise ValueError('Invalid JSON')
     def static(self,path):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
-        assets=('index.html','app.js','tutorial.js','style.css',
-                'board-view.js','board3d.js','figurines3d.js',
+        assets=('index.html','app.js','tutorial.js','host-shell.js','tournament-ui.js','style.css',
+                'board-view.js','board3d.js','figurines3d.js','move3d.js','cinematic3d.js','combat-motion.js','flank-capture.js',
+                'flank-cinematic3d.js','archery3d.js','throne-capture.js',
+                'throne-cinematic3d.js','escape-motion.js','king-escape3d.js','king-siege-motion.js',
+                'king-siege3d.js','soundscape.js',
                 'vendor/three/three.module.js','vendor/three/three.core.js',
                 'vendor/three/OrbitControls.js','vendor/three/BufferGeometryUtils.js',
                 'vendor/three/LICENSE.txt')
@@ -492,7 +697,10 @@ class AppHandler(BaseHTTPRequestHandler):
                            if self.admin() else []})
                 if u.path=='/api/pending':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
-                    return self.send({'pending':[dict(id=k,**v) for k,v in st.pending.items() if v['status']=='waiting']})
+                    return self.send({'pending':[dict(id=k,**v,
+                                  available_camps=st.available_camps(v['game'],v['name'])
+                                   if v['role']=='player' else [])
+                                  for k,v in st.pending.items() if v['status']=='waiting']})
                 if u.path=='/api/request':
                     req=st.pending.get(q.get('id',[''])[0]);return self.send({'status':req['status'],'session':req['session']} if req else {'error':'Unknown request'},200 if req else 404)
                 if u.path=='/api/state':
@@ -503,7 +711,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     g=st.games[gid]
                     if not self.admin() and (not auth or auth['game']!=gid or not auth['active']):return self.send({'error':'Unauthorized'},403)
                     return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None,
+                                      'seats':{camp:{'name':seat['name'],'host':bool(seat.get('local_host'))}
+                                               for camp,seat in st._seats(gid).items()}
+                                               if self.admin() else None,
                                       'review_votes':st.repetition_votes.get(gid,{}),
+                                      'cinematic':st.cinematic_state(gid),
                                       'server_now':st.wall_clock()})
                 if u.path=='/api/legal':
                     gid=q.get('game',[''])[0];sid=q.get('session',[''])[0]
@@ -528,12 +740,21 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
-            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
+            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/create':
+                host_camp=d.get('host_camp')
+                if host_camp not in (None,'elf','dwarf'):
+                    raise ValueError('Camp du PC hôte invalide.')
                 g=st.create(d.get('mode','fetlar'),d.get('settings'))
-                return self.send({'game':g.id,'invites':st.invites[g.id]})
+                host_session=st.seat_host(g.id,host_camp) if host_camp else None
+                return self.send({'game':g.id,'invites':st.invites[g.id],
+                                  'host_session':host_session})
+            if u.path=='/api/host/seat':
+                return self.send({'session':st.seat_host(d['game'],d.get('camp')),'camp':d.get('camp')})
             if u.path=='/api/join':return self.send({'request':st.request(d['game'],d['invite'],d.get('name','Guest'))})
-            if u.path=='/api/approve':return self.send({'session':st.approve(d['request'],d.get('camp'))})
+            if u.path=='/api/approve':
+                sid=st.approve(d['request'],d.get('camp'))
+                return self.send({'session':sid,'camp':st.sessions[sid]['camp']})
             if u.path=='/api/reject':
                 with st.lock:st.pending[d['request']]['status']='rejected'
                 return self.send({'ok':True})
@@ -544,25 +765,46 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path=='/api/repetition/vote':return self.send(st.repetition_vote(d['game'],d['session'],d['outcome']))
             if u.path=='/api/resume':return self.send({'game':st.resume(d['game']).id})
             if u.path=='/api/pause':return self.send({'game':st.pause(d['game']).as_dict()})
+            if u.path=='/api/delete':return self.send({'deleted':st.delete_game(d['game'])})
             if u.path=='/api/disconnect/decide':
                 return self.send({'game':st.disconnect_decision(d['game'],d['action'],d.get('camp'))})
             if u.path=='/api/tournament/create':
                 from .tournament import Tournament
                 t=Tournament(d['name'],d['format'],d['players'],int(d.get('rounds',3)))
-                st.tournaments[t.id]=t.as_dict()
+                with st.lock:
+                    st.tournaments[t.id]=t.as_dict()
+                    st.save_tournaments()
                 return self.send({'tournament':st.tournaments[t.id]})
             if u.path=='/api/tournament/round':
                 from .tournament import Tournament
                 with st.lock:
                     t=Tournament.from_dict(st.tournaments[d['tournament']])
+                    # Results are taken ONLY from finished, server-authoritative
+                    # games; a client cannot forge a tournament winner.
+                    for m in t.matches:
+                        if m.get('winner') is not None:
+                            continue
+                        game=st.games.get(m.get('game'))
+                        if game is None or game.status!='finished':
+                            continue
+                        result=('draw' if game.winner is None else
+                                m['a'] if game.winner==m['camp_a'] else
+                                m['b'] if game.winner==m['camp_b'] else None)
+                        if result is None:
+                            raise ValueError('Résultat du tournoi invalide.')
+                        t.result(m['id'],result)
+                    st.tournaments[t.id]=t.as_dict()
+                    st.save_tournaments()
                     matches=t.next_round()
                     for m in matches:
                         g=st.create(d.get('mode','fetlar'))
                         m['game']=g.id
                     st.tournaments[t.id]=t.as_dict()
+                    st.save_tournaments()
                 return self.send({'matches':matches})
             return self.send({'error':'Unknown endpoint'},404)
         except (KeyError,ValueError,PermissionError,IndexError,TypeError) as e:return self.send({'error':str(e)},403 if isinstance(e,PermissionError) else 400)
+        except OSError:return self.send({'error':'La suppression a échoué sur le disque ; la partie est conservée.'},500)
     def log_message(self,*args):pass
 
 class GameServer(ThreadingHTTPServer):

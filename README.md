@@ -1,13 +1,515 @@
-# Álfastafl — 0.5.0-dev1 (canal DEV)
+# Álfastafl — 0.7.0 (stable)
 
-La **0.5.0-dev1** introduit un **plateau 3D WebGL avec des figurines d'elfes, de nains et du roi**, dans les parties et le tutoriel. Cette préversion reprend la [stable 0.4.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.4.0), qui reste la version de référence du canal stable. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+**Version stable 0.7.0**, issue du code validé en `0.7.0-dev12`.
+Elle remplace la stable 0.5.0 et conserve les sauvegardes, paramètres
+et parties sans migration destructive.
 
-**Validation :** les 174 tests Python ont réussi localement, dont six nouveaux tests de prévisualisation des captures. La publication est conditionnée à la réussite de cette suite et des scénarios Chromium du tutoriel et du plateau 3D. Le fonctionnement graphique dans Qt sur Ubuntu MATE et sur les appareils mobiles réels reste à vérifier. Les cas atypiques du moteur de règles, les cinématiques et la régie restent partiellement ou entièrement à développer.
+**PC hôte Ubuntu :** fenêtre unique en plein écran, plateau et figurines
+3D, menus natifs « Fichier », « Partie », « Paramètres », « Réseau »,
+« Affichage » et « Mises à jour ». À gauche : QR joueur en haut et
+QR spectateur en bas, actifs seulement quand le réseau local est
+volontairement autorisé et une partie active. Chaque connexion doit
+être approuvée par l'hôte.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.5.0~dev1` est plus récent que `0.4.0`.
+**Jeu :** animations de déplacement, musique et bruitages, scènes de
+combat articulées (nains et elfes), captures contre le trône, capture
+du roi selon les règles, échappée royale à cheval ; les quatre flèches
+de sortie pointent bien vers les coins extérieurs. Tutoriel sur le
+PC hôte, invitations LAN, contrôle des factions, sauvegardes et reprise.
 
+**Tournois :** tirage au sort des factions à la première rencontre,
+puis répartition équilibrée selon les parties déjà jouées et
+l'ancienneté du camp. Les décisions du serveur font autorité et
+l'historique des tournois est conservé.
+
+**Contrôles avant publication :** tests Python, véritable lancement
+QtWebEngine sous Ubuntu/Xvfb, tests d'interface dans Chromium,
+connexions, tutoriel, scénarios de combats 3D et orientation des
+quatre sorties. Le jeu ne dépend d'aucun CDN Internet pour son
+affichage. Les essais sur une installation Ubuntu MATE réelle et
+sur différents appareils clients sont complémentaires.
+
+**Mises à jour :** le canal **Stable** reçoit exclusivement les
+releases stables ; le canal **Développement (DEV)** reçoit les
+préversions et les nouvelles stables. Le canal déjà choisi est
+conservé. La version Debian `0.7.0` remplace `0.7.0~dev12`
+(selon l'ordre des versions Debian).
+
+**Historique technique des préversions 0.7.0 :** les rubriques
+ci-dessous sont conservées pour tracer les correctifs depuis
+0.7.0-dev1. Leurs indications historiques « stable inchangée
+0.5.0 » concernent la date de leur développement, avant cette
+publication stable.
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev12 : quatre flèches de sortie correctement orientées
+
+Correction du **plateau 3D** : les quatre marques gravées aux
+coins du plateau symbolisent les sorties du roi (Fetlar et
+Copenhague). Jusqu'à la DEV11, les icônes n'utilisaient que
+**deux orientations** pour les quatre coins ; deux flèches
+pointaient donc vers **l'intérieur** au lieu de montrer la fuite.
+
+Chaque icône est désormais orientée **vers l'extérieur dans
+la diagonale de son propre coin** : ↖ ↗ ↙ ↘, indépendamment
+de la rotation ou de l'inclinaison de la caméra. La correction
+agit sur les **rotations des plans 3D** des emblèmes et ne modifie
+ni les textures, ni le gameplay, ni les cases de victoire.
+
+Un test de régression Chromium/WebGL récupère la transformation
+réelle de chacune des quatre flèches et vérifie :
+- les quatre coins distincts sont présents ;
+- les quatre angles de rotation sont distincts ;
+- chaque flèche s'oriente vers l'extérieur sur les **deux axes** ;
+- les emblèmes restent couchés à plat sur le plateau.
+
+La DEV12 conserve aussi les correctifs réseau et les fonctions
+de tournoi de la DEV11 ainsi que la correction de démarrage Qt
+de la DEV10. Stable inchangée : 0.5.0.
+
+## DEV 0.7.0-dev11 : attribution des camps et tournois équitables
+
+### Joueurs connectés : plus de choix impossible à l'autorisation
+
+La fenêtre **Réseau → Connexions et autorisations** n'affiche désormais
+que les camps réellement disponibles, contrôlés par le serveur :
+
+- **PC hôte joueur Nain :** un téléphone autorisé reçoit
+  **automatiquement les Elfes**, via un seul bouton
+  « Autoriser — Elfes ».
+- **PC hôte joueur Elfe :** l'invité reçoit automatiquement
+  **les Nains**.
+- **PC hôte spectateur + deux téléphones :** lors de la première
+  autorisation, les camps Elfes et Nains sont libres ; le premier
+  téléphone admis se voit attribuer le camp choisi. Le second n'a
+  plus de choix et reçoit automatiquement la faction restante.
+- **Partie complète :** plus d'attribution ; la demande peut être
+  refusée. Les demandes encore en attente sont mises à jour après
+  chaque admission, pour éviter les courses entre joueurs.
+- **Spectateurs :** aucun camp, un seul bouton « Autoriser à regarder » ;
+  le bouton « Refuser » reste disponible.
+
+Ce contrôle existe aussi dans l'API : en présence d'**un seul camp
+libre**, une autorisation sans camp le choisit automatiquement,
+même en cas de demande simultanée. Quand les deux camps sont
+disponibles, le premier joueur doit être attribué explicitement.
+Le serveur rejette tout camp occupé ou réservé à quelqu'un d'autre,
+sans déléguer la sécurité à JavaScript. Les remplacements autorisés
+par l'arbitre continuent d'utiliser la faction à remplacer.
+
+### Tournois : tirage initial, équilibrage et ancienneté
+
+Dans **Partie → Tournois et tirage des factions**, le PC hôte peut
+créer un tournoi (élimination directe, toutes rencontres ou Suisse),
+enregistrer ses participants, puis demander la première ronde.
+Chaque rencontre crée une partie avec des **camp Nains/Elfes
+préattribués**. Le joueur doit se présenter avec **exactement
+le nom inscrit** : lors de l'autorisation réseau, il reçoit son
+camp prédéfini, sans menu de choix. Les personnes non inscrites
+ne peuvent pas prendre une place de joueur du tournoi.
+
+**Algorithme d'affectation des camps :**
+1. **Première rencontre entre deux joueurs sans historique :**
+   tirage au sort équitable.
+2. **Rencontres suivantes :** priorité à la faction que chacun
+   a le moins jouée. Parmi les répartitions possibles, minimiser
+   d'abord le déséquilibre maximal par joueur, puis le déséquilibre
+   total.
+3. **Égalité de priorités :** si les deux joueurs réclament le
+   même camp, celui qui a joué ce camp **le plus récemment**
+   obtient **l'autre** ; celui qui attend depuis le plus longtemps
+   le conserve. Si chaque joueur a joué autant d'Elfes que de
+   Nains, il préfère aussi inverser son camp de la partie précédente.
+4. **Nouvelle égalité :** tirage au sort, et non attribution
+   arbitraire par le nom ou l'ordre du tournoi.
+
+Le calcul utilise le **numéro de ronde** ; une exemption d'une
+ronde ne fausse donc pas l'ancienneté. L'historique des factions
+et les appariements sont sauvegardés atomiquement sous
+`~/.local/share/alfastafl/parties/.tournaments.json`,
+séparément des sauvegardes de chaque partie. Au lancement d'une
+nouvelle ronde, le serveur extrait automatiquement les vainqueurs
+des **parties terminées**, inscrit leurs camps et résultats
+dans l'historique et refuse d'avancer tant que la ronde précédente
+n'est pas achevée. Les résultats ne peuvent pas être forgés par
+un navigateur invité.
+
+L'interface Tournois permet de retrouver chaque rencontre et
+d'ouvrir sa partie sur le plateau plein écran existant ; la
+gestion réseau et les QR code restent inchangés.
+
+Des tests unitaires détaillent le premier tirage, les cas
+d'égalité, les tours de repos, l'historique conservé après
+redémarrage, l'autorisation de tournoi et le cas PC hôte joueur.
+Les scénarios Chromium couvrent les deux téléphones, la faction
+automatique et la création/affichage d'un match de tournoi.
+
+## DEV 0.7.0-dev10 : correctif critique de démarrage Qt sur Ubuntu
+
+Les DEV8 et DEV9 pouvaient **ne pas se lancer du tout** sur Ubuntu.
+Leur constructeur `QWebEngineView` essayait de configurer
+`QWebEngineSettings.WebAttribute.JavascriptCanCloseWindows` :
+**cet attribut provient de Qt WebKit et n'existe pas dans Qt WebEngine**.
+L'accès produisait une exception Python avant l'apparition de la fenêtre,
+alors que nos tests précédents simulaient un faux enum avec ce membre
+inexistant et ne reproduisaient donc pas l'erreur sur Ubuntu.
+
+La DEV10 supprime l'attribut erroné et conserve le support de
+`JavascriptCanOpenWindows` présent dans Qt WebEngine.
+Le test de faux Qt exclut dorénavant cette ancienne constante
+et une **nouvelle recette native** lance effectivement PyQt6 et
+QtWebEngine, ouvre la fenêtre et vérifie le chargement de la page
+de jeu dans un serveur Xvfb sur Ubuntu (paquets Qt système Debian).
+Cette recette est désormais **obligatoire avant publication**.
+
+La fenêtre unique plein écran, les deux QR à gauche, les menus
+natif Fichier / Partie / Paramètres / Réseau, le plateau 3D,
+les règles Tafl et les sauvegardes restent inchangés.
+Stable 0.5.0 inchangée ; installation de la DEV10 recommandée
+pour les postes dont la DEV8/DEV9 ne démarre pas.
+
+## DEV 0.7.0-dev9 : plateau unique en plein écran, deux QR à gauche et menus natifs
+
+**Nouvelle interface du PC hôte sur Ubuntu** : au lancement, la fenêtre
+principale est désormais le **plateau 3D en plein écran**. L'ancienne
+fenêtre de gestion permanente est abandonnée. **Aucun deuxième plateau
+n'est créé** ; les fonctionnalités de gestion se retrouvent dans
+la barre de **menus natifs Qt** :
+
+- **Fichier → Nouvelle partie** : une fenêtre modale permet de choisir
+  « jouer les Nains », « jouer les Elfes » ou « rester spectateur »
+  et de créer la partie. **Fichier → Sauvegarder** conserve la partie ;
+  **Fichier → Sauvegardes** ouvre une fenêtre avec la liste des parties
+  sauvegardées, la sélection, la reprise et la suppression définitive
+  (confirmation requise ; interdite sur une partie active).
+- **Partie** : choix du rôle du PC hôte, arbitrage et commande des
+  joueurs, historique des coups, et tutoriel dans une fenêtre modale
+  dédiée, sans interrompre la partie.
+- **Paramètres** : fenêtre de réglages regroupant règles/variantes,
+  horloges, délai de reconnexion, durée des cinématiques, mode 2D/3D,
+  qualité 3D, caméra, musique et effets sonores. Les paramètres de
+  création s'appliquent à la *prochaine* partie ; la vue et le son
+  réagissent immédiatement sans redémarrage.
+- **Réseau** : activation/désactivation manuelle et temporaire du
+  réseau local, et fenêtre d'autorisation des demandes de joueurs ou
+  spectateurs. Les mises à jour sont conservées dans le menu natif
+  **Mises à jour**. **F11** bascule le plein écran.
+
+Une **colonne permanente sur la gauche** montre le
+**QR JOUEUR en haut à gauche** et le **QR SPECTATEUR en bas à gauche**,
+avec un habillage viking. Les deux QR sont propres à la partie
+en cours, apparaissent seulement si elle est active et si le LAN
+est volontairement ouvert, et cessent d'être affichés dès l'arrêt
+du LAN ou la suppression de la partie. Ils ne sont pas rechargés à
+chaque interrogation. Un scan ne donne **aucun accès automatique** :
+la personne fait une demande qui doit être autorisée dans Réseau
+→ Connexions. La colonne reste présente à l'écran même hors ligne,
+avec un message explicatif à la place de QR inopérants.
+
+Le plateau occupe tout l'espace **à droite de la colonne** ; les menus
+et fenêtres modales n'affectent ni les règles Tafl ni les sauvegardes
+ni les cinématiques, et ne créent pas d'autre contexte WebGL. Les
+téléphones et PC invités continuent d'utiliser leur propre interface
+immersive après autorisation de l'hôte. Des tests Python vérifient
+la fenêtre Qt plein écran et la continuité du LAN ; Chromium vérifie
+le layout, la gestion des sauvegardes, la reprise, les suppressions,
+les QR, l'approbation, le mode joueur et le tutoriel. Le rendu Qt sur
+un matériel Ubuntu MATE réel reste à vérifier avant passage en stable.
+
+## DEV 0.7.0-dev8 : PC hôte avec plateau dans une nouvelle fenêtre plein écran
+
+**Gestion et affichage désormais séparés dans l'application Ubuntu.**
+La fenêtre principale Qt, toujours maximisée avec sa barre d'outils
+réseau, sert exclusivement à créer/reprendre/supprimer les parties,
+choisir les camps, gérer les demandes d'accès et autoriser le LAN.
+Elle **n'affiche plus le plateau** et n'alloue pas de scène WebGL.
+
+À la création d'une partie (hôte joueur ou spectateur), à la sélection
+d'une sauvegarde, au choix d'un camp ou avec le bouton
+**« Ouvrir le plateau dans une fenêtre plein écran »**, le plateau
+s'ouvre dans une **seconde fenêtre Qt indépendante**, initialement en
+plein écran. Ce plateau possède son propre rendu 3D, ses animations,
+ses contrôles de jeu et de caméra. Le menu discret ☰ ouvre les
+réglages ; **F11** permet de sortir/rentrer du plein écran,
+et **« Fermer »** ne ferme que cette fenêtre (ni le serveur ni la
+fenêtre principale). La partie continue à exister sur le serveur.
+
+**Tutoriel** : le bouton du PC hôte ouvre lui aussi une fenêtre Qt
+distincte en plein écran, avec le plateau d'exercice et les
+instructions. Le tutoriel reste strictement local et indépendant
+des parties ; sa fermeture ramène à l'administration sans détruire
+une partie en cours.
+
+**QR code spectateur** : lorsque l'accès LAN est activé par l'hôte,
+un QR discret en bas à droite du plateau plein écran permet de
+scanner l'invitation **spectateur de la partie affichée**. Le scan
+envoie une demande : l'accès reste soumis à l'**approbation de
+l'hôte**. Le QR est automatiquement masqué lorsque le LAN est
+désactivé, puis réapparaît à la réactivation. Il n'est pas rechargé
+à chaque interrogation du serveur. Il est présent lorsque l'hôte
+joue comme lorsqu'il observe.
+
+Les clients distants autorisés conservent leur interface immersive
+existante. Les règles, sauvegardes, coups et positions, chronomètres
+et autorisations réseau sont inchangés. Les tests de la DEV incluent
+une simulation Chromium des **fenêtres séparées** et du cycle
+de vie du QR, ainsi que des assertions Python sur le plein écran
+Qt. Tests physiques multi-écrans Ubuntu MATE encore nécessaires.
+
+## DEV 0.7.0-dev7 : flèches enfin tirées depuis l'arc, pas depuis la poitrine
+
+**Correction de position d'origine du tir elfique.** La DEV6
+positionnait la flèche par une hauteur fixe au-dessus du corps de
+l'archer : elle pouvait sembler jaillir de sa poitrine, sans utiliser
+l'arc déjà sculpté dans sa main.
+
+La **flèche est maintenant encochée sur la corde du vrai arc 3D** :
+un ancrage invisible situé au milieu de la corde est attaché à
+l'articulation du **bras gauche**, et suit donc exactement ses
+mouvements. La flèche 3D repose physiquement sur cet ancrage
+avant le tir ; sa pointe est alignée vers la cible, puis le départ
+et la trajectoire sont calculés à partir de l'ancrage, y compris
+lorsqu'une flèche rebondit sur le bouclier du nain. La flèche décorative
+gravée à travers la poitrine est retirée **uniquement des figurines
+animées** pour éviter qu'elle continue à apparaître après le lâcher.
+Les figurines ordinaires sur le plateau conservent leur aspect initial.
+
+La correction couvre **toutes les scènes avec un elfe archer** :
+tir classique, prise en étau (flèche parée puis épée de l'elfe
+d'appui), capture contre le trône (deux flèches, première parée),
+et les captures génériques avec d'autres soutiens. Aucun changement
+de règles, de positions sur le plateau, de réseau, d'horloge,
+de permissions ou de sauvegardes. Le rendu fonctionne localement
+sur l'hôte, les autres joueurs et leurs spectateurs autorisés.
+
+Des tests Chromium contrôlent **la position de l'extrémité arrière
+de la flèche sur la vraie corde**, l'animation des deux départs
+et sa trajectoire. Les essais matériels Ubuntu MATE et mobiles
+restent nécessaires avant de passer la version en stable.
+
+## DEV 0.7.0-dev6 : captures d'un soldat contre le trône vide, dans les deux sens
+
+Le trône vide est une case hostile aux soldats des **deux camps**
+dans les trois variantes jouées. La cinématique se déclenche seulement
+après une capture à une seule victime, confirmée par le serveur, lorsque
+la sculpture adverse est située **entre la pièce qui vient de jouer et
+le trône VIDE**. Aucun second combattant fictif n'est généré.
+
+**Nain contre elfe :** le nain termine son déplacement jusqu'à la case
+réellement choisie ; au contact, il assène un premier coup de hache,
+l'elfe tente de parer avec le bras portant son arc, puis le nain
+arme sa hache et donne le coup décisif. L'elfe est projeté contre le
+trône, dont il fait jaillir de petits morceaux de pierre, puis sa
+sculpture éclate en **18 fragments 3D**.
+
+**Elfe contre nain :** l'archer s'immobilise une case avant sa destination,
+décoche une flèche que le nain détourne avec son bouclier, puis en
+tire une deuxième qui projette le nain de bronze contre le trône.
+La sculpture explose en **18 fragments** et la collision produit
+**12 débris du trône** (effets visuels locaux). L'archer termine
+son déplacement jusqu'à la case sélectionnée.
+
+Sons originaux (arc, parade, hache, collision et fracture), caméra
+mobile, étincelles et retour à l'angle de vue initial. Le trône
+lui-même et son état de jeu restent intacts, aucun coup ni capture
+supplémentaire n'est généré. La scène fonctionne aussi pour les
+spectateurs autorisés, suit le temps envoyé par le serveur, et
+respecte les durées 4, 8, 12 s, le bouton Passer, la vue 2D et
+Réduire les animations. Les captures contre un trône occupé, par
+encadrement ou par mur de boucliers utilisent les scènes prévues
+pour leur configuration réelle.
+
+Les tests Python valident les deux camps dans les trois modes,
+les tests Node vérifient le plan de la scène et sa chronologie,
+et Chromium contrôle le rendu hôte/spectateur et l'intégrité du
+plateau après la capture.
+
+## DEV 0.7.0-dev5 : dernier combat du roi, 2, 3 ou 4 nains
+
+**Cinématique de victoire des Nains**, uniquement après
+`status=finished`, `winner=dwarf`, `reason=king_captured`
+confirmés par le serveur. Le roi, qui reste sur sa vraie case dans le plateau
+sauvegardé, est remplacé temporairement par sa sculpture articulée :
+il se défend à l'épée, les nains ayant réellement fermé la prise
+arrivent au contact et portent chacun un coup de hache, puis
+**tous assènent une frappe collective**. La statue royale s'effondre,
+la **couronne est projetée en 3D** et la sculpture vole en éclats.
+Caméra rapprochée et effets originaux de cliquetis de lame, impact,
+chute de couronne et fanfare grave des nains.
+
+Le nombre d'attaquants est calculé sur le **plateau réel après le coup**,
+suivant la règle réellement appliquée :
+- **2 nains** : prise historique par deux côtés opposés, hors du trône ;
+- **4 nains** : encerclement complet (Fetlar/Copenhague ; roi sur le trône
+  historique) ;
+- **3 nains** : exception du trône vide ou hostile dans les variantes qui
+  prévoient cet étau. **Aucun quatrième nain fictif ne surgit du trône.**
+
+Le nain qui vient de jouer termine son déplacement avant de frapper :
+les nains déjà sur place restent sur leurs cases et bougent seulement
+leurs sculptures, pas les pièces de jeu. Durées existantes 4/8/12 s,
+commande « Passer la scène », respect des animations réduites et
+restitution du plateau et de la caméra. Tous les spectateurs et joueurs
+voient une chorégraphie locale fondée sur le même événement temporel.
+Pas de modification du moteur Tafl, de l'historique, des tours ou des
+sauvegardes. Tests Python, Node, WebAudio et Chromium dédiés.
+
+## DEV 0.7.0-dev4 : fuite royale à cheval et coup de hache au contact
+
+**Le roi fuit à cheval, escorté par deux cavaliers elfes (scène C).**
+Lorsqu'une partie se termine par une victoire authentifiée
+`status=finished`, `winner=elf`, `reason=escape` avec une pièce `R`,
+le serveur ouvre une fenêtre cinématique de même durée que les captures :
+**Rapide (4 s), Classique (8 s) ou Épique (12 s)**, sauf si les scènes
+sont désactivées. Le roi court jusqu'à la case de sortie, trois chevaux
+3D surgissent au bord du plateau, le roi monte en selle, les elfes
+saluent et les nains protestent, puis le cortège part au galop hors du
+plateau. Caméra mobile, particules et fanfare de cors synthétisés
+localement accompagnent la victoire. Les chevaux ont des membres
+articulés, des selles et des cavaliers elfes sculptés. **Deux escortes**
+accompagnent toujours le souverain ; ce sont des personnages
+cinématographiques, et non de nouvelles pièces jouables.
+Les bords des règles historiques et les coins des autres variantes
+sont pris en compte.
+
+**Correction de réalisme :** le nain attaquant doit désormais **avoir
+terminé son déplacement sur sa case définitive avant de lever sa hache**.
+L'elfe pare avec le bras portant l'arc, puis le second nain assène
+le coup final. L'elfe archer conserve, lui, la pause une case avant
+la destination pour décocher sa flèche.
+
+**Aucune altération des règles, positions, droits réseau, sauvegardes
+ou horloges.** La cavalcade est déclenchée seulement par l'événement de
+victoire envoyé par le serveur et se déroule localement chez les
+joueurs et spectateurs. Vue 2D, bouton Passer, option de réduction
+des animations et restitution de la caméra initiale restent préservés.
+Les tests de régression couvrent également la victoire sans capture,
+la scène à trois chevaux et la continuité des états terminés.
+
+## DEV 0.7.0-dev3 : scènes de capture par encadrement à deux combattants
+
+Pour une **capture ordinaire réellement encadrée par deux pièces alliées**,
+les deux figurines participent à la scène. Le programme identifie la pièce
+d'appui dans le plateau **après validation serveur**, sans inventer d'allié
+pour une capture contre le trône, les coins ou un mur de boucliers.
+
+**Elfes contre nain :** l'elfe mobile s'arrête une case avant sa destination,
+vise et décoche une flèche. Le nain la pare avec son bouclier. L'elfe situé
+de l'autre côté dégaine une **épée elfique en 3D**, prend son élan et fend la
+sculpture de bronze en **deux moitiés géométriquement découpées**, qui
+s'écartent et tombent. L'elfe mobile termine alors son déplacement jusqu'à
+la case sélectionnée.
+
+**Nains contre elfe :** depuis la DEV4, le nain mobile atteint d'abord sa
+case de destination et assène ensuite un coup de hache au contact.
+L'elfe tente une parade avec le bras portant l'arc. Le **second nain**, déjà en place derrière l'elfe, arme sa hache
+et fait éclater la sculpture ; le premier nain reste sur sa case définitive.
+
+Les deux attaques bénéficient d'un cadrage autour des trois personnages,
+de bruitages distincts (flèche, bouclier, lame, taille, fracture) et
+de traînées d'armes. Les déplacements de support sont purement graphiques
+et aucune pièce alliée ne quitte sa case réelle.
+
+**Garanties :** les règles, l'historique, les sauvegardes, l'horloge,
+les autorisations et les coups légaux sont toujours déterminés par le serveur.
+Les scènes restent locales et synchronisées au temps du même événement.
+Les captures ne réunissant pas strictement ces conditions utilisent les
+animations précédentes. La vue 2D et le mode Réduire les animations restent
+disponibles. Tests Chromium dédiés aux prises par étau, au spectateur et
+au retour à l'état graphique normal.
+
+## DEV 0.7.0-dev2 : combats plus dynamiques
+La préversion **0.7.0-dev2** transforme les captures en échanges animés : approche
+rapide, **feinte, parade, esquive latérale, riposte et coup final**, avec
+fragments de statue projetés après l'impact. Le nain combat à la hache et au
+bouclier, le roi brandit son épée et l'elfe peut tirer une flèche en 3D.
+Des **traînées de coups**, des étincelles au choc et une caméra qui suit les
+adversaires, avec un léger tremblement borné, dynamisent l'affrontement.
+Chaque capture multiple enchaîne les duels dans la durée prévue.
+
+**Important :** ces mouvements sont purement visuels. Le serveur continue de
+décider des captures, tours et horloges. Toutes les poses découlent du même
+temps cinématique : spectateurs et joueurs voient la même action sans
+rejouage sonore après reconnexion. La vue 2D, le bouton de passage de scène
+et le réglage système « Réduire les animations » restent pris en charge.
+Le choix préexistant **Rapide (4 s), Classique (8 s), Épique (12 s)** permet
+de régler le rythme au moment de la création de la partie.
+
+Les tests automatisés vérifient désormais la chorégraphie déterministe, les
+articulations en navigateur, les vues hôte/spectateur et l'absence d'accès
+Internet. Essais réels Ubuntu MATE, tablettes et mobiles toujours nécessaires
+avant de promouvoir en stable.
+
+## DEV 0.7.0 : combats articulés et cinématiques
+**Figurines articulées en combat.** Lorsqu'une capture est confirmée par le serveur,
+la scène utilise temporairement des sculptures segmentées : bras, armes, jambes et tête
+pivotent autour d'articulations locales. Le nain arme sa hache et son bouclier ;
+l'elfe défend son arc ; le roi garde son épée et son sceptre. Les figurines
+ordinaires restent fusionnées afin de préserver les performances WebGL.
+**Mise en scène.** L'attaquant s'élance, oriente son corps vers la victime,
+prépare l'attaque, frappe, et la victime tente de se protéger avant de céder.
+En cas de capture multiple, les adversaires sont traités successivement dans
+la durée impartie par le serveur. Chaque statue vaincue produit 18 éclats 3D
+avec trajectoires balistiques. La caméra effectue un léger travelling et reprend
+exactement l'orientation initiale après la scène ou son interruption.
+**Audio.** Ajout d'effets hors ligne distincts pour le tir d'arc, la garde et
+le bouclier, synchronisés aux impacts et à la fragmentation. Les canaux de
+volume existants sont conservés.
+**Intégrité.** Aucun changement des règles, des sauvegardes, de la gestion des
+connexions, ni de l'horloge authoritative. L'hôte, les joueurs et les spectateurs
+disposent de scènes locales synchronisées aux mêmes horodatages de combat.
+La vue 2D, les appareils sans WebGL et l'option système Réduire les animations
+restent pris en charge.
+**Validation.** Les scénarios Chromium vérifient désormais les articulations,
+la fragmentation et l'indépendance des modèles de jeu. À valider sur
+Ubuntu MATE/QtWebEngine et téléphones/tablettes avant promotion stable.
+
+## DEV 0.6.0 : déplacement fluide des figurines et ambiance sonore
+
+**Déplacements 3D.** Lorsque le serveur confirme un coup, la figurine concernée se déplace progressivement sur le plateau au lieu de changer instantanément de case. Le mouvement est une interpolation douce d'environ **0,5 à 1,15 seconde** selon la distance, avec un léger soulèvement et une inclinaison de sculpture. La caméra demeure sous le contrôle de chaque appareil ; les règles, les tours et les sauvegardes continuent d'être déterminés exclusivement par le serveur. L'animation se voit sur le **PC hôte, les appareils joueurs et les spectateurs autorisés** lorsque leur vue 3D est active. Elle ne se rejoue pas lors d'une actualisation identique, d'une reconnexion ou de la reprise d'une partie enregistrée. Un changement de partie, un passage en 2D, la fermeture d'une fenêtre ou une perte de WebGL arrête immédiatement le déplacement et remet la figurine exactement sur sa case de destination. Les appareils demandant une réduction des animations conservent un déplacement instantané. La cinématique prototype d'une **capture** reste prioritaire, sans doublon de déplacement.
+
+**Musique et effets.** Le moteur Web Audio produit hors ligne une ambiance nordique originale : mélodie lente, bourdon grave, percussions sourdes et souffle de vent. L'atmosphère se tend progressivement après plusieurs coups. Les déplacements et captures disposent d'effets de friction, d'armes, de chocs et de fracture de pierre/bronze. **Musique** et **Effets** ont chacun leur volume, modifiable immédiatement et mémorisé indépendamment sur chaque ordinateur, tablette ou téléphone. Le bouton **Activer / Couper le son** respecte les restrictions de lecture automatique des navigateurs ; un geste utilisateur est nécessaire. Aucune piste musicale ni aucun fichier audio tiers n'est téléchargé.
+
+**Historique 0.6.0.** La première scène de capture utilisait des sculptures rigides ; l'articulation et les nouveaux effets arrivent en 0.7.0. Un prototype de capture/sculpture brisée, déjà présent depuis la 0.5.1-dev5, reste disponible et ne doit pas être confondu avec l'animation finale. Les animations en 3D nécessitent WebGL2 ; la vue 2D demeure entièrement fonctionnelle.
+
+## Cinématiques de capture et son (prototype introduit en DEV 0.5.1-dev5)
+
+**Captures façon échecs magiques :** les nains de bronze, les elfes de pierre et le roi restent des **sculptures** pendant le combat. Après une capture validée par le moteur, la caméra se rapproche du lieu de l'affrontement, l'attaquant s'élance, la figurine touchée bascule et se fragmente en éclats, puis la caméra revient au cadrage initial. Les captures multiples animent plusieurs victimes. La capture du roi dispose d'un effet sonore spécifique et d'éclats dorés. Les figurines actuelles sont générées procéduralement ; **leurs membres et leurs armes deviennent articulés dans les scènes de combat de la 0.7.0** ; le rendu en jeu reste optimisé.
+
+Dans **Héberger → Captures animées**, choisir **Rapide (4 s)**, **Classique (8 s, défaut)**, **Épique (12 s)** ou **Désactivées**. Pendant une capture active, **le serveur suspend le chronomètre et refuse les coups suivants** jusqu'à la fin de la scène ; la décision des captures reste exclusivement celle du moteur. Les invités autorisés et les spectateurs reçoivent la même capture avec le temps restant pour la voir au bon moment. Chaque appareil dispose du bouton **Passer la scène** ; il peut revenir immédiatement au plateau, mais le prochain tour attend la fin de la période commune, même si un utilisateur a passé la scène. Une partie existante créée avant ce jalon conserve son paramètre précédent (captures sans pause), sauf nouvelle partie créée avec l'option.
+
+**Sons :** les bruitages de déplacement, arme, impact, fracture et capture du roi sont générés hors ligne via Web Audio. Une musique d'ambiance nordique originale, à motifs lents, devient plus tendue après plusieurs coups. Un bouton **Activer / Couper le son** et deux curseurs indépendants **Musique** et **Effets** apparaissent parmi les commandes de la vue 3D/2D. Les réglages sont stockés localement par navigateur. Certains téléphones empêchent la lecture automatique ; il faut alors toucher **Activer le son**. Aucun téléchargement audio, aucune piste commerciale ni licence tierce de bande-son n'est nécessaire.
+
+En cas d'absence de WebGL, la **vue 2D reste jouable** et les effets sonores de capture restent disponibles. La synchronisation de l'animation dépend des actualisations HTTP régulières : un navigateur mobile en arrière-plan peut rejoindre la scène en cours sans revoir son début. Les captures ne modifient ni les règles, ni le fichier de sauvegarde.
+
+## Jouer directement sur le PC hôte
+
+Le PC Ubuntu ne sert plus uniquement à héberger : il peut être **joueur Nain ou Elfe**, avec le même moteur de coups, les mêmes captures et les mêmes horloges que les appareils invités.
+
+**Créer une partie :** dans **Héberger → Sur ce PC**, choisir **Jouer les Nains**, **Jouer les Elfes** ou **Héberger seulement (spectateur)**, puis créer la partie. Le jeu attribue alors au PC une session de joueur autorisée par le serveur. Le plateau 3D hôte reste directement jouable à la souris ; la vue 2D au clavier et les commandes de caméra restent disponibles.
+
+**Partie déjà créée :** dans **Gestion de la partie → Jouer sur le PC hôte**, cliquer sur **Jouer les Nains** ou **Jouer les Elfes**. Seuls les camps réellement libres peuvent être attribués. **Rester spectateur** permet de quitter son camp avant le début des coups et des chronomètres. Il n'est pas permis de changer de camp après le début du jeu, ni de prendre le camp d'un autre joueur. Si la partie est suspendue, l'hôte doit d'abord choisir **Reprendre la partie sauvegardée**.
+
+Le PC hôte conserve les commandes d'administration, le tutoriel, le LAN volontaire et les QR codes. Le rôle de joueur s'applique **uniquement** au camp choisi et n'accorde aucun droit nouveau aux appareils invités. Les autorisations de jeu et le contrôle des coups restent côté serveur. La session de joueur du PC hôte est automatiquement révoquée lors d'une sauvegarde/quitter ; après un redémarrage ou une reprise d'une partie sauvegardée, il faut sélectionner de nouveau son camp. Une partie chronométrée attend que les deux camps soient connectés avant de démarrer le chronomètre.
+
+## Supprimer une partie sauvegardée
+
+Sur le **PC hôte**, chaque partie de la rubrique **Parties hébergées et sauvegardées** dispose maintenant de deux commandes distinctes : **sélectionner** la partie ou **Supprimer**. La suppression demande systématiquement une confirmation mentionnant la variante et les premiers caractères de l'identifiant ; l'opération est définitive et efface le fichier de sauvegarde `.alfastafl` du dossier utilisateur, pas seulement l'affichage de la liste.
+
+Pour protéger les parties en réseau, **une partie active ne peut pas être supprimée** : il faut d'abord utiliser **Sauvegarder et quitter cette partie**. Les parties en pause et les parties terminées peuvent être effacées ; les parties liées à un tournoi sont protégées contre l'effacement isolé. L'action est interdite aux joueurs et spectateurs distants par le serveur. Les invitations, sessions, demandes en attente, chronomètres et données de partie associées sont révoqués ou nettoyés. Si la partie supprimée était affichée, le plateau est désélectionné et revient à **Aucune partie sélectionnée**. Les autres sauvegardes restent inchangées.
+
+Le formulaire de confirmation permet d'annuler sans aucune modification. Si le disque refuse la suppression, le serveur garde la partie dans la liste et affiche une erreur.
+
+## Redémarrage automatique après une mise à jour
+
+Après accord explicite et installation réussie d'un paquet vérifié par SHA-256 via APT/pkexec, l'application **se ferme et se relance automatiquement**, sans boîte de dialogue finale demandant une relance manuelle. Un processus auxiliaire, détaché et exécuté **sans privilèges administrateur**, attend la disparition de l'ancienne instance avant d'ouvrir la nouvelle version installée. Il reconnaît également les états *zombie* et les identifiants de processus réutilisés, évitant les relances multiples.
+
+À la fermeture, les parties en cours sont **sauvegardées et mises en pause**, les horloges sont suspendues et les règles UFW temporaires ainsi que le serveur LAN sont fermés. Pour éviter toute ouverture réseau involontaire, le **LAN doit être réactivé volontairement** après redémarrage ; la partie sauvegardée peut alors être reprise et les joueurs réinvités.
+
+Un refus d'installation, une erreur de téléchargement ou un échec APT ne déclenche **aucun redémarrage**. Si l'installation aboutit mais que le processus de relance ne peut pas être programmé, l'application reste ouverte et indique la relance manuelle nécessaire. Le processus auxiliaire expire sans rien lancer si l'ancienne instance ne s'est pas fermée.
+
+**Première activation :** cette fonction ne peut être exécutée que par une version qui la contient déjà. Lors de l'installation de la **0.5.1-dev2 depuis une version antérieure**, la version déjà ouverte ne connaît pas encore cette procédure : une dernière relance manuelle reste nécessaire. À partir de la version dev2 installée et redémarrée, les mises à jour suivantes seront automatiquement suivies d'un redémarrage.
 
 ## Plateau 3D et figurines
 
@@ -17,7 +519,7 @@ Les parties et le tutoriel utilisent la **Vue 3D** par défaut. Le plateau 11×1
 - **Elfes en pierre claire** : oreilles, cape et arc.
 - **Roi en pierre claire** : couronne, épée et sceptre.
 
-Ces figurines constituent une première version. Le détail des modèles, leur préparation pour l'animation et leur rendu artistique seront affinés ensuite. Ce jalon ne contient pas encore de scène de combat, de son ni d'animation de capture.
+Les figurines restent des modèles procéduraux de première génération. La DEV 0.5.1-dev5 ajoute des **scènes de capture avec mouvements de groupes, effets d'impact et éclats de matière**, ainsi que le son. Les membres deviennent articulés dans les scènes de capture à compter de la 0.7.0, sans modification des figurines statiques.
 
 ### Commandes
 
@@ -35,6 +537,15 @@ Chaque joueur garde sa propre caméra. Les halos dorés indiquent la sélection 
 Le rendu 3D nécessite **WebGL 2**. Si cette capacité est indisponible ou si le contexte graphique est perdu, l'affichage bascule automatiquement vers la vue 2D. Celle-ci reste également sélectionnable à tout moment. Les essais sur téléphones et tablettes réels restent à effectuer.
 
 **Aucune connexion Internet n'est nécessaire pour afficher la 3D.** Three.js r187 et ses modules sont embarqués avec l'application ; le plateau et les figurines sont générés localement. Les mentions de licence MIT de Three.js sont réunies dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+
+### Vue plateau seule pour appareils invités
+
+Quand un téléphone, une tablette ou un ordinateur ouvre un lien ou scanne un QR d'invitation, le formulaire de demande d'accès reste affiché jusqu'à l'approbation par l'hôte. **Après réception de l'autorisation du serveur**, le plateau de jeu occupe automatiquement toute la surface de la page ; le formulaire, l'en-tête, l'historique, les légendes et les panneaux d'hébergement disparaissent.
+
+Le petit bouton **☰** donne accès aux commandes de vue 3D/2D, de caméra et de qualité. Les **joueurs** y retrouvent également les commandes de partie nulle et d'abandon ; les **spectateurs** ne peuvent pas jouer. Les demandes de réponse (proposition de nulle, arbitrage) restent visibles au-dessus du plateau ; les horloges ne s'affichent que si la partie est chronométrée. En cas de révocation du droit d'accès, l'écran revient au formulaire de connexion.
+
+Ce mode remplit la **fenêtre du navigateur**, mais ne force pas le plein écran natif ni la disparition des barres système, que les navigateurs mobiles ne permettent pas toujours sans intervention de l'utilisateur.
 
 ## Tutoriel interactif sur le PC hôte
 
@@ -95,8 +606,10 @@ par la reprise.
 
 **Limites DEV :** la détection de présence repose encore sur le rafraîchissement
 HTTP du navigateur (les navigateurs mobiles peuvent ralentir les requêtes en
-arrière-plan). Les cinématiques n'existent pas encore : leur future suspension
-du chronomètre devra être ajoutée lorsque les animations seront intégrées.
+arrière-plan). Les captures animées introduites dans la DEV 0.5.1-dev5
+suspendent désormais l'horloge **sur le serveur**, uniquement pour les parties
+créées avec l'option de cinématique activée. Les parties anciennes conservent
+leur rythme initial.
 Le protocole LAN reste du HTTP non chiffré. Usage exclusivement sur un réseau local de confiance.
 
 ## DEV 0.2.0-dev1: audit des regles (premiere passe)
@@ -132,7 +645,7 @@ La **0.5.0-dev1** est une préversion ; la [0.4.0](https://github.com/ThorinFutD
 
 **Nouveau dans cette DEV** : plateau WebGL 2, premières figurines procédurales reconnaissables, caméra libre, sélection et déplacement par clic, toucher ou glisser-déposer, repères de capture calculés par le serveur et repli en 2D. La validation graphique de ce jalon est en cours.
 
-**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, raffinement artistique des figurines et modèles destinés à l'animation, cinématiques, bandes-son, réalisation automatique, régie multi-parties et tournoi entièrement intégré à l'interface.
+**Restant** : validation exhaustive des cas atypiques du Tafl, y compris les forteresses de sortie complexes et les nuls théoriques de Fetlar (murs de boucliers, forteresse de sortie, encerclement), finalisation des cas particuliers de répétition, chiffrement du protocole LAN, découverte Avahi, raffinement artistique des figurines et modèles articulés pour des combats plus réalistes, orchestration musicale avancée, réalisation automatique, régie multi-parties et tableau de bord de tournoi avancé (l'interface de création/rencontres et l'équilibrage des factions sont déjà disponibles).
 
 ## Tests sur Ubuntu (sans installer)
 

@@ -9,6 +9,15 @@
     panel.remove();
     return;
   }
+  if (isDesktopManager) {
+    trigger.hidden=false;
+    trigger.addEventListener('click',openHostTutorial);
+    return;
+  }
+  // The native tutorial window has no game on its own board. Its chosen
+  // variant is encoded in its URL, not imported from the manager's session.
+  if(isDesktopTutorial && ['historical','fetlar','copenhagen'].includes(q.get('mode')))
+    document.getElementById('mode').value=q.get('mode');
 
   const el = id => document.getElementById('tutorial-' + id);
   const board = el('board');
@@ -305,6 +314,12 @@
       captures = [];
       keyboardSquare = state.completed ? [r, c] : origin;
       render();
+      if (state.completed && state.last_move) {
+        // Only a successful, server-confirmed practice move changes the board.
+        // Failed objectives reset to the original position and do not animate.
+        boardView.playMove(state.last_move).catch(()=>{});
+        document.dispatchEvent(new CustomEvent('alfastafl-tutorial-move'));
+      }
     } catch (error) {
       if (current(token)) feedback(error.message, 'error');
     } finally {
@@ -379,6 +394,10 @@
   function closeTutorial() {
     if (panel.open) panel.close();
     resetSession();
+    if(isDesktopTutorial){
+      if(window.opener)window.close();
+      else window.location.replace('/?desktop=host');
+    }
   }
 
   trigger.hidden = false;
@@ -436,4 +455,5 @@
     if (state.lesson_index + 1 < state.lesson_count) loadLesson(state.lessons[state.lesson_index + 1].id);
     else closeTutorial();
   });
+  if(isDesktopTutorial)trigger.click();
 })();

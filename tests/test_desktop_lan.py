@@ -73,6 +73,7 @@ class DesktopSession:
         self.run_server = Mock(side_effect=self.make_server)
         self.store = Mock()
         self.warning = Mock()
+        self.updater_factory = Mock()
         self.quitting = False
         self.scenario_executed = False
         self.aboutToQuit = Signal()
@@ -140,6 +141,22 @@ class DesktopSession:
             # return immediately and worker results use the queued signals.
             return Mock(start=Mock(side_effect=target))
 
+        class FakeWebEngineView:
+            """Test double subclassable like Qt's real QWebEngineView."""
+            def __init__(self, *_):
+                self.setUrl = Mock()
+                self.settings = Mock(return_value=Mock())
+
+        class FakeQt:
+            class WidgetAttribute:
+                WA_DeleteOnClose = 0
+
+        class FakeWebAttribute:
+            JavascriptCanOpenWindows = 1
+
+        class FakeSettings:
+            WebAttribute = FakeWebAttribute
+
         definitions = {
             'PyQt6': {},
             'PyQt6.QtWidgets': {
@@ -148,13 +165,18 @@ class DesktopSession:
                 'QToolBar': lambda *_: Mock(),
                 'QMessageBox': Mock(warning=self.warning),
             },
-            'PyQt6.QtGui': {'QAction': action_factory},
+            'PyQt6.QtGui': {
+                'QAction': action_factory,
+                'QShortcut': lambda *_: Mock(activated=Signal()),
+                'QKeySequence': lambda value: value,
+            },
             'PyQt6.QtCore': {
                 'QUrl': str, 'QObject': QObject, 'QTimer': QTimer,
-                'pyqtSignal': lambda *_: Signal(self.pending),
+                'Qt': FakeQt, 'pyqtSignal': lambda *_: Signal(self.pending),
             },
-            'PyQt6.QtWebEngineWidgets': {'QWebEngineView': lambda *_: Mock()},
-            'alfastafl.updater_ui': {'UpdateController': Mock()},
+            'PyQt6.QtWebEngineCore': {'QWebEngineSettings': FakeSettings},
+            'PyQt6.QtWebEngineWidgets': {'QWebEngineView': FakeWebEngineView},
+            'alfastafl.updater_ui': {'UpdateController': self.updater_factory},
         }
         modules = {}
         for name, attributes in definitions.items():
@@ -235,6 +257,35 @@ class DesktopLanTests(unittest.TestCase):
         previous.run()
         self.assert_lan_closed(previous)
         DesktopSession(self.assert_local_only).run()
+
+
+    def test_update_restart_closes_active_lan_and_checkpoints_before_relaunch(self):
+        def scenario(session):
+            session.activate()
+            with patch.object(desktop, 'schedule_restart') as launch:
+                callback = session.updater_factory.call_args.kwargs['restart_callback']
+                callback()
+                launch.assert_called_once_with()
+                session.drain()  # QTimer.singleShot(0, app.quit)
+                session.store.shutdown.assert_called_once_with()
+                session.servers[0].shutdown.assert_called_once_with()
+                self.assert_lan_closed(session)
+                # Subsequent installer signals cannot schedule a second relaunch.
+                callback()
+                launch.assert_called_once_with()
+
+        DesktopSession(scenario).run()
+
+    def test_restart_scheduler_error_does_not_quit_or_close_lan(self):
+        def scenario(session):
+            with patch.object(desktop, 'schedule_restart', side_effect=OSError('relaunch failed')):
+                callback = session.updater_factory.call_args.kwargs['restart_callback']
+                with self.assertRaisesRegex(OSError, 'relaunch failed'):
+                    callback()
+                self.assertFalse(session.quitting)
+                session.store.shutdown.assert_not_called()
+
+        DesktopSession(scenario).run()
 
     def test_ready_queued_before_exit_cannot_reopen_lan_after_exit(self):
         def scenario(session):

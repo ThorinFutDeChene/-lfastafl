@@ -1,24 +1,51 @@
-# Álfastafl 0.5.0 — canal stable
+# Álfastafl 0.7.0 — Version stable
 
-Cette version stable reprend les fonctions de la **0.5.0-dev1** (plateau et figurines 3D) et remplace la stable 0.4.0.
+La **0.7.0 stable** reprend l'intégralité du code de la
+**0.7.0-dev12**, après validation automatisée complète.
 
-## Plateau et figurines 3D
+## Interface et réseau
 
-- Plateau 11 × 11 en chêne sombre, sculpté en volume, avec trône et coins adaptés aux trois variantes.
-- **24 nains en bronze** (barbe, hache, bouclier), **12 elfes en pierre claire** (oreilles, cape, arc) et **un roi** (couronne, épée, sceptre). Première génération de figurines sculptées.
-- Caméra libre à 360°, rotation, inclinaison, zoom, **Vue dessus**, **Recentrer** et niveaux de qualité **Éco / Standard / Haute**.
-- Déplacements par clic, toucher ou glisser-déposer. Halo doré pour la pièce sélectionnée, cases légales dorées, captures possibles rouges ; propositions calculées par le moteur du serveur.
-- Affichage 3D par défaut dans les parties et le tutoriel hôte. Mode **Vue 2D · clavier** et repli automatique si WebGL2 est absent ou perdu.
-- Three.js r187 embarqué pour un fonctionnement hors ligne ; licence MIT et composants répertoriés dans THIRD_PARTY_NOTICES.md.
+- **Fenêtre unique plein écran** pour l'hôte Ubuntu : le plateau 3D
+  reste visible ; la gestion s'effectue via les menus natifs Fichier,
+  Partie, Paramètres, Réseau, Affichage et Mises à jour.
+- **Colonne gauche** : QR joueur en haut, QR spectateur en bas ;
+  ces invitations apparaissent uniquement si une partie est en cours
+  et que l'hôte a explicitement ouvert le réseau local.
+- Connexion et attribution de factions sous contrôle du serveur :
+  chaque accès nécessite l'accord de l'hôte ; si un camp est déjà
+  occupé, seul l'autre est disponible.
+- Téléphones, tablettes et ordinateurs invités : plateau immersif
+  sans commandes d'administration.
 
-Le tutoriel de 28 exercices et le fonctionnement LAN volontaire de la 0.4.0 sont conservés. La version 3D n'implémente pas encore les scènes de combat animées, les figurines articulées ni les sons.
+## Plateau, règles et cinématiques
 
-## Validation
+- Plateau 11 × 11 en bois avec figurines 3D d'elfes, de nains et du roi.
+- Déplacements animés, musique et effets sonores avec réglages indépendants.
+- Captures animées : combats entre elfes et nains, captures utilisant
+  le trône vide, affrontement du roi contre deux, trois ou quatre nains
+  selon la variante, échappée royale à cheval avec escorte.
+- Les flèches des **quatre cases de sortie** pointent désormais
+  correctement **vers l'extérieur** (correctif de la DEV12).
+- Tutoriel local, parties sauvegardées et reprise.
 
-La DEV d'origine a passé **174 tests Python**, **3 tests des réponses asynchrones**, **11 scénarios Chromium du tutoriel** et **13 scénarios Chromium du plateau 3D** ([CI DEV](https://github.com/ThorinFutDeChene/-lfastafl/actions/runs/44591067388)). La chaîne stable réexécute également les tests 3D et interdit la publication si l'un de ces contrôles échoue.
+## Tournois
 
-Le rendu QtWebEngine sur le poste Ubuntu MATE réel et sur des mobiles physiques reste à confirmer. Les limites connues de certaines règles particulières restent documentées dans RULES.md.
+- Création de rencontres et attribution automatique des factions.
+- Première rencontre tirée au sort ; ensuite répartition en faveur
+  de la faction la moins jouée, départage sur l'ancienneté du camp
+  et ultime tirage au sort en cas d'égalité.
+- Historique des parties et des factions conservé lors du redémarrage.
 
-## Distribution
+## Vérification et publication
 
-Paquet Debian **0.5.0**, version stable plus récente que **0.5.0~dev1**. Installation depuis le canal **Mises à jour → Stable**, avec conservation des sauvegardes et paramètres existants. Les choix de canal enregistrés restent inchangés.
+Cette release déclenche à nouveau la suite de tests complète,
+avec **démarrage réel de QtWebEngine sous Xvfb**, tests du moteur,
+scénarios Chromium du tutoriel, de l'interface et du plateau 3D,
+et vérification des quatre orientations des flèches de sortie.
+Le paquet Debian est contrôlé avant sa mise en ligne.
+
+Les fichiers de sauvegarde et les préférences existantes sont
+conservés lors de la mise à jour.
+
+**Version Debian : `0.7.0`**. Canal : **Stable** (également
+visible depuis le canal DEV). Remplace la stable 0.5.0.

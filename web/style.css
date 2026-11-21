@@ -182,3 +182,538 @@
 
 .board-view .square.selected{outline:2px solid #f1d49b;outline-offset:-3px}
 .board-view .square:focus-visible{outline:3px solid #fff;outline-offset:-3px}
+
+
+/* Guest fullscreen layout: applies only after a server-approved /api/state. */
+#guest-menu-toggle[hidden] {display:none!important}
+#guest-menu-toggle {display:none}
+body:is(.guest-board-only,.desktop-board-only) {overflow:hidden;overscroll-behavior:none}
+body:is(.guest-board-only,.desktop-board-only) main {max-width:none;width:100%;height:100%;margin:0;padding:0}
+body:is(.guest-board-only,.desktop-board-only) main > header,
+body:is(.guest-board-only,.desktop-board-only) main > footer,
+body:is(.guest-board-only,.desktop-board-only) #host,
+body:is(.guest-board-only,.desktop-board-only) #join {display:none!important}
+body:is(.guest-board-only,.desktop-board-only) #game {
+ position:fixed;inset:0;z-index:0;width:100%;height:100%;height:100dvh;
+ overflow:hidden;margin:0;padding:0;border:0;border-radius:0;background:#0c1712;
+}
+body:is(.guest-board-only,.desktop-board-only) #game-board-view {
+ position:absolute;inset:0;width:100%;height:100%;min-width:0;margin:0;
+}
+body:is(.guest-board-only,.desktop-board-only) #game-board-view .board-stage {
+ width:100%;height:100%;min-height:100%;border:0;border-radius:0;
+}
+body:is(.guest-board-only,.desktop-board-only) #game-board-view #board {
+ position:absolute;top:50%;left:50%;width:min(94vw,94dvh);
+ max-width:none;max-height:none;margin:0;transform:translate(-50%,-50%);
+}
+body:is(.guest-board-only,.desktop-board-only) #game .board-legend,
+body:is(.guest-board-only,.desktop-board-only) #game .board-help,
+body:is(.guest-board-only,.desktop-board-only) #game .board-empty,
+body:is(.guest-board-only,.desktop-board-only) #game > h3,
+body:is(.guest-board-only,.desktop-board-only) #game > #moves {display:none!important}
+body:is(.guest-board-only,.desktop-board-only) #game > .row {
+ position:fixed;top:calc(10px + env(safe-area-inset-top,0px));
+ left:calc(10px + env(safe-area-inset-left,0px));z-index:25;
+ max-width:calc(100vw - 78px);margin:0;padding:8px 12px;
+ border:1px solid #b08c4d75;border-radius:10px;
+ background:#07140fcf;pointer-events:none;
+}
+body:is(.guest-board-only,.desktop-board-only) #game > .row h2 {display:none}
+body:is(.guest-board-only,.desktop-board-only) #game > .row #state {font-size:clamp(.73rem,2.2vw,.93rem);overflow-wrap:anywhere}
+body:is(.guest-board-only,.desktop-board-only) #guest-menu-toggle {
+ display:grid;place-items:center;position:fixed;
+ top:calc(10px + env(safe-area-inset-top,0px));
+ right:calc(10px + env(safe-area-inset-right,0px));z-index:60;
+ min-width:44px;min-height:44px;padding:8px;
+ border:1px solid #bca276;border-radius:10px;
+ background:#15251de6;color:#f2d69d;font-size:22px;line-height:1;
+}
+body:is(.guest-board-only,.desktop-board-only) #guest-menu-toggle:focus-visible {outline:3px solid #ffe09a;outline-offset:2px}
+body:is(.guest-board-only,.desktop-board-only) #game .board-tools {display:none}
+body:is(.guest-board-only,.desktop-board-only).guest-menu-open #game .board-tools {
+ display:flex;position:fixed;z-index:55;
+ top:calc(64px + env(safe-area-inset-top,0px));
+ right:calc(10px + env(safe-area-inset-right,0px));
+ width:min(350px,calc(100vw - 20px));max-height:calc(100dvh - 156px);
+ overflow-y:auto;gap:8px;padding:12px;
+ background:#15251ef5;box-shadow:0 10px 45px #000b;
+}
+body:is(.guest-board-only,.desktop-board-only) #game > #player-controls {display:none!important}
+body:is(.guest-board-only,.desktop-board-only).guest-menu-open #game > #player-controls:not([hidden]) {
+ display:flex!important;flex-wrap:wrap;position:fixed;z-index:55;
+ right:calc(10px + env(safe-area-inset-right,0px));
+ bottom:calc(12px + env(safe-area-inset-bottom,0px));
+ max-width:calc(100vw - 20px);padding:7px;
+ border:1px solid #bca276;border-radius:10px;background:#15251ef5;
+}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"].guest-menu-open #game > #player-controls:not([hidden]) {
+ bottom:calc(80px + env(safe-area-inset-bottom,0px));
+}
+body:is(.guest-board-only,.desktop-board-only) #game > #clocks {display:none}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] #game > #clocks {
+ display:grid;position:fixed;z-index:25;
+ bottom:calc(10px + env(safe-area-inset-bottom,0px));
+ left:50%;transform:translateX(-50%);
+ width:min(470px,calc(100vw - 96px));margin:0;
+ gap:5px;grid-template-columns:minmax(0,1fr) minmax(90px,1.1fr) minmax(0,1fr);
+ padding:5px;border-radius:10px;background:#07140fd4;pointer-events:none;
+}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-box {padding:5px 2px}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-box strong {font-size:clamp(1rem,3vw,1.5rem)}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-box span {font-size:.7rem}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-mode-box {font-size:.7rem}
+body:is(.guest-board-only,.desktop-board-only) #game > #msg:not(:empty) {
+ position:fixed;z-index:45;top:calc(65px + env(safe-area-inset-top,0px));
+ left:calc(10px + env(safe-area-inset-left,0px));
+ max-width:min(420px,calc(100vw - 75px));margin:0;padding:9px 12px;
+ border-radius:8px;background:#331c15ed;color:#ffdcbb;
+}
+body:is(.guest-board-only,.desktop-board-only) #game > #msg:empty {display:none}
+body:is(.guest-board-only,.desktop-board-only) #game .board-status {display:none}
+body:is(.guest-board-only,.desktop-board-only) #game .board-status[data-kind="error"] {
+ display:block;position:fixed;bottom:70px;left:50%;
+ transform:translateX(-50%);z-index:40;max-width:90vw;
+ border-radius:8px;background:#251b17e8;padding:9px 12px;
+}
+body:is(.guest-board-only,.desktop-board-only) #game > #connection-state:not([hidden]),
+body:is(.guest-board-only,.desktop-board-only) #game > #draw-response:not([hidden]),
+body:is(.guest-board-only,.desktop-board-only) #game > #repetition-review:not([hidden]) {
+ position:fixed;z-index:50;left:50%;transform:translateX(-50%);
+ width:min(420px,calc(100vw - 24px));max-height:60dvh;overflow-y:auto;
+ box-shadow:0 12px 45px #000c;background:#14231cf5;
+}
+body:is(.guest-board-only,.desktop-board-only) #game > #connection-state:not([hidden]) {
+ bottom:calc(78px + env(safe-area-inset-bottom,0px));pointer-events:none;
+}
+body:is(.guest-board-only,.desktop-board-only) #game > #draw-response:not([hidden]),
+body:is(.guest-board-only,.desktop-board-only) #game > #repetition-review:not([hidden]) {top:50%;transform:translate(-50%,-50%)}
+body:is(.guest-board-only,.desktop-board-only) #game > #host-game-controls {display:none!important}
+@media(max-width:480px) {
+ body:is(.guest-board-only,.desktop-board-only).guest-menu-open #game .board-camera-tools {order:0}
+ body:is(.guest-board-only,.desktop-board-only) #game > .row {padding:7px 10px}
+ body:is(.guest-board-only,.desktop-board-only) #game .board-tools select {font-size:.85rem}
+}
+
+/* Clear, separate host controls for selecting or deleting saved games. */
+#game-list .game-entry{display:inline-flex;align-items:stretch;max-width:100%;gap:3px}
+#game-list .game-entry button{font-size:.88rem;min-height:40px}
+#game-list .game-select{border-radius:8px 3px 3px 8px;white-space:normal}
+#game-list .game-delete{
+ border-radius:3px 8px 8px 3px;
+ background:#482720;color:#ffddca;border-color:#a86a57;
+ font-weight:700;
+}
+#game-list .game-delete:hover:not(:disabled){background:#71352a;color:#fff}
+#game-list .game-delete:disabled{opacity:.5;cursor:not-allowed}
+#game-list .game-entry button:focus-visible{outline:3px solid #ffe3a1;outline-offset:2px}
+#clocks[hidden]{display:none!important}
+@media(max-width:500px){
+ #game-list .game-entry{width:100%}
+ #game-list .game-select{flex:1;min-width:0;text-align:left}
+ #game-list .game-delete{flex-shrink:0}
+}
+
+/* Optional participation of the PC host, separate from spectator/guest roles. */
+.host-create-role{display:inline-flex;gap:10px;align-items:center;margin:5px}
+.host-create-role select{max-width:100%}
+.host-player-chooser{
+ border:1px solid #73805a;border-radius:8px;background:#1a2922;
+ padding:12px;margin:12px 0;
+}
+.host-player-chooser strong{color:#f0d29a}
+#host-player-status{margin:9px 0;font-size:.92rem;color:#e1dac6}
+.host-player-actions{display:flex;gap:9px;flex-wrap:wrap}
+.host-player-actions button{margin:0}
+.host-player-actions button[aria-pressed="true"]{outline:2px solid #f1db9f}
+.host-player-actions button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:600px){.host-create-role{width:100%;align-items:flex-start;flex-wrap:wrap}.host-create-role select{width:100%}}
+
+/* SFX & magical-chess captures. All controls remain visible on small displays. */
+.audio-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;
+ border:1px solid #72816a;border-radius:8px;background:#16221e}
+.audio-tools button{padding:7px 10px;font-size:.86rem}
+.audio-tools label{gap:5px;margin:0;font-size:.81rem}
+.audio-tools input[type="range"]{width:82px;min-width:50px;accent-color:#e6c27c;padding:0}
+.audio-tools button[aria-pressed="true"]{background:#af935c}
+#game-board-view{position:relative}
+#capture-overlay[hidden]{display:none!important}
+.capture-overlay{
+ position:absolute;left:50%;top:64px;z-index:30;transform:translateX(-50%);
+ display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;
+ width:min(560px,calc(100% - 24px));padding:12px 15px;
+ background:#08140eea;border:1px solid #d4ad68;border-radius:12px;
+ box-shadow:0 12px 40px #000a;color:#ffe0a8;font-weight:700;text-align:center;
+ pointer-events:none;
+}
+.capture-overlay button{min-height:40px;pointer-events:auto;font-size:.88rem}
+body.guest-board-only #capture-overlay{
+ position:fixed;top:auto;bottom:calc(22px + env(safe-area-inset-bottom,0px));
+ z-index:52;
+}
+body.guest-board-only[data-guest-timed="true"] #capture-overlay{
+ bottom:calc(86px + env(safe-area-inset-bottom,0px));
+}
+@media(max-width:560px){
+ .audio-tools{width:100%;justify-content:space-between}
+ .audio-tools input[type="range"]{width:90px}
+ .capture-overlay{padding:9px;gap:6px;font-size:.84rem}
+ .capture-overlay button{min-height:40px}
+}
+
+/* Qt desktop management is intentionally BOARD-FREE. Never allocate a
+   second WebGL canvas in the maximized management window. */
+body.desktop-host-manager #game-board-view,
+body.desktop-host-manager #tutorial-panel{display:none!important}
+body.desktop-host-manager #host-board-note{color:#e4d5af;font-size:.91rem}
+body.desktop-host-manager #game > .row h2{font-size:1.25rem}
+
+/* Desktop board: Qt makes this a new native fullscreen OS window.
+   The host remains fully able to administer permissions in the first
+   window. Local-browser fallback occupies the viewport as well. */
+body.desktop-board-only main{max-width:none;padding:0;margin:0}
+body.desktop-board-only .host-window-close{
+ display:block;position:fixed;top:10px;left:10px;z-index:62;
+ padding:9px 13px;min-height:42px;background:#14251ee9;
+ color:#f1d8a9;border:1px solid #9a865c;font-size:.83rem;
+}
+body.desktop-board-only .host-fullscreen{
+ display:grid;place-items:center;position:fixed;top:10px;right:65px;
+ z-index:62;min-width:43px;min-height:44px;padding:7px;
+ background:#14251ee9;color:#f1d8a9;border:1px solid #9a865c;
+}
+body.desktop-board-only #game > .row {top:65px;left:10px}
+body.desktop-board-only #game-board-view .board-stage{
+ width:100%;height:100%;min-height:100%;border:0;border-radius:0;
+}
+body.desktop-board-only #game > #clocks:not([hidden]){z-index:26}
+body.desktop-board-only #game .board-tools{z-index:55}
+body.desktop-board-only .host-spectator-qr:not([hidden]){
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ position:fixed;right:calc(14px + env(safe-area-inset-right,0px));
+ bottom:calc(14px + env(safe-area-inset-bottom,0px));
+ z-index:48;max-width:164px;margin:0;padding:8px 10px 6px;
+ border:1px solid #ccb277;border-radius:12px;background:#071511e8;
+ box-shadow:0 4px 22px #000b;pointer-events:auto;color:#f4e0b3;
+}
+body.desktop-board-only .host-spectator-qr img {
+ display:block;width:clamp(85px,9vw,128px);height:auto;aspect-ratio:1;
+ image-rendering:auto;border:4px solid white;border-radius:6px;background:white;
+}
+body.desktop-board-only .host-spectator-qr figcaption{
+ font-size:.68rem;letter-spacing:.11em;font-weight:800;margin-bottom:5px;
+}
+body.desktop-board-only .host-spectator-qr p{
+ font-size:.62rem;line-height:1.24;text-align:center;margin:5px 0 0;
+}
+body.desktop-board-only .capture-overlay{bottom:28px;top:auto}
+body.desktop-board-only .host-spectator-qr:not([hidden]) ~ .capture-overlay{
+ bottom:175px;
+}
+body:not(.desktop-board-only) .host-spectator-qr,
+body:not(.desktop-board-only) .host-window-close,
+body:not(.desktop-board-only) .host-fullscreen{display:none!important}
+body.desktop-board-only .host-window-close:focus-visible,
+body.desktop-board-only .host-fullscreen:focus-visible{
+ outline:3px solid #ffe09a;outline-offset:2px;
+}
+body.desktop-board-only.guest-menu-open #guest-menu-toggle{z-index:68}
+body.desktop-board-only.guest-menu-open #game .board-tools{top:67px}
+@media(max-width:800px){
+ body.desktop-board-only .host-spectator-qr:not([hidden]){max-width:119px;padding:5px}
+ body.desktop-board-only .host-spectator-qr img{width:84px}
+ body.desktop-board-only .host-spectator-qr p{display:none}
+ body.desktop-board-only .host-spectator-qr figcaption{font-size:.60rem}
+ body.desktop-board-only #game > .row{top:61px}
+}
+body.desktop-tutorial-only {overflow:hidden;background:#0c1712}
+body.desktop-tutorial-only main{max-width:none;margin:0;padding:0}
+body.desktop-tutorial-only main > :not(#tutorial-panel){display:none!important}
+body.desktop-tutorial-only #tutorial-panel{
+ display:block;position:fixed;inset:0;width:100vw;height:100dvh;
+ max-width:none;max-height:none;margin:0;padding:14px;
+ border:0;border-radius:0;overflow-y:auto;background:#111c17;color:#f6e7cd;
+}
+body.desktop-tutorial-only #tutorial-panel::backdrop{background:#0c1712}
+body.desktop-tutorial-only .tutorial-play .board-stage{height:clamp(340px,62dvh,800px)}
+body.desktop-tutorial-only .tutorial-layout{width:100%;max-width:none}
+
+
+/* DEV9 native host shell. ONE fullscreen Qt window; the board is the
+   only permanent content. Everything else lives behind Qt menus and
+   accessible modal management windows. Remote guest UI is unchanged. */
+:root{--shell-rail:clamp(146px,12.5vw,190px)}
+body.desktop-shell{overflow:hidden;overscroll-behavior:none;background:#07120f}
+body.desktop-shell main{max-width:none;width:100vw;height:100dvh;margin:0;padding:0}
+body.desktop-shell main>header,
+body.desktop-shell main>footer,
+body.desktop-shell #host,
+body.desktop-shell #join{display:none!important}
+body:not(.desktop-shell) #shell-qr-column,
+body:not(.desktop-shell) #shell-empty-board,
+body:not(.desktop-shell) .shell-window{display:none!important}
+body.desktop-shell #game{
+ position:fixed;top:0;bottom:0;right:0;left:var(--shell-rail);
+ width:calc(100% - var(--shell-rail));height:100dvh;z-index:0;
+ overflow:hidden;border:0;border-radius:0;padding:0;margin:0;
+ background:#07130e
+}
+body.desktop-shell #game-board-view{
+ position:absolute;inset:0;width:100%;height:100%;margin:0;
+ padding:0;min-width:0
+}
+body.desktop-shell #game-board-view .board-stage{
+ width:100%;height:100%;min-height:100%;border:0;border-radius:0
+}
+body.desktop-shell #game-board-view #board{
+ position:absolute;top:50%;left:50%;
+ width:min(94%,94dvh);max-width:none;max-height:none;margin:0;
+ transform:translate(-50%,-50%)
+}
+body.desktop-shell #game-board-view .board-tools,
+body.desktop-shell #game-board-view .board-help,
+body.desktop-shell #game-board-view .board-legend,
+body.desktop-shell #game-board-view .board-empty,
+body.desktop-shell #game-board-view .board-status:not([data-kind=error]),
+body.desktop-shell #game>h3,
+body.desktop-shell #game>#moves,
+body.desktop-shell #guest-menu-toggle,
+body.desktop-shell #host-close-board,
+body.desktop-shell #host-fullscreen,
+body.desktop-shell #host-spectator-qr{display:none!important}
+body.desktop-shell #game>.row{
+ position:fixed;top:8px;left:calc(var(--shell-rail) + 10px);z-index:25;
+ max-width:calc(100vw - var(--shell-rail) - 30px);
+ padding:7px 12px;border:1px solid #9e825c78;border-radius:9px;
+ color:#efd7aa;background:#0b1a15e1;pointer-events:none
+}
+body.desktop-shell #game>.row h2{display:none}
+body.desktop-shell #game>.row #state{font-size:.83rem}
+body.desktop-shell #game>#clocks{display:none}
+body.desktop-shell[data-guest-timed=true] #game>#clocks:not([hidden]){
+ display:grid;position:fixed;z-index:26;
+ bottom:10px;left:calc(var(--shell-rail) + (100vw - var(--shell-rail))/2);
+ transform:translateX(-50%);width:min(480px,calc(100vw - var(--shell-rail) - 35px));
+ margin:0;gap:5px;pointer-events:none;
+ padding:5px;border-radius:10px;background:#07140fd6
+}
+body.desktop-shell[data-guest-timed=true] .clock-box{padding:5px 3px}
+body.desktop-shell #game>#msg:not(:empty){
+ position:fixed;top:55px;left:calc(var(--shell-rail) + 12px);
+ z-index:42;max-width:450px;padding:10px;border:1px solid #956945;
+ border-radius:8px;background:#21180eed
+}
+body.desktop-shell #game>#connection-state:not([hidden]),
+body.desktop-shell #game>#draw-response:not([hidden]),
+body.desktop-shell #game>#repetition-review:not([hidden]){
+ position:fixed;z-index:45;left:calc(var(--shell-rail) + (100vw - var(--shell-rail))/2);
+ transform:translateX(-50%);max-width:min(540px,calc(100vw - var(--shell-rail) - 20px));
+ width:100%;background:#17241cf0
+}
+body.desktop-shell #game>#connection-state:not([hidden]){bottom:14px}
+body.desktop-shell #game>#draw-response:not([hidden]),
+body.desktop-shell #game>#repetition-review:not([hidden]){
+ top:50%;transform:translate(-50%,-50%)
+}
+body.desktop-shell #capture-overlay{top:auto;bottom:22px;left:50%}
+body.desktop-shell #shell-qr-column{
+ position:fixed;top:0;bottom:0;left:0;z-index:38;
+ width:var(--shell-rail);padding:12px 9px 10px;
+ display:flex;flex-direction:column;align-items:center;
+ justify-content:space-between;gap:8px;
+ background:linear-gradient(140deg,#172a21,#0a1711 68%,#16231b);
+ border-right:2px solid #bd995b;box-shadow:6px 0 26px #0006;
+ overflow-y:auto;overscroll-behavior:contain;
+ scrollbar-width:thin
+}
+body.desktop-shell .shell-rail-brand{
+ display:flex;align-items:center;gap:5px;
+ color:#f0c78a;font-weight:900;font-size:1.24rem;letter-spacing:.025em;
+ text-shadow:0 0 14px #b6966644
+}
+body.desktop-shell .shell-rail-brand span{font-size:.72rem}
+body.desktop-shell .shell-qr-card{
+ width:100%;min-height:150px;margin:0;padding:9px 5px;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+ border:1px solid #8b7757;border-radius:10px;
+ background:linear-gradient(#1b3026,#11221b);text-align:center
+}
+body.desktop-shell .shell-qr-card figcaption{
+ font-size:.76rem;font-weight:850;letter-spacing:.10em;color:#f2d7a4
+}
+body.desktop-shell .shell-qr-card img:not([hidden]){
+ display:block;width:min(100%,145px);height:auto;aspect-ratio:1;
+ border:6px solid #fff;border-radius:7px;background:#fff;
+ image-rendering:auto
+}
+body.desktop-shell .shell-qr-card p{
+ color:#d4d9c6;line-height:1.35;font-size:.7rem;margin:0
+}
+body.desktop-shell .shell-qr-card.shell-qr-offline{
+ border-style:dashed;opacity:.77
+}
+body.desktop-shell .shell-qr-card.shell-qr-offline img{display:none!important}
+body.desktop-shell .shell-rail-middle{
+ display:flex;flex-direction:column;gap:7px;
+ align-items:center;justify-content:center;flex:1;min-height:30px;
+ color:#a88a57;opacity:.8
+}
+body.desktop-shell .shell-rail-middle span{font-size:1.22rem;line-height:1}
+body.desktop-shell .shell-rail-middle small{
+ font-size:.56rem;letter-spacing:.15em;writing-mode:vertical-rl
+}
+body.desktop-shell #shell-network-status{
+ color:#d7bc8d;font-size:.67rem;text-align:center;line-height:1.35;
+ border-top:1px solid #615844;padding-top:8px;width:100%
+}
+body.desktop-shell #shell-empty-board:not([hidden]){
+ position:fixed;left:calc(var(--shell-rail) + (100vw - var(--shell-rail))/2);
+ top:50%;transform:translate(-50%,-50%);z-index:36;
+ width:min(460px,calc(100vw - var(--shell-rail) - 40px));
+ padding:25px;color:#f0d1a0;text-align:center;
+ background:#0c1d17e8;border:1px solid #bda272;border-radius:14px;
+ box-shadow:0 12px 44px #0008;line-height:1.6;pointer-events:none
+}
+/* Real window-like modal panels over the immersive fullscreen board;
+   app logic and controls are the same DOM nodes as in DEV8. */
+body.desktop-shell .shell-window{
+ width:min(750px,calc(100vw - 36px));max-width:none;
+ max-height:calc(100dvh - 46px);overflow-y:auto;
+ padding:22px 24px 26px;color:#f1e5d1;
+ background:#1c2b23;border:1px solid #d0af77;
+ border-radius:13px;box-shadow:0 14px 65px #000d;
+}
+body.desktop-shell .shell-window.shell-wide-window{
+ width:min(1060px,calc(100vw - 32px))
+}
+body.desktop-shell .shell-window:not([open]){display:none!important}
+body.desktop-shell .shell-window::backdrop{background:#030b08c9}
+body.desktop-shell .shell-window-heading{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:16px;padding-bottom:14px;margin-bottom:15px;border-bottom:1px solid #64715c
+}
+body.desktop-shell .shell-window-heading h2{
+ margin:0;font-size:1.45rem;color:#edcc91
+}
+body.desktop-shell .shell-window-heading .shell-close{
+ padding:5px 11px;min-width:40px;min-height:40px;
+ background:#2d251b;color:#f8d7ab;border-color:#ac8c65;
+ font-size:1.45rem;line-height:1
+}
+body.desktop-shell .shell-window p{line-height:1.4}
+body.desktop-shell .shell-window-foot{color:#b8c3ae;font-size:.83rem}
+body.desktop-shell #shell-new-content .host-actions{
+ display:flex;align-items:center;gap:18px
+}
+body.desktop-shell #shell-game-content #host-game-controls{
+ background:#192b23;padding:10px
+}
+body.desktop-shell #shell-settings-content>.board-tools{
+ display:flex;align-items:center;flex-wrap:wrap;
+ gap:12px;margin-top:22px;border-top:1px solid #718061;
+ padding:18px 0 6px;background:transparent
+}
+body.desktop-shell #shell-settings-content>.board-tools:before{
+ content:'Affichage et son (modifications immédiates)';
+ width:100%;font-weight:800;color:#f1cd94
+}
+body.desktop-shell #shell-settings-content>.board-tools label{
+ font-size:.92rem
+}
+body.desktop-shell #shell-settings-content>.board-tools select{font-size:.92rem}
+body.desktop-shell #shell-settings-content .game-setup{
+ display:grid;grid-template-columns:1fr 1fr;gap:6px 12px
+}
+body.desktop-shell #shell-settings-content .game-setup label{align-items:center}
+body.desktop-shell #shell-saves-content .saved-games{
+ margin:8px 0;padding:0;border:none
+}
+body.desktop-shell #shell-saves-content #game-list{
+ display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:10px 0 20px
+}
+body.desktop-shell #shell-saves-content .game-entry{width:100%}
+body.desktop-shell #shell-saves-content .game-select{flex:1}
+body.desktop-shell #shell-saves-content #save-leave,
+body.desktop-shell #shell-saves-content #resume-game{
+ margin:8px 10px 0 0
+}
+body.desktop-shell #shell-connections-content #invitations{
+ grid-template-columns:minmax(140px,190px) minmax(0,1fr) minmax(140px,190px)
+}
+body.desktop-shell #shell-history-content #moves{max-height:none;line-height:1.75}
+@media(max-width:800px){
+ :root{--shell-rail:134px}
+ body.desktop-shell .shell-qr-card img:not([hidden]){max-width:116px}
+ body.desktop-shell .shell-qr-card p{font-size:.65rem}
+ body.desktop-shell .shell-rail-middle small{display:none}
+ body.desktop-shell #shell-settings-content .game-setup{grid-template-columns:1fr}
+}
+@media(max-height:640px){
+ body.desktop-shell #shell-qr-column{padding:5px;gap:4px}
+ body.desktop-shell .shell-qr-card{padding:4px;min-height:105px;gap:2px}
+ body.desktop-shell .shell-qr-card img:not([hidden]){max-width:88px;border-width:4px}
+ body.desktop-shell .shell-qr-card p{display:none}
+ body.desktop-shell .shell-rail-middle{min-height:0}
+}
+
+/* DEV11: approvals present only the currently free camps, or a single
+   tournament-assigned one. The reject action remains clearly distinct. */
+.pending-request{
+ display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
+ margin:10px 0;padding:10px 12px;border:1px solid #61715e;
+ border-radius:9px;background:#0c1e17
+}
+.pending-request>span{flex:1 1 240px;line-height:1.4}
+.pending-request>em{font-size:.83rem;color:#f4bba1}
+.pending-request button{min-height:40px;padding:7px 13px}
+.pending-request .pending-reject{
+ background:#34251f;color:#f1c0b4;border:1px solid #9b7061
+}
+.pending-request .pending-approve{
+ background:#bba06d;color:#172017;font-weight:750
+}
+.pending-request button:disabled{opacity:.6}
+body.desktop-shell .tournament-create{
+ display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;
+ padding:14px;margin-bottom:14px;border:1px solid #72816b;
+ border-radius:12px;background:#11241b
+}
+body.desktop-shell .tournament-create h3,
+body.desktop-shell .tournament-create>label:has(textarea),
+body.desktop-shell .tournament-create>p{grid-column:1 / -1}
+body.desktop-shell .tournament-create h3{margin:2px 0 8px;color:#f4d59d}
+body.desktop-shell .tournament-create label{display:flex;flex-direction:column;gap:6px}
+body.desktop-shell .tournament-create input,
+body.desktop-shell .tournament-create select,
+body.desktop-shell .tournament-create textarea{
+ width:100%;min-height:40px;padding:8px;color:#f6ead7;
+ background:#111b16;border:1px solid #8c8a6a;border-radius:7px
+}
+body.desktop-shell .tournament-create textarea{resize:vertical;min-height:105px}
+body.desktop-shell .tournament-create button{justify-self:start}
+body.desktop-shell .tournament-create p{font-size:.84rem;margin:0;color:#d3d6bb}
+body.desktop-shell #tournament-message:not(:empty){
+ padding:9px 12px;background:#193224;border:1px solid #5b8367;
+ border-radius:8px
+}
+body.desktop-shell #tournament-message[data-error=true]{
+ background:#37221d;color:#f2c5b5;border-color:#a36e59
+}
+body.desktop-shell .tournament-item{
+ margin:14px 0;padding:13px;border:1px solid #8c865b;border-radius:10px;
+ background:#15241bc9
+}
+body.desktop-shell .tournament-item h3{margin:0;color:#f2d6a1}
+body.desktop-shell .tournament-item h4{margin:14px 0 6px;color:#e3c694}
+body.desktop-shell .tournament-item .tournament-match{
+ display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;
+ padding:7px;border-bottom:1px solid #65705566
+}
+body.desktop-shell .tournament-match span{flex:1 1 260px}
+body.desktop-shell .tournament-match em{font-size:.78rem;color:#bdbfa9}
+body.desktop-shell .tournament-match strong{font-size:.85rem;color:#dfca9e}
+body.desktop-shell .tournament-item button{font-size:.86rem;padding:7px 12px}
+body.desktop-shell .tournament-next{margin-top:15px}
+@media(max-width:620px){
+ body.desktop-shell .tournament-create{grid-template-columns:1fr}
+}

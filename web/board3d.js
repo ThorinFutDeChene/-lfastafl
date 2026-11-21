@@ -2,6 +2,10 @@
 import * as THREE from 'three';
 import {OrbitControls} from './vendor/three/OrbitControls.js';
 import {createFigurine} from './figurines3d.js';
+import {CaptureCinematic} from './cinematic3d.js';
+import {KingEscapeCinematic} from './king-escape3d.js';
+import {KingSiegeCinematic} from './king-siege3d.js';
+import {MoveAnimation} from './move3d.js';
 
 const SIZE = 11;
 const SURFACE = 0.12;
@@ -45,6 +49,10 @@ export class Board3D {
     this._piecePools = {N: [], E: [], R: []};
     this._visiblePieces = [];
     this._pieceCounts = {N: 0, E: 0, R: 0};
+    this.captureCinematic = new CaptureCinematic(this);
+    this.escapeCinematic = new KingEscapeCinematic(this);
+    this.siegeCinematic = new KingSiegeCinematic(this);
+    this.moveAnimation = new MoveAnimation(this);
     this._raycaster = new THREE.Raycaster();
     this._pointer = new THREE.Vector2();
     this._boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -SURFACE);
@@ -323,7 +331,13 @@ export class Board3D {
     const escapeMaterial = emblemMaterial('escape');
     for (const x of [-5, 5]) for (const z of [-5, 5]) {
       const marker = this._mesh(emblemGeometry, escapeMaterial, [x, SURFACE + 0.004, z], this.cornerEmblems);
-      marker.rotation.set(-Math.PI / 2, 0, x * z < 0 ? 0 : Math.PI / 2);
+      // The canvas arrow points to +X/+Y (north-east) in plane space.
+      // After laying the plane flat, +Y becomes -Z in world space.
+      // All FOUR corners need distinct rotations: the arrow must point
+      // away from the centre on both axes, regardless of camera angle.
+      const outwardAngle = Math.atan2(-z, x) - Math.PI / 4;
+      marker.rotation.set(-Math.PI / 2, 0, outwardAngle);
+      marker.name = `Sortie vers l'extérieur (${x}, ${z})`;
     }
     this.scene.add(this.cornerEmblems);
     this.pieces = new THREE.Group();
@@ -401,6 +415,10 @@ export class Board3D {
       changed = true;
     }
     const boardKey = board.map(row => row.join('')).join('');
+    if (this.captureCinematic.active && this._boardKey && boardKey !== this._boardKey) this.captureCinematic.cancel();
+    if (this.escapeCinematic.active && this._boardKey && boardKey !== this._boardKey) this.escapeCinematic.cancel();
+    if (this.siegeCinematic.active && this._boardKey && boardKey !== this._boardKey) this.siegeCinematic.cancel();
+    if (this.moveAnimation.active && this._boardKey && boardKey !== this._boardKey) this.moveAnimation.cancel();
     if (boardKey !== this._boardKey) {
       this._boardKey = boardKey;
       const used = {N: 0, E: 0, R: 0};
@@ -484,7 +502,7 @@ export class Board3D {
   }
 
   _canStartPiece(position) {
-    return Boolean(position && this._view.interactive && !this._view.disabled &&
+    return Boolean(position && !this.moveAnimation.active && this._view.interactive && !this._view.disabled &&
       this._view.board[position[0]][position[1]] !== '.' &&
       this.callbacks.canDrag && this.callbacks.canDrag(...position));
   }
@@ -544,7 +562,7 @@ export class Board3D {
     if (gesture.kind === 'piece' && gesture.started) {
       const to = this._pick(event.clientX, event.clientY, true);
       if (to && !sameSquare(to, gesture.from)) this._invoke('onDrop', [...gesture.from], to);
-    } else if (!gesture.moved && !this._view.disabled && this._view.interactive) {
+    } else if (!gesture.moved && !this.moveAnimation.active && !this._view.disabled && this._view.interactive) {
       const square = this._pick(event.clientX, event.clientY);
       if (square && sameSquare(square, gesture.from)) this._invoke('onClick', ...square);
     }
@@ -690,8 +708,41 @@ export class Board3D {
     this._requestDraw();
   }
 
+  playMove(record, options) {
+    if (this.captureCinematic.active || this.escapeCinematic.active || this.siegeCinematic.active) return false;
+    return this.moveAnimation.start(record, options);
+  }
+
+  cancelMove() {
+    this.moveAnimation.cancel();
+  }
+
+  playCapture(record, options) {
+    this.moveAnimation.cancel();
+    this.captureCinematic.cancel();
+    this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
+    if (record?.reason === 'king_captured' && record?.winner === 'dwarf' &&
+        record?.piece === 'N') return this.siegeCinematic.start(record, options);
+    if (record?.reason === 'escape' && record?.piece === 'R' &&
+        record?.winner === 'elf') return this.escapeCinematic.start(record, options);
+    return this.captureCinematic.start(record, options);
+  }
+
+  cancelCapture() {
+    this.captureCinematic.cancel();
+    this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
+  }
+
   setActive(value) {
     if (this.disposed) return;
+    if (!value) {
+      this.captureCinematic.cancel();
+      this.escapeCinematic.cancel();
+      this.siegeCinematic.cancel();
+      this.moveAnimation.cancel();
+    }
     this.active = Boolean(value) && !this.lost;
     if (this.controls) this.controls.enabled = this.active;
     if (!this.active) {
@@ -724,6 +775,10 @@ export class Board3D {
 
   _fail(error) {
     if (this.disposed || this.lost) return;
+    this.captureCinematic.cancel();
+    this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
+    this.moveAnimation.cancel();
     this.lost = true;
     this.active = false;
     this._cancelGesture();
@@ -749,6 +804,66 @@ export class Board3D {
       mode: this._view.mode, selected: this._view.selected ? [...this._view.selected] : null,
       legalCount: (this._view.legal || []).length, captureCount: (this._view.captures || []).length, quality: this.quality,
       active: this.active, disposed: this.disposed, renders: this.renderCount,
+      motion: {active: this.moveAnimation.active, key: this.moveAnimation.key,
+        progress: this.moveAnimation.progress,from: this.moveAnimation.from,
+        to: this.moveAnimation.to},
+      cinematic: {active: this.captureCinematic.active || this.escapeCinematic.active ||
+          this.siegeCinematic.active,
+        progress: this.siegeCinematic.active ? this.siegeCinematic.progress :
+          this.escapeCinematic.active ? this.escapeCinematic.progress :
+          this.captureCinematic.progress,
+        key: this.captureCinematic.key, shardCount: this.captureCinematic.actors?.reduce(
+          (sum, actor) => sum + actor.shards.length, 0) || 0,
+        articulated: this.captureCinematic.active &&
+          Boolean(this.captureCinematic.attackerRig?.right),
+        victims: this.captureCinematic.actors?.length || 0,
+        style: this.siegeCinematic.active ? 'king-last-stand' :
+          this.escapeCinematic.active ? 'royal-cavalry' :
+          this.captureCinematic.active
+          ? (this.captureCinematic.throne?.style ||
+             this.captureCinematic.flank?.style || 'combo') : null,
+        throne: this.captureCinematic.throne ? {
+          style: this.captureCinematic.throne.style,
+          victimKind: this.captureCinematic.throne.plan.victimKind,
+          target: [...this.captureCinematic.throne.plan.throne],
+          attacker: [...this.captureCinematic.throne.plan.attacker],
+          pause: [...this.captureCinematic.throne.plan.pause],
+          phase: this.captureCinematic.throne.phase,
+          rubble: this.captureCinematic.throne.rubble?.length || 0,
+          visibleRubble: this.captureCinematic.throne.rubble?.filter(x => x.visible).length || 0,
+        } : null,
+        flank: this.captureCinematic.flank ? {
+          supporter: [...this.captureCinematic.flank.plan.supporter],
+          pause: [...this.captureCinematic.flank.plan.pause],
+          supportAnimated: Boolean(this.captureCinematic.flank.supporter),
+          sword: Boolean(this.captureCinematic.flank.sword),
+          splitHalves: this.captureCinematic.flank.split?.parts?.length || 0,
+          attackerAt: this.captureCinematic.attacker.position.toArray(),
+          phase: this.captureCinematic.flank.phase || 0,
+        } : null,
+        duel: this.captureCinematic.duel ?? -1,
+        stage: this.captureCinematic.stage || '',
+        sparkCount: this.captureCinematic.actors?.reduce((sum, actor) =>
+          sum + (actor.sparks?.filter(spark => spark.visible).length || 0), 0) || 0},
+      siege: {active: this.siegeCinematic.active,
+        configuration: this.siegeCinematic.plan?.configuration || null,
+        king: this.siegeCinematic.plan?.king || null,
+        attackers: this.siegeCinematic.dwarves?.length || 0,
+        movedDwarves: this.siegeCinematic.dwarves?.filter(d => d.entry.moved).length || 0,
+        stage: this.siegeCinematic.stage || '',
+        fragments: this.siegeCinematic.shards?.length || 0,
+        crownVisible: Boolean(this.siegeCinematic.crown?.visible),
+        originalHidden: this.siegeCinematic._hidden?.length || 0,
+        progress: this.siegeCinematic.progress},
+      escape: {active: this.escapeCinematic.active,
+        stage: this.escapeCinematic.stage,
+        horses: this.escapeCinematic.horses?.length || 0,
+        mountedKing: this.escapeCinematic.horses?.[0]?.rider?.name || null,
+        escortCount: this.escapeCinematic.horses?.filter(h => h.kind === 'E').length || 0,
+        saluteCount: this.escapeCinematic.reactions?.filter(h => h.kind === 'E').length || 0,
+        protestCount: this.escapeCinematic.reactions?.filter(h => h.kind === 'N').length || 0,
+        phases: this.escapeCinematic.phases || null,
+        exit: this.escapeCinematic.plan?.to || null},
       camera: {position: this.camera.position.toArray(), target: this.controls?.target.toArray() || [0, 0, 0]},
       resolution: {width: this.width, height: this.height, pixelRatio: this.renderer?.getPixelRatio() || 1},
       graphics: this.renderer ? {calls: this.renderer.info.render.calls,
@@ -758,6 +873,10 @@ export class Board3D {
 
   dispose() {
     if (this.disposed) return;
+    this.captureCinematic.cancel();
+    this.escapeCinematic.cancel();
+    this.siegeCinematic.cancel();
+    this.moveAnimation.cancel();
     this.disposed = true;
     this.active = false;
     this._cancelFrame();

@@ -3,14 +3,75 @@ import secrets
 import uuid
 
 
-def balanced_camps(a,b,history):
-    """Minimize total post-game absolute elf/dwarf differences."""
-    def delta(p):
-        return sum(1 if item['camp']=='elf' else -1 for item in history.get(p,[]))
-    score_ab=abs(delta(a)+1)+abs(delta(b)-1)
-    score_ba=abs(delta(a)-1)+abs(delta(b)+1)
-    if score_ab==score_ba: return ('elf','dwarf') if secrets.randbelow(2)==0 else ('dwarf','elf')
-    return ('elf','dwarf') if score_ab<score_ba else ('dwarf','elf')
+def balanced_camps(a, b, history):
+    """Allocate the least-played camp, then recency, then a genuine draw.
+
+    Each match always has one elf and one dwarf. Once a participant has
+    played, prefer reducing the WORST per-player imbalance first, then
+    the total imbalance. If the participants still want the same camp,
+    the one who played that contested camp most recently gets the OTHER.
+    Round numbers (rather than list positions) handle tournament byes.
+    """
+    def entries(player):
+        return history.get(player, [])
+
+    def difference(player):
+        return sum(1 if item['camp'] == 'elf' else -1 for item in entries(player))
+
+    def other(camp):
+        return 'dwarf' if camp == 'elf' else 'elf'
+
+    def score(camp_a):
+        after_a = difference(a) + (1 if camp_a == 'elf' else -1)
+        after_b = difference(b) + (1 if camp_a == 'dwarf' else -1)
+        return (max(abs(after_a), abs(after_b)), abs(after_a) + abs(after_b))
+
+    # Both players' first tournament match must use an unbiased draw.
+    if not entries(a) and not entries(b):
+        return ('elf', 'dwarf') if secrets.randbelow(2) == 0 else ('dwarf', 'elf')
+
+    score_elf = score('elf')
+    score_dwarf = score('dwarf')
+    if score_elf < score_dwarf:
+        return ('elf', 'dwarf')
+    if score_dwarf < score_elf:
+        return ('dwarf', 'elf')
+
+    def preferred(player):
+        d = difference(player)
+        if d < 0:
+            return 'elf'
+        if d > 0:
+            return 'dwarf'
+        games = entries(player)
+        return other(games[-1]['camp']) if games else None
+
+    pa, pb = preferred(a), preferred(b)
+    if pa and pb and pa != pb:
+        return (pa, pb)
+    if pa and not pb:
+        return (pa, other(pa))
+    if pb and not pa:
+        return (other(pb), pb)
+
+    def last_round(player, camp):
+        # Historical saves may contain only {'camp': ...}. Fallback to
+        # their chronological list position without inventing timestamps.
+        for index in range(len(entries(player)) - 1, -1, -1):
+            item = entries(player)[index]
+            if item['camp'] == camp:
+                return item.get('round', index + 1)
+        return -1
+
+    if pa and pb and pa == pb:
+        recent_a, recent_b = last_round(a, pa), last_round(b, pb)
+        if recent_a < recent_b:
+            return (pa, other(pa))
+        if recent_b < recent_a:
+            return (other(pa), pa)
+
+    # Same count, same recency (or both never played): last resort lottery.
+    return ('elf', 'dwarf') if secrets.randbelow(2) == 0 else ('dwarf', 'elf')
 
 class Tournament:
     FORMATS=('knockout','round_robin','swiss')
@@ -36,8 +97,8 @@ class Tournament:
         if m.get('winner') is not None:raise ValueError('Already scored')
         if winner not in (m['a'],m['b'],'draw'):raise ValueError('Invalid winner')
         m['winner']=winner
-        self.history[m['a']].append({'camp':m['camp_a']})
-        self.history[m['b']].append({'camp':m['camp_b']})
+        self.history.setdefault(m['a'], []).append({'camp':m['camp_a'], 'round':m['round']})
+        self.history.setdefault(m['b'], []).append({'camp':m['camp_b'], 'round':m['round']})
     def next_round(self):
         if any(m.get('winner') is None for m in self.matches):raise ValueError('Finish current round')
         if self.format=='swiss' and self.round_no>=self.rounds:return []

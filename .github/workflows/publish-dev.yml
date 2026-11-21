@@ -32,15 +32,30 @@ jobs:
       - name: Install test dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y python3-qrcode python3-pil
+          sudo apt-get install -y python3-qrcode python3-pil python3-pyqt6 python3-pyqt6.qtwebengine xvfb xauth x11-utils
       - name: Run unit and integration tests
         run: PYTHONPATH=src python3 -m unittest discover -s tests -v
+      - name: Smoke-test actual native QtWebEngine startup under Xvfb
+        timeout-minutes: 3
+        run: xvfb-run -a -s '-screen 0 1440x900x24' /usr/bin/python3 tests/native_qt_smoke.py
       - name: Set up Node for UI tests
         uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Check delayed move responses
         run: node tests/ui_move_race.cjs
+      - name: Verify generated audio and independent volume controls
+        run: node tests/ui_audio.cjs
+      - name: Verify deterministic cinematic fight choreography
+        run: node tests/ui_combat_motion.cjs
+      - name: Verify flank combat storyboards and supporting allies
+        run: node tests/ui_flank_capture.cjs
+      - name: Verify the historical and corner royal escape choreography
+        run: node tests/ui_king_escape.cjs
+      - name: Verify rule-specific king defeat choreography (2, 3, 4 dwarves)
+        run: node tests/ui_king_siege.cjs
+      - name: Verify two-way captures against the hostile empty throne
+        run: node tests/ui_throne_capture.cjs
       - name: Install tutorial browser test dependencies
         timeout-minutes: 10
         run: |
@@ -51,6 +66,11 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_tutorial.cjs
+      - name: Verify native single-board fullscreen host shell and both QR codes
+        timeout-minutes: 4
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_desktop.cjs
       - name: Exercise the 3D board in Chromium
         timeout-minutes: 5
         env:

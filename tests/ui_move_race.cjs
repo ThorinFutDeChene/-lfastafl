@@ -96,6 +96,8 @@ function makeDocument() {
     return elements.get(id);
   };
   document.createElement = tag => new Element(tag);
+  document.body = new Element('body');
+  document.addEventListener = () => {}; // Guest view keyboard shortcut is not exercised here.
   document.activeElement = new Element('body');
   for (const camp of ['elf', 'dwarf']) {
     new Element().append(document.getElementById('clock-' + camp));
@@ -187,6 +189,8 @@ async function makeHarness() {
       flat.hidden = true; // This scenario represents the 3D drag/drop callbacks.
     }
     update(state) { this.state = clone(state); }
+    // Presentation-only client animation must never change the legal move race.
+    async playMove() { return false; }
   }
   const context = vm.createContext({
     document, fetch, URLSearchParams,

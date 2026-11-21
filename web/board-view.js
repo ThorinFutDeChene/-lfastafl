@@ -155,6 +155,31 @@
       }
     }
 
+    async playMove(event, options) {
+      if (!this.active || this.mode !== '3d' || this.disposed) return false;
+      // Delayed GL initialization may complete after an unrelated server state.
+      const requestedState = this.state;
+      if (!this.renderer) await this.ensureRenderer();
+      if (this.disposed || !this.active || this.mode !== '3d' || !this.renderer ||
+          this.state !== requestedState) return false;
+      return this.renderer.playMove(event, options);
+    }
+
+    cancelMove() {
+      this.renderer?.cancelMove();
+    }
+
+    async playCapture(event, options) {
+      if (!this.active || this.mode !== '3d' || this.disposed) return false;
+      if (!this.renderer) await this.ensureRenderer();
+      if (this.disposed || !this.active || this.mode !== '3d' || !this.renderer) return false;
+      return this.renderer.playCapture(event, options);
+    }
+
+    cancelCapture() {
+      this.renderer?.cancelCapture();
+    }
+
     setMode(mode) {
       if (this.disposed || !['2d', '3d'].includes(mode)) return;
       this.mode = mode;

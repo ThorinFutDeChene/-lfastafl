@@ -38,6 +38,12 @@ def normalize_settings(value):
     if type(grace) is not int or not 3 <= grace <= 60:
         raise ValueError('Disconnection grace must be between 3 and 60 seconds')
     settings['disconnect_grace_seconds'] = grace
+    # Existing API callers and old saved matches retain instant moves.
+    # The host UI explicitly opts in to standard 8-second capture scenes.
+    cinema = settings.get('capture_cinematic_seconds', 0)
+    if type(cinema) is not int or cinema not in (0, 4, 8, 12):
+        raise ValueError('Capture duration must be disabled, 4, 8 or 12 seconds')
+    settings['capture_cinematic_seconds'] = cinema
     return settings
 
 

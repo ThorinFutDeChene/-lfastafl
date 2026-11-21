@@ -64,11 +64,126 @@ for camp in ('dwarf', 'elf'):
     sessions[camp] = store.approve(request, camp)
 request = store.request(game.id, store.invites[game.id]['spectator'], '3D spectator')
 sessions['spectator'] = store.approve(request)
+# Dedicated tiny legal capture, with a timed 8-second cinematic.
+from alfastafl.core import EMPTY
+battle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
+    'capture_cinematic_seconds':12})
+battle.board = [[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(5,1,'N'),(5,4,'E'),(5,5,'N'),(8,8,'R')]:
+    battle.board[row][col] = piece
+battle.positions=[battle.signature()]
+store.save(battle)
+battle_sessions={}
+for camp in ('dwarf', 'elf'):
+    request=store.request(battle.id,store.invites[battle.id]['player'],'cinema '+camp)
+    battle_sessions[camp]=store.approve(request,camp)
+request=store.request(battle.id,store.invites[battle.id]['spectator'],'cinema viewer')
+battle_sessions['spectator']=store.approve(request)
+# Independent elf capture: the arriving archer and the rear sword-bearing
+# ally must bracket a dwarf, which shields the first arrow.
+elfbattle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
+    'capture_cinematic_seconds':12})
+elfbattle.board = [[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(5,1,'E'),(5,4,'N'),(5,5,'E'),(8,8,'R'),(1,8,'N')]:
+    elfbattle.board[row][col] = piece
+elfbattle.turn='elf'
+elfbattle.positions=[elfbattle.signature()]
+store.save(elfbattle)
+elf_sessions={}
+for camp in ('dwarf','elf'):
+    request=store.request(elfbattle.id,store.invites[elfbattle.id]['player'],'elf cinema '+camp)
+    elf_sessions[camp]=store.approve(request,camp)
+request=store.request(elfbattle.id,store.invites[elfbattle.id]['spectator'],'elf cinema viewer')
+elf_sessions['spectator']=store.approve(request)
+# Independent legal king escape by a historical border square (not a corner).
+# The event has NO captures, but still triggers an 8-second victory cinematic.
+royal = store.create('historical', {'time_control':{'mode':'unlimited'},
+    'capture_cinematic_seconds':12})
+royal.board = [[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(1,2,'R'),(4,3,'E'),(8,8,'E'),(3,3,'N'),(9,4,'N')]:
+    royal.board[row][col]=piece
+royal.turn='elf'
+royal.positions=[royal.signature()]
+store.save(royal)
+royal_sessions={}
+for camp in ('dwarf','elf'):
+    request=store.request(royal.id,store.invites[royal.id]['player'],'royal '+camp)
+    royal_sessions[camp]=store.approve(request,camp)
+request=store.request(royal.id,store.invites[royal.id]['spectator'],'royal viewer')
+royal_sessions['spectator']=store.approve(request)
+# King-last-stand fixtures. Both the 2-dwarf historical pair and 4-dwarf
+# Fetlar encirclement are server-confirmed legal winning moves.
+sieges={}
+for name,mode,neighbors in [
+  ('two','historical',[(4,3)]),
+  ('four','fetlar',[(4,3),(3,4),(5,4)]),
+]:
+    match=store.create(mode,{'time_control':{'mode':'unlimited'},
+        'capture_cinematic_seconds':12})
+    match.board=[[EMPTY]*11 for _ in range(11)]
+    for row,col,piece in [(4,4,'R'),(4,7,'N'),(0,8,'E')]+[
+        (r,c,'N') for r,c in neighbors]:
+        match.board[row][col]=piece
+    match.turn='dwarf'
+    match.positions=[match.signature()]
+    store.save(match)
+    seats={}
+    for camp in ('dwarf','elf'):
+        req=store.request(match.id,store.invites[match.id]['player'],
+            'siege '+name+' '+camp)
+        seats[camp]=store.approve(req,camp)
+    req=store.request(match.id,store.invites[match.id]['spectator'],
+        'siege spectator '+name)
+    seats['spectator']=store.approve(req)
+    sieges[name]={'game':match.id,'sessions':seats}
+# The empty central throne is a hostile wall for both camps. These two
+# independent legal captures each involve exactly one attacking soldier.
+throne_battles={}
+for camp,attacker,victim in [('dwarf','N','E'),('elf','E','N')]:
+    match=store.create('fetlar',{'time_control':{'mode':'unlimited'},
+        'capture_cinematic_seconds':12})
+    match.board=[[EMPTY]*11 for _ in range(11)]
+    for row,col,piece in [(5,1,attacker),(5,4,victim),(8,8,'R'),
+                          (1,8,'N'),(9,2,'E')]:
+        match.board[row][col]=piece
+    match.turn=camp
+    match.positions=[match.signature()]
+    store.save(match)
+    seats={}
+    for side in ('dwarf','elf'):
+        req=store.request(match.id,store.invites[match.id]['player'],
+            'throne '+camp+' '+side)
+        seats[side]=store.approve(req,side)
+    req=store.request(match.id,store.invites[match.id]['spectator'],
+        'throne spectator '+camp)
+    seats['spectator']=store.approve(req)
+    throne_battles[camp]={'game':match.id,'sessions':seats}
+# An ordinary capture: elf vs dwarf, with the KING himself as the far
+# friendly support on the throne. It is neither flank elf-elf nor
+# against an EMPTY throne, so this exercises the generic arrow path.
+generic_bow=store.create('fetlar',{'time_control':{'mode':'unlimited'},
+    'capture_cinematic_seconds':12})
+generic_bow.board=[[EMPTY]*11 for _ in range(11)]
+for row,col,piece in [(5,1,'E'),(5,4,'N'),(5,5,'R'),(1,8,'N')]:
+    generic_bow.board[row][col]=piece
+generic_bow.turn='elf'
+generic_bow.positions=[generic_bow.signature()]
+store.save(generic_bow)
+generic_sessions={}
+for side in ('elf','dwarf'):
+    req=store.request(generic_bow.id,store.invites[generic_bow.id]['player'],
+        'generic bow '+side)
+    generic_sessions[side]=store.approve(req,side)
 server = run('127.0.0.1', 0, store)
 def interrupt(*_):
     raise KeyboardInterrupt
 signal.signal(signal.SIGTERM, interrupt)
-print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions}), flush=True)
+print(json.dumps({'port': server.server_address[1], 'game': game.id, 'sessions': sessions,
+    'battle': {'game':battle.id, 'sessions':battle_sessions},
+    'elfbattle': {'game':elfbattle.id, 'sessions':elf_sessions},
+    'royal': {'game':royal.id,'sessions':royal_sessions},
+    'sieges':sieges,'throne_battles':throne_battles,
+    'generic_bow':{'game':generic_bow.id,'sessions':generic_sessions}}), flush=True)
 try:
     server.serve_forever()
 except KeyboardInterrupt:
@@ -150,17 +265,36 @@ async function makeContext(options = {}, {blockedWebGL = false, guest = false} =
     }
     if (url.pathname === '/favicon.ico') return route.fulfill({status: 204, body: ''});
     if (proxiedGuest) {
-      const response = await context.request.fetch(base + url.pathname + url.search, {
-        method: request.method(), data: request.postDataBuffer() || undefined,
-        headers: request.headers()['content-type'] ? {'content-type': request.headers()['content-type']} : undefined,
-      });
-      return route.fulfill({response});
+      try {
+        const response = await context.request.fetch(base + url.pathname + url.search, {
+          method: request.method(), data: request.postDataBuffer() || undefined,
+          headers: request.headers()['content-type'] ? {'content-type': request.headers()['content-type']} : undefined,
+        });
+        // Materialize bytes before fulfilling the response: the API request
+        // context can disappear while a guest tab is being closed. Avoid
+        // referring to a disposed APIResponse after its context closes.
+        const status = response.status();
+        const headers = response.headers();
+        const body = await response.body();
+        return await route.fulfill({status, headers, body});
+      } catch (error) {
+        // A route aborted by a closing guest page is not an application error.
+        // For a still-live page aborting causes its awaited fetch to fail, so
+        // unexpected proxy failures remain visible to the integration test.
+        try { await route.abort('failed'); } catch (_) { /* Closed page. */ }
+        return;
+      }
     }
     return route.continue();
   });
   context.on('response', response => {
     const url = new URL(response.url());
-    if (url.pathname.startsWith('/vendor/') || ['/board3d.js', '/figurines3d.js', '/board-view.js'].includes(url.pathname)) {
+    if (url.pathname.startsWith('/vendor/') ||
+      ['/board3d.js', '/figurines3d.js', '/board-view.js', '/move3d.js', '/cinematic3d.js',
+       '/combat-motion.js', '/flank-capture.js', '/flank-cinematic3d.js',
+       '/escape-motion.js','/king-escape3d.js','/king-siege-motion.js',
+       '/king-siege3d.js','/throne-capture.js','/throne-cinematic3d.js',
+       '/archery3d.js','/soundscape.js'].includes(url.pathname)) {
       assetResponses.set(url.pathname, response.status());
     }
   });
@@ -202,6 +336,28 @@ async function diagnostics(page, prefix = 'game') {
 
 async function nextPaint(page) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+async function expectImmersiveGuest(page, role) {
+  await page.waitForFunction(role => document.body.classList.contains('guest-board-only') &&
+    document.body.dataset.guestRole === role, role);
+  assert.equal(await page.locator('#host').isVisible(), false);
+  assert.equal(await page.locator('#join').isVisible(), false);
+  assert.equal(await page.locator('main > header').isVisible(), false);
+  assert.equal(await page.locator('#moves').isVisible(), false);
+  assert.equal(await page.locator('#game-board-view .board-legend').isVisible(), false);
+  assert.equal(await page.locator('#guest-menu-toggle').isVisible(), true);
+  assert.equal(await page.locator('#game-board-view .board-tools').isVisible(), false);
+  assert.equal(await page.locator('#player-controls').isVisible(), false);
+  const geometry = await page.evaluate(() => {
+    const box = document.getElementById('game-board-3d').getBoundingClientRect();
+    return {x: box.x, y: box.y, width: box.width, height: box.height,
+      vw: document.documentElement.clientWidth, vh: innerHeight,
+      overflow: document.documentElement.scrollWidth > innerWidth + 1};
+  });
+  assert(Math.abs(geometry.x) <= 1 && Math.abs(geometry.y) <= 1 &&
+    Math.abs(geometry.width - geometry.vw) <= 2 &&
+    Math.abs(geometry.height - geometry.vh) <= 2, JSON.stringify(geometry));
+  assert.equal(geometry.overflow, false, 'Immersive board must have no horizontal overflow');
 }
 
 async function squarePoint(page, prefix, position, height = 0.15) {
@@ -372,6 +528,33 @@ async function main() {
     report.initial_renderer = d;
   });
 
+  await scenario('All four corner escape arrows point diagonally OUT of the board', async () => {
+    // The CanvasTexture draws its arrow from (58,128) to (134,52):
+    // +X/+Y in the marker's local plane. Applying each actual THREE
+    // quaternion must make BOTH world X and Z point outwards. The
+    // regression previously rotated only two corners correctly.
+    const corners = await page.evaluate(() => {
+      const markers = [...document.getElementById('game-board-3d').board3d.cornerEmblems.children];
+      return markers.map(marker => {
+        const arrow = marker.position.clone().set(1, 1, 0).normalize().applyQuaternion(marker.quaternion);
+        const x = Math.sign(marker.position.x);
+        const z = Math.sign(marker.position.z);
+        return {x, z, angle: marker.rotation.z, direction: arrow.toArray(),
+          outward: (arrow.x * x + arrow.z * z) / Math.sqrt(2)};
+      });
+    });
+    assert.equal(corners.length, 4, 'Expected a marker on each escape corner');
+    assert.deepEqual(new Set(corners.map(({x, z}) => `${x},${z}`)),
+      new Set(['-1,-1', '-1,1', '1,-1', '1,1']));
+    assert.equal(new Set(corners.map(c => c.angle.toFixed(7))).size, 4,
+      'Each corner needs its OWN 90-degree orientation');
+    for (const corner of corners) {
+      assert(corner.outward > 0.999, 'Arrow must point to the outside diagonal: ' +
+        JSON.stringify(corner));
+      assert(Math.abs(corner.direction[1]) < 0.001, 'Arrows must lie flat on the board');
+    }
+  });
+
   await scenario('Camera orbit, zoom, top view, reset and adaptive quality work independently', async () => {
     await page.locator('#game-board-3d canvas').scrollIntoViewIfNeeded();
     const initial = (await diagnostics(page)).camera;
@@ -411,24 +594,136 @@ async function main() {
   });
 
   await scenario('An authorized player makes a real server-validated move by clicking 3D', async () => {
-    const player = await context.newPage();
-    failurePage = player;
-    await player.goto(base + '/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.dwarf),
-      {waitUntil: 'domcontentloaded'});
-    await ready3D(player, 'game', 37);
-    await player.locator('#game-camera-top').click();
-    await nextPaint(player);
-    const [from, to] = expected.fetlar.first_move;
-    const answer = await clickMove(player, 'game', from, to);
-    assert.deepEqual(answer.event.from, from);
-    assert.deepEqual(answer.event.to, to);
-    const state = await context.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
-    const game = (await state.json()).game;
-    assert.equal(game.history.length, 1);
-    assert.equal(game.board[from[0]][from[1]], '.');
-    assert.equal(game.board[to[0]][to[1]], 'N');
-    await player.close();
-    failurePage = page;
+    // Real guest origin, not loopback: the host must keep its management UI.
+    const playerContext = await makeContext({}, {guest: true});
+    try {
+      const player = await playerContext.newPage();
+      failurePage = player;
+      await player.goto('http://guest.test/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.dwarf),
+        {waitUntil: 'domcontentloaded'});
+      await ready3D(player, 'game', 37);
+      await expectImmersiveGuest(player, 'player');
+      await player.locator('#guest-menu-toggle').click();
+      assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), true);
+      assert.equal(await player.locator('#player-controls').isVisible(), true);
+      await player.locator('#game-camera-top').click();
+      await player.locator('#guest-menu-toggle').click();
+      await nextPaint(player);
+      const [from, to] = expected.fetlar.first_move;
+      const answer = await clickMove(player, 'game', from, to);
+      assert.deepEqual(answer.event.from, from);
+      assert.deepEqual(answer.event.to, to);
+      const state = await context.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
+      const game = (await state.json()).game;
+      assert.equal(game.history.length, 1);
+      assert.equal(game.board[from[0]][from[1]], '.');
+      assert.equal(game.board[to[0]][to[1]], 'N');
+    } finally { await playerContext.close(); failurePage = page; }
+  });
+
+  await scenario('The host can create a 3D game as dwarf and play against a remote elf', async () => {
+    const host = await context.newPage();
+    try {
+      failurePage = host;
+      await host.goto(base, {waitUntil: 'domcontentloaded'});
+      await host.selectOption('#mode', 'fetlar');
+      await host.selectOption('#create-host-camp', 'dwarf');
+      const creation = responseFor(host, 'create', 'POST');
+      await host.locator('#create').click();
+      const response = await creation;
+      assert.equal(response.status(), 200);
+      const created = await response.json();
+      assert(created.game && created.host_session, 'Host needs a real server-issued player session');
+      await ready3D(host, 'game', 37);
+      await host.waitForFunction(id => document.getElementById('host-game-info').textContent.includes(id.slice(0, 8)),
+        created.game);
+      assert.equal(await host.locator('#host').isVisible(), true,
+        'Host must retain LAN and administration controls');
+      assert.equal(await host.locator('#join').isVisible(), true);
+      assert.equal(await host.locator('#host-player-status').textContent(),
+        'PC hôte : Nains');
+      assert.equal(await host.locator('#player-controls').isVisible(), true);
+      assert.equal(await host.locator('#host-play-elf').isDisabled(), false);
+      assert.equal(await host.evaluate(() => document.body.classList.contains('guest-board-only')), false);
+      const session = await host.evaluate(() => sessionStorage.getItem('alfastafl.session'));
+      assert.equal(session, created.host_session);
+      const state1 = await (await context.request.get(base + '/api/state?game=' + created.game +
+        '&session=' + created.host_session)).json();
+      assert.deepEqual(state1.you.role, 'player');
+      assert.deepEqual(state1.you.camp, 'dwarf');
+      assert.equal(state1.seats.dwarf.host, true);
+      const request = await context.request.post(base + '/api/join', {data: {
+        game: created.game, invite: created.invites.player, name: 'Elfe distant',
+      }});
+      assert.equal(request.status(), 200);
+      const approved = await context.request.post(base + '/api/approve', {data: {
+        request: (await request.json()).request, camp: 'elf',
+      }});
+      assert.equal(approved.status(), 200);
+      const guest = await (await approved.json()).session;
+      assert(guest);
+      await host.locator('#game-camera-top').click();
+      const [from, to] = expected.fetlar.first_move;
+      const moved = await clickMove(host, 'game', from, to);
+      assert.deepEqual(moved.event.from, from);
+      assert.deepEqual(moved.event.to, to);
+      const state2 = await (await context.request.get(base + '/api/state?game=' + created.game)).json();
+      assert.equal(state2.game.history.length, 1);
+      assert.equal(state2.game.turn, 'elf');
+      assert.equal(state2.game.board[to[0]][to[1]], 'N');
+      assert.equal(await host.locator('#host-watch').isDisabled(), true,
+        'Host cannot unseat itself after making a move');
+      const stranger = await context.request.post(base + '/api/host/seat', {
+        data: {game: created.game, camp: 'elf'},
+      });
+      assert.equal(stranger.status(), 400, 'Host cannot steal a remotely occupied camp');
+      await capture(host, 'host-playing-dwarves.png', '#game');
+    } finally { await host.close(); failurePage = page; }
+  });
+
+  await scenario('The host may join an existing free camp and spectate again before play', async () => {
+    const created = await context.request.post(base + '/api/create', {data: {mode: 'fetlar'}});
+    assert.equal(created.status(), 200);
+    const data = await created.json();
+    const request = await context.request.post(base + '/api/join', {data: {
+      game: data.game, invite: data.invites.player, name: 'Nain déjà présent',
+    }});
+    assert.equal(request.status(), 200);
+    const approval = await context.request.post(base + '/api/approve', {
+      data: {request: (await request.json()).request, camp: 'dwarf'},
+    });
+    assert.equal(approval.status(), 200);
+    const host = await context.newPage();
+    try {
+      failurePage = host;
+      await host.goto(base + '/?game=' + encodeURIComponent(data.game), {waitUntil: 'domcontentloaded'});
+      await ready3D(host, 'game', 37);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('Nains'));
+      assert.equal(await host.locator('#host-play-dwarf').isDisabled(), true,
+        'Already seated guest must remain the only dwarf');
+      assert.equal(await host.locator('#host-play-elf').isEnabled(), true);
+      assert.equal(await host.locator('#player-controls').isVisible(), false);
+      const seating = responseFor(host, 'host/seat', 'POST');
+      await host.locator('#host-play-elf').click();
+      assert.equal((await seating).status(), 200);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('PC hôte : Elfes'));
+      assert.equal(await host.locator('#player-controls').isVisible(), true);
+      const hostSession = await host.evaluate(() => sessionStorage.getItem('alfastafl.session'));
+      assert(hostSession);
+      await host.reload({waitUntil: 'domcontentloaded'});
+      await ready3D(host, 'game', 37);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('PC hôte : Elfes'));
+      assert.equal(await host.evaluate(() => sessionStorage.getItem('alfastafl.session')), hostSession);
+      const withdrawing = responseFor(host, 'host/seat', 'POST');
+      await host.locator('#host-watch').click();
+      assert.equal((await withdrawing).status(), 200);
+      await host.waitForFunction(() => document.getElementById('host-player-status').textContent.includes('PC hôte : Spectateur'));
+      assert.equal(await host.locator('#player-controls').isVisible(), false);
+      assert.equal(await host.evaluate(() => sessionStorage.getItem('alfastafl.session')), null);
+      const state = await (await context.request.get(base + '/api/state?game=' + data.game)).json();
+      assert.equal(state.seats.dwarf.host, false);
+      assert.equal(state.seats.elf, undefined);
+    } finally { await host.close(); failurePage = page; }
   });
 
   await scenario('Each rule variant is playable through actual 3D tutorial clicks', async () => {
@@ -438,6 +733,12 @@ async function main() {
       const answer = await clickMove(page, 'tutorial', ...expected[mode].capture);
       assert.equal(answer.tutorial.completed, true, mode);
       assert.equal(answer.tutorial.last_move.captured.length, 1, mode);
+      await page.waitForFunction(() => document.getElementById('tutorial-board-3d')
+        .board3d?.getDiagnostics().motion.key.startsWith('1:'));
+      await page.waitForFunction(() => !document.getElementById('tutorial-board-3d')
+        .board3d?.getDiagnostics().motion.active);
+      assert.equal((await diagnostics(page, 'tutorial')).motion.progress, 1,
+        'Even tutorial figures must move fluidly after a successful exercise');
       report.solved.push({mode, lesson: 'capture', input: 'mouse'});
     }
   });
@@ -639,10 +940,13 @@ async function main() {
       await guest.goto('http://guest.test/?game=' + encodeURIComponent(fixture.game) + '&session=' + encodeURIComponent(fixture.sessions.spectator),
         {waitUntil: 'domcontentloaded'});
       await ready3D(guest, 'game', 37);
-      assert.equal(await guest.locator('#host').isVisible(), false);
+      await expectImmersiveGuest(guest, 'spectator');
       assert.equal(await guest.locator('#tutorial-open').count(), 0);
       assert.equal(await guest.locator('#tutorial-panel').count(), 0);
+      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#player-controls').isVisible(), false);
       await guest.locator('#game-camera-top').click();
+      await guest.locator('#guest-menu-toggle').click();
       const from = await squarePoint(guest, 'game', [5, 4], 0.7);
       const to = await squarePoint(guest, 'game', [4, 4]);
       await guest.mouse.click(from.x, from.y);
@@ -660,6 +964,70 @@ async function main() {
       const state = await guestContext.request.get(base + '/api/state?game=' + encodeURIComponent(fixture.game));
       assert.equal((await state.json()).game.history.length, 1);
     } finally { await guestContext.close(); failurePage = page; }
+  });
+
+  await scenario('Approval changes a mobile or tablet guest to full-board mode, and revoked access restores joining', async () => {
+    const created = await context.request.post(base + '/api/create', {data: {
+      mode: 'fetlar', settings: {time_control: {mode: 'move', seconds: 60}},
+    }});
+    assert.equal(created.status(), 200);
+    const {game: guestGame, invites} = await created.json();
+    const mobileContext = await makeContext({viewport: {width: 390, height: 844},
+      deviceScaleFactor: 1, isMobile: true, hasTouch: true}, {guest: true});
+    try {
+      const guest = await mobileContext.newPage();
+      failurePage = guest;
+      await guest.goto('http://guest.test/?game=' + encodeURIComponent(guestGame) +
+        '&invite=' + encodeURIComponent(invites.spectator), {waitUntil: 'domcontentloaded'});
+      await guest.waitForFunction(() => document.getElementById('gid').value !== '');
+      assert.equal(await guest.locator('#join').isVisible(), true);
+      assert.equal(await guest.locator('main > header').isVisible(), true);
+      assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
+      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false);
+      await guest.locator('#name').fill('Spectateur mobile');
+      const joining = responseFor(guest, 'join', 'POST');
+      await guest.locator('#request').click();
+      assert.equal((await joining).status(), 200);
+      const pending = await context.request.get(base + '/api/pending');
+      assert.equal(pending.status(), 200);
+      const request = (await pending.json()).pending.find(x => x.game === guestGame && x.role === 'spectator');
+      assert(request, 'Host must see the spectator waiting for approval');
+      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false,
+        'Sending a request must not enter game-only mode');
+      const approved = await context.request.post(base + '/api/approve',
+        {data: {request: request.id, camp: null}});
+      assert.equal(approved.status(), 200);
+      await ready3D(guest, 'game', 37);
+      await expectImmersiveGuest(guest, 'spectator');
+      assert.equal(await guest.locator('#clocks').isVisible(), true,
+        'Timed games must keep the clocks overlaid on the board');
+      await capture(guest, 'guest-approved-mobile.png');
+      await guest.locator('#guest-menu-toggle').click();
+      await guest.selectOption('#game-board-mode', '2d');
+      assert.equal(await guest.locator('#board').isVisible(), true);
+      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#game-board-view .board-tools').isVisible(), false);
+      const flat = await guest.locator('#board').boundingBox();
+      assert(flat && flat.x >= -1 && flat.y >= -1 &&
+        flat.x + flat.width <= 391 && flat.y + flat.height <= 845,
+        'Accessible 2D board must fit the phone display');
+      await capture(guest, 'guest-approved-mobile-2d.png');
+      await guest.reload({waitUntil: 'domcontentloaded'});
+      await ready3D(guest, 'game', 37);
+      await expectImmersiveGuest(guest, 'spectator');
+      // Actual server-side revocation: host saves and closes this invitation.
+      const revoked = await context.request.post(base + '/api/pause', {data: {game: guestGame}});
+      assert.equal(revoked.status(), 200);
+      await guest.reload({waitUntil: 'domcontentloaded'});
+      await guest.waitForFunction(() => document.getElementById('join').hidden === false &&
+        !document.body.classList.contains('guest-board-only') &&
+        !localStorage.getItem('alfastafl.device.' + new URLSearchParams(location.search).get('game')));
+      assert.equal(await guest.locator('#join').isVisible(), true);
+      assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
+      assert.equal(await guest.locator('#player-controls').isVisible(), false);
+    } finally {
+      await mobileContext.close(); failurePage = page;
+    }
   });
 
   await scenario('When WebGL is unavailable the accessible 2D tutorial remains playable', async () => {
@@ -691,8 +1059,904 @@ async function main() {
     } finally { await blockedContext.close(); failurePage = page; }
   });
 
+  await scenario('Host can permanently delete a paused save but not an active game', async () => {
+    const activeResult = await context.request.post(base + '/api/create', {data: {mode: 'fetlar'}});
+    const pausedResult = await context.request.post(base + '/api/create', {data: {mode: 'historical'}});
+    assert.equal(activeResult.status(), 200);
+    assert.equal(pausedResult.status(), 200);
+    const activeId = (await activeResult.json()).game;
+    const pausedId = (await pausedResult.json()).game;
+    assert.equal((await context.request.post(base + '/api/pause', {
+      data: {game: pausedId},
+    })).status(), 200);
+    const pausedFile = path.join(temporary, 'parties', pausedId + '.alfastafl');
+    assert(fs.existsSync(pausedFile), 'Paused save must exist before deletion');
+    const manager = await context.newPage();
+    try {
+      failurePage = manager;
+      await manager.goto(base + '/?game=' + encodeURIComponent(pausedId), {waitUntil: 'domcontentloaded'});
+      const pausedEntry = manager.locator('#game-list .game-entry').filter({hasText: pausedId.slice(0, 8)});
+      const activeEntry = manager.locator('#game-list .game-entry').filter({hasText: activeId.slice(0, 8)});
+      await pausedEntry.waitFor();
+      await activeEntry.waitFor();
+      await manager.waitForFunction(() => document.getElementById('state').textContent.includes('paused'));
+      assert.equal(await activeEntry.locator('.game-delete').isDisabled(), true,
+        'The UI must refuse deleting active games');
+      const denied = await context.request.post(base + '/api/delete', {data: {game: activeId}});
+      assert.equal(denied.status(), 400, 'The server must refuse deleting an active game');
+      assert.equal(await pausedEntry.locator('.game-delete').isEnabled(), true);
+      const dialogs = [];
+      manager.on('dialog', async dialog => {
+        dialogs.push(dialog.message());
+        if (dialogs.length === 1) await dialog.dismiss();
+        else await dialog.accept();
+      });
+      await pausedEntry.locator('.game-delete').click();
+      assert.equal(dialogs.length, 1);
+      assert.match(dialogs[0], /définitivement/i);
+      assert(fs.existsSync(pausedFile), 'Cancel must preserve the saved file');
+      assert.equal(await pausedEntry.count(), 1);
+      await pausedEntry.locator('.game-delete').click();
+      await manager.waitForFunction(shortId =>
+        !document.getElementById('game-list').textContent.includes(shortId) &&
+        document.getElementById('state').textContent === 'Aucune partie sélectionnée',
+        pausedId.slice(0, 8));
+      assert.equal(dialogs.length, 2);
+      assert(!fs.existsSync(pausedFile), 'Confirmed delete must remove the saved file');
+      assert.equal(await manager.locator('#host-game-controls').isVisible(), false);
+      assert.equal(await manager.locator('#clocks').isVisible(), false);
+      assert.equal(await manager.locator('#invitations').isVisible(), false);
+      assert.equal(await manager.evaluate(() => sessionStorage.getItem('alfastafl.game')), null);
+      assert.equal((await context.request.get(base + '/api/state?game=' + pausedId)).status(), 404);
+      const games = await (await context.request.get(base + '/api/games')).json();
+      assert(!games.games.some(game => game.id === pausedId));
+      assert(games.games.some(game => game.id === activeId), 'Other matches must remain intact');
+      await capture(manager, 'host-saved-games-delete.png');
+    } finally { await manager.close(); failurePage = page; }
+  });
+
+  await scenario('An authorized host and remote spectator see the same smoothly animated move', async () => {
+    const created=await context.request.post(base+'/api/create',{data:{
+      mode:'fetlar',host_camp:'dwarf',settings:{time_control:{mode:'unlimited'}},
+    }});
+    assert.equal(created.status(),200);
+    const data=await created.json();
+    assert(data.host_session);
+    const request=await context.request.post(base+'/api/join',{data:{
+      game:data.game,invite:data.invites.spectator,name:'Public 3D',
+    }});
+    assert.equal(request.status(),200);
+    const approved=await context.request.post(base+'/api/approve',{data:{
+      request:(await request.json()).request,camp:null,
+    }});
+    assert.equal(approved.status(),200);
+    const spectatorSession=(await approved.json()).session;
+    const watcherContext=await makeContext({}, {guest:true});
+    const host=await context.newPage();
+    const spectator=await watcherContext.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(data.game)+
+        '&session='+encodeURIComponent(data.host_session),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',37);
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(data.game)+
+        '&session='+encodeURIComponent(spectatorSession),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',37);
+      await expectImmersiveGuest(spectator,'spectator');
+      const initialCamera=(await diagnostics(host)).camera;
+      const from=[0,3],to=[1,3];
+      // Observe animation *before* making the move. The default interpolation
+      // may last just 500ms: waiting for two network responses first can miss
+      // the whole motion on a slow software-WebGL CI runner.
+      const observe=p=>p.waitForFunction(()=>{
+        const board=document.getElementById('game-board-3d')?.board3d;
+        const moving=board?.moveAnimation;
+        if(!moving?.active||!moving.actor)return false;
+        return {from:[...moving.from],to:[...moving.to],
+          z:moving.actor.position.z,progress:moving.progress};
+      });
+      const seenHost=observe(host),seenSpectator=observe(spectator);
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:data.game,session:data.host_session,from,to,
+      }});
+      assert.equal(move.status(),200);
+      const record=(await move.json()).event;
+      assert.equal(record.n,1);
+      await Promise.all([host.evaluate(()=>load()),spectator.evaluate(()=>load())]);
+      const [hostHandle,spectatorHandle]=await Promise.all([seenHost,seenSpectator]);
+      const first=await hostHandle.jsonValue(),other=await spectatorHandle.jsonValue();
+      assert.deepEqual(first.from,from);assert.deepEqual(other.from,from);
+      assert.deepEqual(first.to,to);assert.deepEqual(other.to,to);
+      assert(first.z>=-5.01&&first.z<-3.999,
+        'A moved sculpture must travel from its original square: '+first.z);
+      assert(other.z>=-5.01&&other.z<-3.999,
+        'A spectator must observe the same fluid movement: '+other.z);
+      await host.waitForFunction(()=>!document.getElementById('game-board-3d')
+        .board3d?.getDiagnostics().motion.active);
+      await spectator.waitForFunction(()=>!document.getElementById('game-board-3d')
+        .board3d?.getDiagnostics().motion.active);
+      const final=await diagnostics(host);
+      assert.equal(final.motion.progress,1);
+      assert(sameCamera(final.camera,initialCamera),'Moving a figure must not move the camera');
+      const figure=await host.evaluate(()=> {
+        const board=document.getElementById('game-board-3d').board3d;
+        const piece=board._visiblePieces.find(f=>f.userData.square?.[0]===1&&
+          f.userData.square?.[1]===3);
+        return piece&&{kind:piece.userData.piece,
+          pos:[piece.position.x,piece.position.y,piece.position.z]};
+      });
+      assert.deepEqual(figure,{kind:'N',pos:[-2,.12,-4]});
+      await host.evaluate(()=>load());
+      assert.equal((await diagnostics(host)).motion.active,false,
+        'Polling the same server snapshot must not replay a move');
+      await host.emulateMedia({reducedMotion:'reduce'});
+      const reduced=await host.evaluate(record=>document.getElementById('game-board-3d')
+        .board3d.playMove(record),record);
+      assert.equal(reduced,false,'Respect accessibility preferences for reduced motion');
+      await host.emulateMedia({reducedMotion:'no-preference'});
+      const repeated=await host.evaluate(record=>document.getElementById('game-board-3d')
+        .board3d.playMove(record),record);
+      assert.equal(repeated,true,'Animation remains reusable after a completed move');
+      await host.selectOption('#game-board-mode','2d');
+      assert.equal((await diagnostics(host)).motion.active,false,
+        'Switching to accessible 2D must restore the exact final piece position');
+      await host.selectOption('#game-board-mode','3d');
+      await ready3D(host,'game',37);
+      assert.deepEqual((await diagnostics(host)).camera,initialCamera);
+      const history=(await (await context.request.get(base+'/api/state?game='+data.game)).json()).game.history;
+      assert.equal(history.length,1,'The presentation must never emit a second server move');
+      // Live movement is verified through exact positions and elapsed frames.
+      // A full screenshot of the continuously animated software-WebGL viewport
+      // is not a gameplay assertion and can stall Chromium on CI.
+      // Earlier static board screenshots are retained for the visual report.
+    }finally{
+      await host.close();await watcherContext.close();failurePage=page;
+    }
+  });
+
+  await scenario('Original offline soundtrack obeys user gestures, mute and independent sliders',async()=>{
+    const listener=await context.newPage();
+    try{
+      failurePage=listener;
+      await listener.goto(base+'/?game='+encodeURIComponent(hostGame),{waitUntil:'domcontentloaded'});
+      await ready3D(listener,'game',37);
+      assert.equal(await listener.locator('#audio-toggle').isVisible(),true);
+      await listener.locator('#audio-toggle').click();
+      await listener.waitForFunction(()=>soundscape.status().ready);
+      const playing=await listener.evaluate(()=>soundscape.status());
+      assert.equal(playing.available,true);
+      assert.equal(playing.enabled,true);
+      await listener.locator('#audio-music').evaluate(input=>{
+        input.value='23';input.dispatchEvent(new Event('input',{bubbles:true}));
+      });
+      await listener.locator('#audio-effects').evaluate(input=>{
+        input.value='67';input.dispatchEvent(new Event('input',{bubbles:true}));
+      });
+      const volumes=await listener.evaluate(()=>({
+        music:soundscape.musicVolume,effects:soundscape.effectsVolume,
+        storedMusic:localStorage.getItem('alfastafl.music-volume'),
+        storedEffects:localStorage.getItem('alfastafl.effects-volume'),
+      }));
+      assert.equal(volumes.music,.23);
+      assert.equal(volumes.effects,.67);
+      assert.equal(volumes.storedMusic,'0.23');
+      assert.equal(volumes.storedEffects,'0.67');
+      await listener.locator('#audio-toggle').click();
+      assert.equal(await listener.evaluate(()=>soundscape.enabled),false);
+      assert.equal(await listener.evaluate(()=>soundscape.status().ready),true,
+        'Muted audio context remains available for enabling later');
+      await listener.reload({waitUntil:'domcontentloaded'});
+      assert.equal(await listener.evaluate(()=>soundscape.enabled),false);
+      assert.equal(await listener.locator('#audio-music').inputValue(),'23');
+      assert.equal(await listener.locator('#audio-effects').inputValue(),'67');
+    }finally{
+      await listener.close();failurePage=page;
+    }
+  });
+
+  await scenario('Magical-chess 3D capture shatters sculptures, pauses clock and can be skipped', async () => {
+    const battle=fixture.battle;
+    assert(battle.game && battle.sessions.dwarf && battle.sessions.elf && battle.sessions.spectator);
+    const host=await context.newPage();
+    const guestContext=await makeContext({}, {guest:true});
+    let spectator;
+    try {
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.dwarf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',4);
+      const originalCamera=(await diagnostics(host)).camera;
+      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
+      const setup=await (await context.request.get(base+'/api/state?game='+battle.game+
+        '&session='+encodeURIComponent(battle.sessions.elf))).json();
+      assert.equal(setup.game.clock.started,true,'Both players must be present to start the clock');
+      spectator=await guestContext.newPage();
+      failurePage=spectator;
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',4);
+      await expectImmersiveGuest(spectator,'spectator');
+      const confirmed=await context.request.post(base+'/api/move',{data:{
+        game:battle.game,session:battle.sessions.dwarf,
+        'from':[5,1],'to':[5,3],
+      }});
+      assert.equal(confirmed.status(),200);
+      const record=(await confirmed.json()).event;
+      assert.deepEqual(record.captured,[[5,4,'E']]);
+      const cut=await (await context.request.get(base+'/api/state?game='+battle.game)).json();
+      assert.equal(cut.cinematic.duration,12);
+      assert.equal(cut.game.clock.started,false,'Clock must be paused by server during combat');
+      const refused=await context.request.post(base+'/api/move',{data:{
+        game:battle.game,session:battle.sessions.elf,
+        'from':[8,8],'to':[8,7],
+      }});
+      assert.equal(refused.status(),400,'No next move until cinematic window ends');
+      await Promise.all([host,spectator].map(p=>p.waitForFunction(() =>
+        document.getElementById('game-board-3d').board3d?.getDiagnostics().cinematic.active)));
+      assert.equal(await host.locator('#capture-overlay').isVisible(),true);
+      assert.equal(await spectator.locator('#capture-overlay').isVisible(),true);
+      assert.equal(await spectator.locator('#host').isVisible(),false);
+      const beforeCamera=await diagnostics(host);
+      assert.equal(beforeCamera.cinematic.shardCount,18,
+        'Each sculpture has eighteen fragments');
+      assert.equal(beforeCamera.cinematic.articulated,true,
+        'The cinematic attacker must have a real articulated rig');
+      assert.equal(beforeCamera.cinematic.victims,1);
+      assert.equal(beforeCamera.cinematic.style,'dwarf-double-axe');
+      assert.deepEqual(beforeCamera.cinematic.flank.supporter,[5,5]);
+      assert.deepEqual(beforeCamera.cinematic.flank.pause,[5,2]);
+      assert.equal(beforeCamera.cinematic.flank.supportAnimated,true);
+      assert.equal(beforeCamera.cinematic.flank.sword,false);
+      assert.equal(beforeCamera.cinematic.duel,0);
+      const rig=await host.evaluate(()=>{
+        const scene=document.getElementById('game-board-3d').board3d.captureCinematic;
+        const check=figure=>['left-arm','right-arm','head','left-leg','right-leg']
+          .every(name=>Boolean(figure.getObjectByName('combat-'+name)));
+        const boardFigure=document.getElementById('game-board-3d').board3d._visiblePieces[0];
+        return {attacker:check(scene.attacker),
+          defender:check(scene.actors[0].figure),
+          boardHasJoints:Boolean(boardFigure?.getObjectByName('combat-right-arm'))};
+      });
+      assert.equal(rig.attacker,true,'Dwarf combat rig has poseable axe, shield and limbs');
+      assert.equal(rig.defender,true,'Elf defender has articulated carved bow and limbs');
+      assert.equal(rig.boardHasJoints,false,
+        'Ordinary pieces must retain the low-draw-call rigid mesh');
+      // Sample the short parry interval deterministically: waiting for a
+      // physical 1-second pose in software WebGL can miss it entirely.
+      const defense=await host.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        const cut=board.captureCinematic;
+        const v=cut.actors[0];
+        cut.flank.update(v.start+(v.end-v.start)*.38);
+        return {angle:v.rig.left.rotation.z,stage:cut.stage,
+          front:cut.attacker.position.toArray(),
+          final:cut.destination.toArray(),
+          style:board.getDiagnostics().cinematic.style};
+      });
+      assert(Math.abs(defense.angle)>1.0,
+        'Elf must raise the bow-protected arm to parry the first dwarf axe');
+      assert.equal(defense.stage,'hache et arc');
+      assert(Math.abs(defense.front[0]-defense.final[0])<.001 &&
+        Math.abs(defense.front[2]-defense.final[2])<.001,
+        'Melee dwarf must fully reach the final square before his axe is parried');
+      assert.equal(defense.style,'dwarf-double-axe');
+      // The previous guard-position test has already proven progress. Never
+      // wait a second time for an active timed scene: a 12-second deadline can
+      // expire while a software-WebGL runner services both browser tabs.
+      assert(!sameCamera(originalCamera,(await diagnostics(host)).camera),
+        'Cinematic must change the personal camera viewpoint');
+      assert.equal(await host.locator('#audio-music').count(),1);
+      assert.equal(await host.locator('#audio-effects').count(),1);
+      assert.equal(await host.locator('#capture-skip').isVisible(),true);
+      const hostSkipped=await host.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        if(!board?.captureCinematic.active)return false;
+        document.getElementById('capture-skip').click();
+        return true;
+      });
+      assert.equal(hostSkipped,true,'Host must be able to skip before scene completion');
+      await host.waitForFunction(() => !document.getElementById('game-board-3d')
+        .board3d?.getDiagnostics().cinematic.active);
+      assert.equal(await host.locator('#capture-overlay').isVisible(),false);
+      assert.equal(await host.locator('#game-board-3d canvas').isVisible(),true);
+      const restored=(await diagnostics(host));
+      assert.equal(restored.pieceCount,3);
+      assert(sameCamera(originalCamera,restored.camera),'Skipping must restore the exact camera view');
+      // The spectator has an independent local cinematic even after the host
+      // skips. Sample the narrow fracture interval directly: software-WebGL
+      // workers cannot guarantee a frame within a short physical-time window.
+      const pose=await spectator.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        const v=cut.actors[0];
+        cut.flank.update(v.start+(v.end-v.start)*.98);
+        return {rightArm:cut.attackerRig.right.rotation.x,
+          fragments:v.shards.length,
+          shown:v.shards.filter(shard=>shard.visible).length,
+          defenderVisible:v.figure.visible};
+      });
+      assert(pose.shown>0,'Shattered sculpture must produce visible 3D fragments');
+      assert.equal(pose.fragments,18);
+      assert.equal(pose.defenderVisible,false,
+        'After fracture the opponent gives way to 3D fragments');
+      assert(Number.isFinite(pose.rightArm));
+      const spectatorSkipped=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        if(!board?.captureCinematic.active)return false;
+        document.getElementById('capture-skip').click();
+        return true;
+      });
+      assert.equal(spectatorSkipped,true,'Spectator must be able to skip their own scene');
+      assert.equal(await spectator.locator('#capture-overlay').isVisible(),false);
+    } finally {
+      await guestContext.close();
+      await host.close();
+      failurePage=page;
+    }
+  });
+
+  await scenario('Elf archer stops short, dwarf blocks arrow, and allied elven sword splits the dwarf', async()=>{
+    const battle=fixture.elfbattle;
+    assert(battle.game && battle.sessions.elf && battle.sessions.dwarf && battle.sessions.spectator);
+    const host=await context.newPage();
+    const watchers=await makeContext({}, {guest:true});
+    const spectator=await watchers.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.elf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',5);
+      const initial=(await diagnostics(host)).camera;
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(battle.game)+
+        '&session='+encodeURIComponent(battle.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',5);
+      await expectImmersiveGuest(spectator,'spectator');
+      // Both opposing player sessions must be seen before a timed match can
+      // start; a spectator does not count as the dwarf's heartbeat.
+      const readyDwarf=await context.request.get(base+'/api/state?game='+
+        battle.game+'&session='+encodeURIComponent(battle.sessions.dwarf));
+      assert.equal(readyDwarf.status(),200);
+      assert.equal((await readyDwarf.json()).game.clock.started,true);
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:battle.game,session:battle.sessions.elf,from:[5,1],to:[5,3],
+      }});
+      assert.equal(move.status(),200);
+      const record=(await move.json()).event;
+      assert.deepEqual(record.captured,[[5,4,'N']]);
+      await Promise.all([host,spectator].map(p=>p.waitForFunction(()=>
+        document.getElementById('game-board-3d')?.board3d?.getDiagnostics().cinematic.active)));
+      const first=await diagnostics(host);
+      assert.equal(first.cinematic.style,'elf-arrow-sword');
+      assert.deepEqual(first.cinematic.flank.supporter,[5,5]);
+      assert.deepEqual(first.cinematic.flank.pause,[5,2]);
+      assert.equal(first.cinematic.flank.splitHalves,2);
+      assert.equal(first.cinematic.flank.sword,true);
+      // Arrival [5,2] is one full legal square short of the final [5,3].
+      const stop=await host.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        cut.flank.update(.30);
+        return {x:cut.attacker.position.x,z:cut.attacker.position.z,
+          stop:cut.flank.pauseAt.toArray(),final:cut.destination.toArray(),
+          ally:cut.flank.supporter.position.toArray(),
+          blocker:cut.actors[0].figure.userData.kind,
+          split:cut.flank.split.parts.length};
+      });
+      assert(Math.abs(stop.x-stop.stop[0])<.01,'Archer must pause at one full square before final');
+      assert.equal(stop.blocker,'N');
+      assert.equal(stop.split,2,'Bronze dwarf must have two distinct clipped halves');
+      assert(!sameCamera(initial,(await diagnostics(host)).camera));
+      // The shaft is nocked on the real LEFT-ARM BOWSTRING, never the
+      // figurine's chest. The first flight frame begins at that same point.
+      const bow=await host.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        const v=cut.actors[0],from=v.start,width=v.end-v.start;
+        cut.flank.update(from+width*.20);
+        const anchor=cut.attacker.getObjectByName('combat-bow-nock');
+        const arrow=cut.projectile;
+        const nock=anchor?.getWorldPosition(cut.attacker.position.clone());
+        const tail=arrow.position.clone().add(
+          arrow.position.clone().set(0,-.205,0).applyQuaternion(arrow.quaternion));
+        const initialError=tail.distanceTo(nock);
+        const initiallyVisible=arrow.visible;
+        const originOnString=arrow.userData.bowOrigin?.every((x,i)=>
+          Math.abs(x-nock.toArray()[i])<.001);
+        cut.flank.update(from+width*.25);
+        const released=arrow.position.clone();
+        const releaseOrigin=arrow.userData.bowOrigin;
+        cut.flank.update(from+width*.32);
+        const advanced=arrow.position.distanceTo(released);
+        return {initialError,initiallyVisible,originOnString,
+          releaseOrigin,advanced,phase:arrow.userData.bowStage,
+          anchorParent:anchor.parent.name};
+      });
+      assert.equal(bow.anchorParent,'combat-left-arm');
+      assert.equal(bow.initiallyVisible,true);
+      assert.equal(bow.originOnString,true);
+      assert(bow.initialError<.005,'Elven arrow tail must touch the actual bowstring');
+      assert(bow.advanced>.05,'Arrow must fly forward FROM the bowstring');
+      assert.equal(bow.phase,'flight');
+      // Dwarf's shield blocks a real 3D arrow, then the ally draws a sword.
+      const swordState=await host.evaluate(()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        cut.flank.update(cut.actors[0].start+
+          (cut.actors[0].end-cut.actors[0].start)*.57);
+        return {sword:cut.flank.sword.getObjectByName('elf-sword-blade')?.isMesh,
+          swordDrawn:cut.flank.sword.visible,
+          originalAllyHidden:cut.flank.allyBody?.visible===false,
+          cutActive:cut.flank.split.parts.length===2,
+          allyRight:cut.flank.allyRight.rotation.x};
+      });
+      assert.equal(swordState.sword,true,'The rear elf must have a modeled 3D sword');
+      assert.equal(swordState.swordDrawn,true,'The sword is drawn after the arrow parry');
+      assert.equal(swordState.originalAllyHidden,true,'No doubled ally on the board');
+      assert(Number.isFinite(swordState.allyRight));
+      // The complete dissection is visible on the local spectator as well.
+      const bronze=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        const cut=board.captureCinematic;
+        cut.flank.update(cut.actors[0].start+
+          (cut.actors[0].end-cut.actors[0].start)*.97);
+        return {halves:cut.flank.split.parts.length,
+          spread:cut.flank.split.parts[0].root.position.distanceTo(
+           cut.flank.split.parts[1].root.position),
+          localClipping:board.renderer.localClippingEnabled,
+          halvesVisible:cut.flank.split.parts.every(x=>x.root.visible)};
+      });
+      assert.equal(bronze.halves,2);
+      assert(bronze.spread>.01,'Sword cleave must physically separate the two bronze halves');
+      assert.equal(bronze.localClipping,true);
+      assert.equal(bronze.halvesVisible,true);
+      const skipped=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        document.getElementById('capture-skip').click();
+        return {active:board.captureCinematic.active,
+          clipping:board.renderer.localClippingEnabled};
+      });
+      assert.equal(skipped.active,false);
+      assert.equal(skipped.clipping,false,'Local clipping must be restored on skip');
+      await host.evaluate(()=>document.getElementById('capture-skip').click());
+      assert(sameCamera(initial,(await diagnostics(host)).camera),
+        'Host camera returns to its original position after scene skip');
+      const state=await (await context.request.get(base+'/api/state?game='+battle.game)).json();
+      assert.equal(state.game.board[5][3],'E','Only the server-confirmed final position persists');
+      assert.equal(state.game.board[5][4],'.');
+      assert.equal(state.game.board[5][5],'E','The sword-wielding ally never moves');
+      assert.equal(state.game.history.length,1,'Cinematic must not issue extra moves');
+    }finally {
+      await watchers.close();
+      await host.close();
+      failurePage=page;
+    }
+  });
+
+  await scenario('King escapes on horseback with two escort riders and spectators see the victory',async()=>{
+    const royal=fixture.royal;
+    assert(royal.game&&royal.sessions.elf&&royal.sessions.spectator);
+    const host=await context.newPage();
+    const guests=await makeContext({}, {guest:true});
+    const spectator=await guests.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(royal.game)+
+        '&session='+encodeURIComponent(royal.sessions.elf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',5);
+      const initial=(await diagnostics(host)).camera;
+      await spectator.goto('http://guest.test/?game='+encodeURIComponent(royal.game)+
+        '&session='+encodeURIComponent(royal.sessions.spectator),{waitUntil:'domcontentloaded'});
+      await ready3D(spectator,'game',5);
+      await expectImmersiveGuest(spectator,'spectator');
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:royal.game,session:royal.sessions.elf,from:[1,2],to:[0,2],
+      }});
+      assert.equal(move.status(),200);
+      const event=(await move.json()).event;
+      assert.equal(event.piece,'R');assert.equal(event.reason,'escape');
+      assert.equal(event.status,'finished');assert.equal(event.winner,'elf');
+      assert.deepEqual(event.captured,[]);
+      const state=(await (await context.request.get(base+'/api/state?game='+royal.game)).json());
+      assert.equal(state.game.status,'finished');
+      assert.equal(state.game.board[0][2],'R');
+      assert.equal(state.game.history.length,1,'A galloping king must not create extra moves');
+      assert.equal(state.cinematic.move.reason,'escape',
+        'A victory with zero captures still has a server-authoritative scene');
+      await Promise.all([host,spectator].map(p=>p.waitForFunction(()=>
+        document.getElementById('game-board-3d')?.board3d?.getDiagnostics().escape.active)));
+      const first=(await diagnostics(host));
+      assert.equal(first.cinematic.active,true);
+      assert.equal(first.cinematic.style,'royal-cavalry');
+      assert.equal(first.escape.horses,3);
+      assert.equal(first.escape.escortCount,2);
+      assert.equal(first.escape.mountedKing,'king-mounted');
+      assert.deepEqual(first.escape.exit,[0,2]);
+      assert(first.escape.saluteCount>0,'Existing elf statuettes salute their king');
+      assert(first.escape.protestCount>0,'Existing dwarves protest the escape');
+      assert.equal(await host.locator('#capture-overlay').isVisible(),true);
+      assert.match(await host.locator('#capture-text').textContent(),/roi s’échappe à cheval/);
+      const riding=await host.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        const royal=board.escapeCinematic;
+        royal._pose(.58);
+        const near=royal.horses[0].root.position.clone();
+        const king=royal.horses[0];
+        const before={
+          horses:royal.horses.length,
+          rider:king.rider.name,
+          legs:king.legs.length,
+          localScene:!!royal.scene,
+          mount:king.rider.scale.x,
+          first:near.toArray(),
+          oldKingHidden:royal._hidden.some(piece=>piece.userData.piece==='R'&&!piece.visible)
+        };
+        royal._pose(.95);
+        return {...before,after:king.root.position.toArray(),
+          escortLeft:royal.horses[1].root.position.toArray(),
+          escortRight:royal.horses[2].root.position.toArray()};
+      });
+      assert.equal(riding.horses,3);
+      assert.equal(riding.legs,4,'Each modeled horse has four articulated legs');
+      assert(riding.mount>.05,'The royal statuette mounts its own horse');
+      assert.equal(riding.oldKingHidden,true,'No duplicated king on the board');
+      assert(Math.abs(riding.after[2]-riding.first[2])>1.0,
+        'The mounted king gallops off the historical north edge');
+      assert.notDeepEqual(riding.escortLeft,riding.escortRight,
+        'Two distinct riders flank the king');
+      // The spectator has the same fully local cavalcade, without gaining
+      // any player permission. Skipping restores its own camera and board.
+      const spectatorView=await diagnostics(spectator);
+      assert.equal(spectatorView.escape.horses,3);
+      assert.equal(spectatorView.cinematic.style,'royal-cavalry');
+      const guestSkip=await spectator.evaluate(()=>{
+        const board=document.getElementById('game-board-3d').board3d;
+        document.getElementById('capture-skip').click();
+        return {active:board.escapeCinematic.active,count:board.getDiagnostics().pieceCount};
+      });
+      assert.equal(guestSkip.active,false);
+      assert.equal(guestSkip.count,5);
+      await host.evaluate(()=>document.getElementById('capture-skip').click());
+      assert.equal((await diagnostics(host)).escape.active,false);
+      assert(sameCamera(initial,(await diagnostics(host)).camera),
+        'The host keeps the exact camera viewpoint after skipping the royal escape');
+      const later=(await (await context.request.get(base+'/api/state?game='+royal.game)).json());
+      assert.equal(later.game.board[0][2],'R','King stays on the legal winning square');
+      assert.equal(later.game.history.length,1);
+    }finally{
+      await guests.close();await host.close();failurePage=page;
+    }
+  });
+
+  await scenario('King captured by two historical dwarves or four Fetlar dwarves: both have a true final stand',async()=>{
+    assert(fixture.sieges?.two&&fixture.sieges?.four);
+    // Two-dwarf variant: verify the two opposed axes, crown, clash, state
+    // integrity and restored camera without depending on transient RAF frames.
+    for(const [name,expected] of [['two',2],['four',4]]){
+      const match=fixture.sieges[name];
+      const host=await context.newPage();
+      const guestContext=name==='four'?await makeContext({}, {guest:true}):null;
+      const spectator=guestContext?await guestContext.newPage():null;
+      try{
+        failurePage=host;
+        await host.goto(base+'/?game='+encodeURIComponent(match.game)+
+          '&session='+encodeURIComponent(match.sessions.dwarf),{waitUntil:'domcontentloaded'});
+        await ready3D(host,'game',expected+2);
+        const oldCamera=(await diagnostics(host)).camera;
+        if(spectator){
+          await spectator.goto('http://guest.test/?game='+encodeURIComponent(match.game)+
+            '&session='+encodeURIComponent(match.sessions.spectator),
+            {waitUntil:'domcontentloaded'});
+          await ready3D(spectator,'game',expected+2);
+          await expectImmersiveGuest(spectator,'spectator');
+        }
+        const reply=await context.request.post(base+'/api/move',{data:{
+          game:match.game,session:match.sessions.dwarf,from:[4,7],to:[4,5]
+        }});
+        assert.equal(reply.status(),200);
+        const event=(await reply.json()).event;
+        assert.equal(event.reason,'king_captured');
+        assert.equal(event.winner,'dwarf');
+        assert.equal(event.status,'finished');
+        assert.deepEqual(event.captured,[]);
+        const final=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+        assert.equal(final.game.history.length,1);
+        assert.equal(final.game.board[4][4],'R','The king remains server-owned on the board');
+        assert.equal(final.game.board[4][5],'N');
+        assert.equal(final.cinematic.duration,12);
+        assert.equal(final.cinematic.move.reason,'king_captured');
+        await host.waitForFunction(()=>
+          document.getElementById('game-board-3d')?.board3d?.getDiagnostics().siege.active);
+        if(spectator)await spectator.waitForFunction(()=>
+          document.getElementById('game-board-3d')?.board3d?.getDiagnostics().siege.active);
+        const d=await diagnostics(host);
+        assert.equal(d.cinematic.style,'king-last-stand');
+        assert.equal(d.siege.configuration,expected===2?'two':'four');
+        assert.equal(d.siege.attackers,expected);
+        assert.equal(d.siege.movedDwarves,1);
+        assert.equal(d.siege.originalHidden,expected+1);
+        assert.equal(d.siege.fragments,30);
+        assert.deepEqual(d.siege.king,[4,4]);
+        assert.equal(await host.locator('#capture-overlay').isVisible(),true);
+        assert.match(await host.locator('#capture-text').textContent(),/dernier combat/);
+        const sampled=await host.evaluate(()=>{
+          const board=document.getElementById('game-board-3d').board3d;
+          const cut=board.siegeCinematic;
+          cut._pose(.175);
+          const moving=cut.dwarves[0];
+          const moveAt=moving.figure.position.clone();
+          const destination=moving.target.clone();
+          cut._pose(.31);
+          const guard=cut.kingRight.rotation.x;
+          const firstAxe=cut.dwarves[0].axe.rotation.z;
+          cut._pose(.735);
+          const finalAxes=cut.dwarves.map(d=>({
+            angle:d.axe.rotation.x,near:Math.abs(d.figure.position.x-d.target.x)+
+              Math.abs(d.figure.position.z-d.target.z)
+          }));
+          cut._pose(.92);
+          const fragments=cut.shards.filter(s=>s.visible).length;
+          return {moved:moveAt.distanceTo(destination),
+            guard,firstAxe,finalAxes,fragments,
+            crown:cut.crown.visible,
+            originalKingHidden:cut._hidden.some(p=>p.userData.piece==='R'&&!p.visible),
+            figureHasHead:!!cut.king.getObjectByName('combat-head')};
+        });
+        assert(sampled.moved<.01,'Melee dwarf must arrive on final square before striking');
+        assert(Math.abs(sampled.guard)>.20,'The king must fight back with his sword');
+        assert(Number.isFinite(sampled.firstAxe));
+        assert.equal(sampled.finalAxes.length,expected);
+        assert(sampled.finalAxes.every(axe=>Number.isFinite(axe.angle)&&
+          Math.abs(axe.angle)>1.0),'Every trapping dwarf must join the synchronized blow');
+        assert.equal(sampled.fragments,30,'The stone king must explode into real 3D pieces');
+        assert.equal(sampled.crown,true,'The crown must visibly fly from the king');
+        assert.equal(sampled.originalKingHidden,true);
+        assert.equal(sampled.figureHasHead,true);
+        if(spectator){
+          const view=await diagnostics(spectator);
+          assert.equal(view.cinematic.style,'king-last-stand');
+          assert.equal(view.siege.attackers,4);
+          assert.equal(view.siege.fragments,30);
+          const skipped=await spectator.evaluate(()=>{
+            const board=document.getElementById('game-board-3d').board3d;
+            document.getElementById('capture-skip').click();
+            return {active:board.siegeCinematic.active,
+              kingVisible:board._visiblePieces.some(p=>p.userData.piece==='R'&&p.visible)};
+          });
+          assert.equal(skipped.active,false);
+          assert.equal(skipped.kingVisible,true);
+        }
+        await host.evaluate(()=>document.getElementById('capture-skip').click());
+        const restored=await diagnostics(host);
+        assert.equal(restored.siege.active,false);
+        assert.equal(restored.pieceCount,expected+2);
+        assert(sameCamera(oldCamera,restored.camera),
+          'King defeat must restore precise camera orientation after skip');
+        const check=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+        assert.equal(check.game.history.length,1);
+        assert.equal(check.game.board[4][4],'R');
+      }finally{
+        if(guestContext)await guestContext.close();
+        await host.close();failurePage=page;
+      }
+    }
+  });
+
+  await scenario('One dwarf or one elf smashes a trapped enemy against the empty throne',async()=>{
+    assert(fixture.throne_battles?.dwarf&&fixture.throne_battles?.elf);
+    for(const [camp,victim,style] of [
+      ['dwarf','E','dwarf-throne-smash'],
+      ['elf','N','elf-throne-volley'],
+    ]){
+      const match=fixture.throne_battles[camp];
+      const host=await context.newPage();
+      const guestContext=await makeContext({}, {guest:true});
+      const spectator=await guestContext.newPage();
+      try{
+        failurePage=host;
+        await host.goto(base+'/?game='+encodeURIComponent(match.game)+
+          '&session='+encodeURIComponent(match.sessions[camp]),{waitUntil:'domcontentloaded'});
+        await ready3D(host,'game',5);
+        const initial=(await diagnostics(host)).camera;
+        await spectator.goto('http://guest.test/?game='+encodeURIComponent(match.game)+
+          '&session='+encodeURIComponent(match.sessions.spectator),
+          {waitUntil:'domcontentloaded'});
+        await ready3D(spectator,'game',5);
+        await expectImmersiveGuest(spectator,'spectator');
+        const move=await context.request.post(base+'/api/move',{data:{
+          game:match.game,session:match.sessions[camp],from:[5,1],to:[5,3],
+        }});
+        assert.equal(move.status(),200);
+        const event=(await move.json()).event;
+        assert.deepEqual(event.captured,[[5,4,victim]]);
+        assert.equal(event.piece,camp==='dwarf'?'N':'E');
+        const state=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+        assert.equal(state.game.board[5][3],event.piece);
+        assert.equal(state.game.board[5][4],'.');
+        assert.equal(state.game.board[5][5],'.','The throne must remain empty');
+        assert.equal(state.game.history.length,1);
+        assert.equal(state.cinematic.duration,12);
+        await Promise.all([host,spectator].map(page=>page.waitForFunction(()=>
+          document.getElementById('game-board-3d')?.board3d?.getDiagnostics().cinematic.throne)));
+        const d=await diagnostics(host);
+        assert.equal(d.cinematic.style,style);
+        assert.equal(d.cinematic.victims,1);
+        assert.equal(d.cinematic.shardCount,18);
+        assert.equal(d.cinematic.articulated,true);
+        assert.equal(d.cinematic.throne.victimKind,victim);
+        assert.deepEqual(d.cinematic.throne.target,[5,5]);
+        assert.deepEqual(d.cinematic.throne.attacker,[5,3]);
+        assert.equal(d.cinematic.throne.rubble,12);
+        const early=await host.evaluate(camp=>{
+          const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+          let shots=null;
+          if(camp==='elf'){
+            const anchor=cut.attacker.getObjectByName('combat-bow-nock');
+            const locate=()=>{
+              const arrow=cut.projectile;
+              const string=anchor.getWorldPosition(cut.attacker.position.clone());
+              const tail=arrow.position.clone().add(
+                arrow.position.clone().set(0,-.205,0).applyQuaternion(arrow.quaternion));
+              return {error:tail.distanceTo(string),stage:arrow.userData.bowStage,
+                nock:arrow.userData.bowOrigin,visible:arrow.visible};
+            };
+            cut.throne.update(.27);
+            const first=locate();
+            cut.throne.update(.65);
+            const second=locate();
+            shots={first,second,anchorParent:anchor.parent.name};
+          }
+          cut.throne.update(.42);
+          return {
+            x:cut.attacker.position.x,z:cut.attacker.position.z,
+            destination:cut.destination.toArray(),
+            pause:cut.throne.pauseAt.toArray(),
+            guard:cut.actors[0].rig.left.rotation.z,
+            arrow:cut.projectile?.visible || false,
+            bow:shots,
+          };
+        },camp);
+        assert(Math.abs(early.guard)>1.0,
+          'The trapped statue must visibly block the first incoming strike');
+        if(camp==='dwarf'){
+          assert(Math.abs(early.x-early.destination[0])<.01,
+            'Melee dwarf must already have reached its final square');
+        }else{
+          assert(Math.abs(early.x-early.pause[0])<.01,
+            'The elven archer must stop one square before its destination');
+          assert.equal(early.arrow,true,'The shield must deflect a visible arrow');
+          assert.equal(early.bow.anchorParent,'combat-left-arm');
+          for(const label of ['first','second']){
+            const shot=early.bow[label];
+            assert.equal(shot.visible,true);
+            assert.equal(shot.stage,'nocked');
+            assert(shot.error<.005,
+              'Both '+label+' elven shots must be drawn from the real bowstring');
+          }
+        }
+        const impact=await host.evaluate(()=>{
+          const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+          cut.throne.update(.78);
+          return {displacement:cut.actors[0].figure.position.distanceTo(
+            cut.actors[0].place),arrow:cut.projectile?.visible || false,
+            arrowStage:cut.projectile?.userData.bowStage,stage:cut.stage};
+        });
+        assert(impact.displacement>.04,'The victim is thrown toward the throne');
+        if(camp==='elf'){
+          assert.equal(impact.arrow,true,'A second arrow causes the impact');
+          assert.equal(impact.arrowStage,'flight',
+            'The second shot leaves the bowstring toward the trapped dwarf');
+        }
+        const rubble=await spectator.evaluate(()=>{
+          const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+          cut.throne.update(.98);
+          return {rubble:cut.throne.rubble.filter(mesh=>mesh.visible).length,
+            shards:cut.actors[0].shards.filter(shard=>shard.visible).length,
+            victimVisible:cut.actors[0].figure.visible,
+            attackerX:cut.attacker.position.x,
+            destinationX:cut.destination.x,
+            throne:cut.throne.throne.toArray()};
+        });
+        assert.equal(rubble.rubble,12,'The empty throne scatters twelve local rubble chunks');
+        assert.equal(rubble.shards,18,'The trapped statue becomes eighteen fragments');
+        assert.equal(rubble.victimVisible,false);
+        assert.deepEqual(rubble.throne,[0,.12,0]);
+        if(camp==='elf')assert(Math.abs(rubble.attackerX-rubble.destinationX)<.01,
+          'After the smash the ranged elf completes its server-confirmed move');
+        const guestSkip=await spectator.evaluate(()=>{
+          const board=document.getElementById('game-board-3d').board3d;
+          document.getElementById('capture-skip').click();
+          return {active:board.captureCinematic.active,
+            pieceCount:board.getDiagnostics().pieceCount};
+        });
+        assert.equal(guestSkip.active,false);
+        assert.equal(guestSkip.pieceCount,4);
+        await host.evaluate(()=>document.getElementById('capture-skip').click());
+        const after=await diagnostics(host);
+        assert.equal(after.cinematic.active,false);
+        assert.equal(after.pieceCount,4);
+        assert(sameCamera(initial,after.camera),
+          'Both sides must restore the host camera after the throne scene');
+        const final=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+        assert.equal(final.game.history.length,1,'Cinematic must not add moves');
+        assert.equal(final.game.board[5][5],'.','Cinematic must not occupy the throne');
+      }finally{
+        await guestContext.close();await host.close();failurePage=page;
+      }
+    }
+  });
+
+  await scenario('Ordinary elven capture releases both arrows from the existing bowstring',async()=>{
+    const match=fixture.generic_bow;
+    assert(match.game&&match.sessions.elf);
+    const host=await context.newPage();
+    try{
+      failurePage=host;
+      await host.goto(base+'/?game='+encodeURIComponent(match.game)+
+        '&session='+encodeURIComponent(match.sessions.elf),{waitUntil:'domcontentloaded'});
+      await ready3D(host,'game',4);
+      const move=await context.request.post(base+'/api/move',{data:{
+        game:match.game,session:match.sessions.elf,from:[5,1],to:[5,3]
+      }});
+      assert.equal(move.status(),200);
+      const event=(await move.json()).event;
+      assert.deepEqual(event.captured,[[5,4,'N']]);
+      await host.waitForFunction(()=>document.getElementById('game-board-3d')
+        ?.board3d?.captureCinematic?.active);
+      const d=await diagnostics(host);
+      assert.equal(d.cinematic.style,'combo',
+        'The king is a supporting ally, not an elven swordfighter or empty throne');
+      const arrows=await host.evaluate(async()=>{
+        const cut=document.getElementById('game-board-3d').board3d.captureCinematic;
+        const {poseDuelArrow}=await import('/archery3d.js');
+        const bow=cut.attacker.getObjectByName('combat-bow-nock');
+        const target=cut.actors[0].place.clone();target.y+=.82;
+        const measure=p=>{
+          poseDuelArrow(cut.projectile,cut.attacker,target,p);
+          const origin=bow.getWorldPosition(cut.attacker.position.clone());
+          const tail=cut.projectile.position.clone().add(
+            cut.projectile.position.clone().set(0,-.205,0)
+              .applyQuaternion(cut.projectile.quaternion));
+          return {tailError:tail.distanceTo(origin),
+            stage:cut.projectile.userData.bowStage,
+            visible:cut.projectile.visible,
+            place:cut.projectile.position.toArray(),
+            nock:origin.toArray()};
+        };
+        const first=measure(.07);
+        const released=measure(.11);
+        const flying=measure(.18);
+        const second=measure(.60);
+        const finalFlight=measure(.68);
+        return {first,released,flying,second,finalFlight,
+          anchorParent:bow.parent.name,
+          hasRig:Boolean(cut.attacker.getObjectByName('combat-left-arm'))};
+      });
+      assert.equal(arrows.anchorParent,'combat-left-arm');
+      assert.equal(arrows.hasRig,true);
+      assert.equal(arrows.first.stage,'nocked');
+      assert.equal(arrows.first.visible,true);
+      assert(arrows.first.tailError<.005);
+      assert.equal(arrows.released.stage,'flight');
+      assert(arrows.released.tailError<.005,'First arrow begins at bowstring');
+      assert(arrows.flying.place.some((x,i)=>Math.abs(x-arrows.released.place[i])>.06),
+        'First arrow travels away from the bowstring');
+      assert.equal(arrows.second.stage,'nocked');
+      assert(arrows.second.tailError<.005,'Second arrow must also be nocked');
+      assert.equal(arrows.finalFlight.stage,'flight');
+      await host.evaluate(()=>document.getElementById('capture-skip').click());
+      const state=await (await context.request.get(base+'/api/state?game='+match.game)).json();
+      assert.equal(state.game.history.length,1);
+      assert.equal(state.game.board[5][3],'E');
+      assert.equal(state.game.board[5][5],'R');
+    }finally{
+      await host.close();failurePage=page;
+    }
+  });
+
   await scenario('Modules stay local, LAN remains disabled and no JavaScript or shader errors occur', async () => {
     for (const asset of ['/board-view.js', '/board3d.js', '/figurines3d.js',
+      '/move3d.js', '/cinematic3d.js', '/combat-motion.js',
+      '/flank-capture.js', '/flank-cinematic3d.js',
+      '/escape-motion.js', '/king-escape3d.js',
+      '/king-siege-motion.js', '/king-siege3d.js',
+      '/throne-capture.js', '/throne-cinematic3d.js',
+      '/archery3d.js', '/soundscape.js',
       '/vendor/three/three.module.js', '/vendor/three/three.core.js',
       '/vendor/three/OrbitControls.js', '/vendor/three/BufferGeometryUtils.js']) {
       assert.equal(assetResponses.get(asset), 200, asset);
