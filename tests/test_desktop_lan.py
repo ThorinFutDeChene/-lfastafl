@@ -64,6 +64,7 @@ class DesktopSession:
         self.actions = []
         self.menu_actions = {}
         self.servers = []
+        self.timers = []
         self.network = lan.LocalNetwork('wlp1s0', '192.168.1.102', '192.168.1.0/24')
         self.detect = Mock(return_value=self.network)
         self.lease = Mock()
@@ -118,6 +119,7 @@ class DesktopSession:
         class QTimer:
             def __init__(self, *_):
                 self.timeout = Signal()
+                session.timers.append(self)
 
             def start(self, _interval):
                 pass
@@ -284,6 +286,52 @@ class DesktopLanTests(unittest.TestCase):
                     session.detect.assert_called_once_with()
                     self.assertTrue(session.servers[0].lan_enabled)
                 DesktopSession(scenario).run()
+
+    def test_idle_lan_closes_after_grace_and_can_reopen(self):
+        def scenario(session):
+            moment=[100.0]
+            session.store.lan_in_use.return_value=False
+            with patch.object(desktop.time,'monotonic',
+                              side_effect=lambda:moment[0]):
+                session.activate()
+                self.assertTrue(session.servers[0].lan_enabled)
+                session.timers[0].timeout.emit()  # begin grace
+                moment[0]=159.9
+                session.timers[0].timeout.emit()
+                self.assertTrue(session.servers[0].lan_enabled)
+                moment[0]=160.1
+                session.timers[0].timeout.emit()
+                self.assert_lan_closed(session)
+                # Nothing is closed in the local host; the user can start
+                # another game and obtain a new temporary firewall lease.
+                session.activate()
+                self.assertTrue(session.servers[0].lan_enabled)
+                self.assertEqual(session.detect.call_count,2)
+                session.timers[0].timeout.emit()
+        DesktopSession(scenario).run()
+
+    def test_busy_lan_resets_idle_grace_before_shutting_down(self):
+        def scenario(session):
+            moment=[200.0]
+            session.store.lan_in_use.return_value=False
+            with patch.object(desktop.time,'monotonic',
+                              side_effect=lambda:moment[0]):
+                session.activate()
+                session.timers[0].timeout.emit()  # idle at 200
+                moment[0]=255.0
+                session.store.lan_in_use.return_value=True
+                session.timers[0].timeout.emit()  # active again
+                moment[0]=311.0
+                session.store.lan_in_use.return_value=False
+                session.timers[0].timeout.emit()  # NEW grace at 311
+                self.assertTrue(session.servers[0].lan_enabled)
+                moment[0]=370.0
+                session.timers[0].timeout.emit()
+                self.assertTrue(session.servers[0].lan_enabled)
+                moment[0]=372.0
+                session.timers[0].timeout.emit()
+                self.assert_lan_closed(session)
+        DesktopSession(scenario).run()
 
     def test_application_exit_closes_lan_before_firewall_lease(self):
         def scenario(session):
