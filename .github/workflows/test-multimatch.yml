@@ -1,0 +1,43 @@
+name: Verify multi-match tournament feature
+on:
+  push:
+    branches:
+      - feature/tournoi-multimatch-071
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tournament-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-qrcode python3-pil python3-pyqt6 python3-pyqt6.qtwebengine xvfb xauth
+      - name: All Python unit and integration tests
+        run: PYTHONPATH=src python3 -m unittest discover -s tests -v
+      - name: JavaScript syntax
+        run: |
+          node --check web/app.js
+          node --check web/tournament-ui.js
+          node --check web/tournament-live.js
+          node --check tests/browser_multimatch.cjs
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Browser prerequisites
+        timeout-minutes: 10
+        run: |
+          npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Regression host fullscreen and tournament setup
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_desktop.cjs
+      - name: Four-player tournament and multi-spectator broadcast
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_multimatch.cjs
