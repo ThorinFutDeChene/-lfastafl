@@ -52,6 +52,11 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_tutorial.cjs
+      - name: Verify QR-based read-only live tutorial with a guest browser
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tutorial_shared.cjs
       - name: Exercise the 3D board in Chromium
         timeout-minutes: 5
         env:
