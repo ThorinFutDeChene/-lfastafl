@@ -184,7 +184,12 @@ class Tournament:
                 bye_counts={p:sum(bool(m.get('bye') and m['a']==p)
                                   for m in self.matches) for p in pool}
                 least=min(bye_counts.values())
-                player=next(p for p in reversed(pool) if bye_counts[p]==least)
+                eligible=[p for p in pool if bye_counts[p]==least]
+                lowest_score=min(scores[p] for p in eligible)
+                # Tied candidates must be drawn, not favored for having
+                # the alphabetically last registration name.
+                player=secrets.choice([p for p in eligible
+                                       if scores[p]==lowest_score])
                 pool.remove(player)
                 self._bye(player)
             while len(pool)>1:
