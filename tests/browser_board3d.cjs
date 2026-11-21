@@ -528,6 +528,33 @@ async function main() {
     report.initial_renderer = d;
   });
 
+  await scenario('All four corner escape arrows point diagonally OUT of the board', async () => {
+    // The CanvasTexture draws its arrow from (58,128) to (134,52):
+    // +X/+Y in the marker's local plane. Applying each actual THREE
+    // quaternion must make BOTH world X and Z point outwards. The
+    // regression previously rotated only two corners correctly.
+    const corners = await page.evaluate(() => {
+      const markers = [...document.getElementById('game-board-3d').board3d.cornerEmblems.children];
+      return markers.map(marker => {
+        const arrow = marker.position.clone().set(1, 1, 0).normalize().applyQuaternion(marker.quaternion);
+        const x = Math.sign(marker.position.x);
+        const z = Math.sign(marker.position.z);
+        return {x, z, angle: marker.rotation.z, direction: arrow.toArray(),
+          outward: (arrow.x * x + arrow.z * z) / Math.sqrt(2)};
+      });
+    });
+    assert.equal(corners.length, 4, 'Expected a marker on each escape corner');
+    assert.deepEqual(new Set(corners.map(({x, z}) => `${x},${z}`)),
+      new Set(['-1,-1', '-1,1', '1,-1', '1,1']));
+    assert.equal(new Set(corners.map(c => c.angle.toFixed(7))).size, 4,
+      'Each corner needs its OWN 90-degree orientation');
+    for (const corner of corners) {
+      assert(corner.outward > 0.999, 'Arrow must point to the outside diagonal: ' +
+        JSON.stringify(corner));
+      assert(Math.abs(corner.direction[1]) < 0.001, 'Arrows must lie flat on the board');
+    }
+  });
+
   await scenario('Camera orbit, zoom, top view, reset and adaptive quality work independently', async () => {
     await page.locator('#game-board-3d canvas').scrollIntoViewIfNeeded();
     const initial = (await diagnostics(page)).camera;

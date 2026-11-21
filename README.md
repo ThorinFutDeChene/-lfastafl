@@ -1,13 +1,38 @@
-# Álfastafl — 0.7.0-dev11 (canal DEV)
+# Álfastafl — 0.7.0-dev12 (canal DEV)
 
-La **0.7.0-dev11** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev12** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev11` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev12` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev12 : quatre flèches de sortie correctement orientées
+
+Correction du **plateau 3D** : les quatre marques gravées aux
+coins du plateau symbolisent les sorties du roi (Fetlar et
+Copenhague). Jusqu'à la DEV11, les icônes n'utilisaient que
+**deux orientations** pour les quatre coins ; deux flèches
+pointaient donc vers **l'intérieur** au lieu de montrer la fuite.
+
+Chaque icône est désormais orientée **vers l'extérieur dans
+la diagonale de son propre coin** : ↖ ↗ ↙ ↘, indépendamment
+de la rotation ou de l'inclinaison de la caméra. La correction
+agit sur les **rotations des plans 3D** des emblèmes et ne modifie
+ni les textures, ni le gameplay, ni les cases de victoire.
+
+Un test de régression Chromium/WebGL récupère la transformation
+réelle de chacune des quatre flèches et vérifie :
+- les quatre coins distincts sont présents ;
+- les quatre angles de rotation sont distincts ;
+- chaque flèche s'oriente vers l'extérieur sur les **deux axes** ;
+- les emblèmes restent couchés à plat sur le plateau.
+
+La DEV12 conserve aussi les correctifs réseau et les fonctions
+de tournoi de la DEV11 ainsi que la correction de démarrage Qt
+de la DEV10. Stable inchangée : 0.5.0.
 
 ## DEV 0.7.0-dev11 : attribution des camps et tournois équitables
 

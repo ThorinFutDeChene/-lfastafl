@@ -331,7 +331,13 @@ export class Board3D {
     const escapeMaterial = emblemMaterial('escape');
     for (const x of [-5, 5]) for (const z of [-5, 5]) {
       const marker = this._mesh(emblemGeometry, escapeMaterial, [x, SURFACE + 0.004, z], this.cornerEmblems);
-      marker.rotation.set(-Math.PI / 2, 0, x * z < 0 ? 0 : Math.PI / 2);
+      // The canvas arrow points to +X/+Y (north-east) in plane space.
+      // After laying the plane flat, +Y becomes -Z in world space.
+      // All FOUR corners need distinct rotations: the arrow must point
+      // away from the centre on both axes, regardless of camera angle.
+      const outwardAngle = Math.atan2(-z, x) - Math.PI / 4;
+      marker.rotation.set(-Math.PI / 2, 0, outwardAngle);
+      marker.name = `Sortie vers l'extérieur (${x}, ${z})`;
     }
     this.scene.add(this.cornerEmblems);
     this.pieces = new THREE.Group();
