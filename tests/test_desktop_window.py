@@ -1,6 +1,6 @@
 """Keep the Ubuntu application maximized at startup."""
 from unittest import TestCase
-from alfastafl.desktop import show_main_window
+from alfastafl.desktop import show_main_window, show_board_window
 
 
 class DummyWindow:
@@ -22,3 +22,16 @@ class DesktopWindowTests(TestCase):
         window = DummyWindow()
         show_main_window(window)
         self.assertEqual(window.calls, ["maximized"])
+
+    def test_game_and_tutorial_are_separate_native_fullscreen_windows(self):
+        popup = DummyWindow()
+        show_board_window(popup)
+        self.assertEqual(popup.calls, ["fullscreen"],
+                         "Board/tutorial must be separate OS-level fullscreen windows")
+
+    def test_management_window_does_not_switch_to_fullscreen_when_board_opens(self):
+        manager, board = DummyWindow(), DummyWindow()
+        show_main_window(manager)
+        show_board_window(board)
+        self.assertEqual(manager.calls, ["maximized"])
+        self.assertEqual(board.calls, ["fullscreen"])

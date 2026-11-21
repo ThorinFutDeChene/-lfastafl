@@ -10,7 +10,7 @@
 <body>
 <main>
   <header>
-    <h1>ᚨ Álfastafl <small>0.7.0 DEV7</small></h1>
+    <h1>ᚨ Álfastafl <small>0.7.0 DEV8</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -94,6 +94,13 @@
   </section>
   <section id="game">
     <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
+    <button id="host-close-board" class="host-window-close" type="button" aria-label="Fermer cette fenêtre du plateau" title="Retour à la gestion">✕ Fermer</button>
+    <button id="host-fullscreen" class="host-fullscreen" type="button" aria-label="Basculer le plein écran" title="Plein écran (F11)">⛶</button>
+    <figure id="host-spectator-qr" class="host-spectator-qr" hidden>
+      <figcaption>SPECTATEURS</figcaption>
+      <img id="host-spectator-qr-image" width="128" height="128" alt="QR code : demander à regarder cette partie">
+      <p>Scanner pour demander l’accès</p>
+    </figure>
     <div class="row"><h2>Plateau</h2><span id="state">Aucune partie sélectionnée</span></div>
     <div id="clocks" class="clock-panel" aria-live="off">
       <div class="clock-box"><span>Elfes</span><strong id="clock-elf">—</strong></div>
@@ -114,6 +121,8 @@
           <button id="host-watch" type="button">Rester spectateur</button>
         </div>
       </div>
+      <button id="host-open-board" type="button">Ouvrir le plateau dans une fenêtre plein écran</button>
+      <p id="host-board-note">Le plateau reste dans sa propre fenêtre : le PC hôte conserve ici la gestion des parties et des connexions.</p>
       <button id="save-leave" type="button">Sauvegarder et quitter cette partie</button>
       <button id="resume-game" type="button" hidden>Reprendre la partie sauvegardée</button>
       <div id="disconnect-actions" hidden>

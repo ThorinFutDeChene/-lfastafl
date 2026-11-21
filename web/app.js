@@ -2,12 +2,51 @@
 const $=id=>document.getElementById(id);
 const q=new URLSearchParams(location.search);
 const isHost=['127.0.0.1','localhost','::1'].includes(location.hostname);
-let gameId=q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
+const desktopMode=isHost&&['host','board','tutorial'].includes(q.get('desktop'))?q.get('desktop'):'';
+const isDesktopManager=desktopMode==='host';
+const isDesktopBoard=desktopMode==='board';
+const isDesktopTutorial=desktopMode==='tutorial';
+document.body.classList.toggle('desktop-host-manager',isDesktopManager);
+document.body.classList.toggle('desktop-board-only',isDesktopBoard);
+document.body.classList.toggle('desktop-tutorial-only',isDesktopTutorial);
+let gameId=isDesktopTutorial?'':q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
 // Retain an approved device session across browser restarts for reconnection.
 function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+id)||'';}catch(_){return '';}}
 function rememberDevice(id,token){try{localStorage.setItem('alfastafl.device.'+id,token);}catch(_){} }
 function clearDevice(id){try{localStorage.removeItem('alfastafl.device.'+id);}catch(_){} }
-let session=q.get('session')||deviceSession(gameId)||sessionStorage.getItem('alfastafl.session')||'';
+let session=isDesktopTutorial?'':q.get('session')||deviceSession(gameId)||
+ sessionStorage.getItem('alfastafl.session')||'';
+function hostDisplayURL(kind){
+ const url=new URL('/',location.href);
+ url.searchParams.set('desktop',kind);
+ if(kind==='board'){
+  url.searchParams.set('game',gameId);
+  if(session)url.searchParams.set('session',session);
+ }else if(kind==='tutorial')url.searchParams.set('mode',$('mode').value);
+ return url.href;
+}
+function reserveHostBoard(){
+ if(!isDesktopManager)return null;
+ const popup=window.open('about:blank','alfastafl-plateau');
+ if(!popup)say('Fenêtre du plateau bloquée. Autorisez les fenêtres de l’application.');
+ return popup;
+}
+function showReservedBoard(popup){
+ if(!popup||popup.closed||!gameId)return;
+ popup.location.replace(hostDisplayURL('board'));popup.focus();
+}
+function openHostBoard(){
+ if(!isDesktopManager||!gameId)return;
+ const popup=window.open(hostDisplayURL('board'),'alfastafl-plateau');
+ if(!popup){say('Impossible d’ouvrir le plateau : fenêtre bloquée.');return;}
+ popup.focus();
+}
+function openHostTutorial(){
+ if(!isDesktopManager)return;
+ const popup=window.open(hostDisplayURL('tutorial'),'alfastafl-tutoriel');
+ if(!popup)say('Impossible d’ouvrir le tutoriel : fenêtre bloquée.');
+ else popup.focus();
+}
 let selected=null,legalDestinations=[],captureDestinations=[],game=null,requestId='',you=null,reviewVotes={},hostSeats={};
 let clockReceivedAt=0,serverTimeReceivedAt=0;let gameListUpdatedAt=0;
 let gameBusy=false,boardRevision=0,loadRevision=0,appliedLoadRevision=0,gameDrag=null;
@@ -80,7 +119,7 @@ $('capture-skip').onclick=()=>{
  renderCaptureOverlay();
 };
 function setGuestMenu(open) {
- const visible = document.body.classList.contains('guest-board-only') && Boolean(open);
+ const visible = (document.body.classList.contains('guest-board-only')||isDesktopBoard)&&Boolean(open);
  document.body.classList.toggle('guest-menu-open', visible);
  $('guest-menu-toggle').setAttribute('aria-expanded', String(visible));
 }
@@ -92,10 +131,20 @@ function syncGuestLayout() {
  document.body.dataset.guestRole = authorized ? you.role : '';
  document.body.dataset.guestTimed = String(authorized && game.clock && game.clock.mode !== 'unlimited');
  $('join').hidden = authorized;
- $('guest-menu-toggle').hidden = !authorized;
- if (!authorized) setGuestMenu(false);
+ $('guest-menu-toggle').hidden = !authorized&&!isDesktopBoard;
+ if (!authorized&&!isDesktopBoard) setGuestMenu(false);
+ document.body.dataset.guestTimed=String((authorized||isDesktopBoard)&&
+   game&&game.clock&&game.clock.mode!=='unlimited');
 }
 $('guest-menu-toggle').onclick = () => setGuestMenu(!document.body.classList.contains('guest-menu-open'));
+$('host-close-board').onclick=()=>{
+ if(isDesktopBoard)window.close();
+};
+$('host-fullscreen').onclick=()=>{
+ if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+ else document.documentElement.requestFullscreen?.().catch(()=>{});
+};
+$('host-open-board').onclick=openHostBoard;
 document.addEventListener('keydown', event => {
  if (event.key === 'Escape' && document.body.classList.contains('guest-menu-open')) {
   setGuestMenu(false);
@@ -160,9 +209,10 @@ async function listGames(force=false){
    button.onclick=async()=>{
     clearCinematic();
     gameId=g.id;session='';game=null;you=null;hostSeats={};invalidateBoardInteraction();render();
+    const popup=reserveHostBoard();
     sessionStorage.setItem('alfastafl.game',gameId);
     sessionStorage.removeItem('alfastafl.session');
-    await load();await listGames(true);
+    await load();showReservedBoard(popup);await listGames(true);
    };
    const remove=document.createElement('button');remove.type='button';
    remove.className='game-delete';remove.textContent='Supprimer';
@@ -211,6 +261,7 @@ function renderHostControls(){
  $('host-watch').disabled=!hostCamp||game.status!=='active'||roleLocked;
  $('host-watch').setAttribute('aria-pressed',String(!hostCamp));
  $('save-leave').hidden=game.status==='finished'||game.reason==='saved_by_host';
+ $('host-open-board').disabled=!gameId;
  $('resume-game').hidden=game.status!=='paused'||review||game.reason==='disconnected'||game.reason==='awaiting_substitute';
  const incident=game.status==='paused'&&game.reason==='disconnected'&&game.disconnect&&game.disconnect.action_required;
  $('disconnect-actions').hidden=!incident;
@@ -261,6 +312,10 @@ const gameBoardView=new AlfastaflBoardView({
  }
 });
 function syncGameBoard(){
+ if(isDesktopManager||isDesktopTutorial){
+  gameBoardView.setActive(false);
+  return;
+ }
  const visibleGame=game&&game.id===gameId?game:null;
  gameBoardView.update({board:visibleGame?visibleGame.board:null,
   mode:visibleGame?visibleGame.mode:$('mode').value,
@@ -279,6 +334,7 @@ function render(){
  syncGuestLayout();
  syncGameBoard();
  if(!game||game.id!==gameId){
+  $('host-spectator-qr').hidden=true;
   $('board').replaceChildren();
   $('state').textContent='Aucune partie sélectionnée';
   $('moves').replaceChildren();
@@ -292,9 +348,11 @@ function render(){
  $('state').textContent=game.mode+' · '+game.status+' · tour '+game.turn+
     (game.reason?' · '+game.reason:'');
  const board=$('board');
- const focused=board.contains(document.activeElement)?[Number(document.activeElement.dataset.row),Number(document.activeElement.dataset.col)]:null;
+ const headlessBoard=isDesktopManager||isDesktopTutorial;
+ const focused=!headlessBoard&&board.contains(document.activeElement)
+  ?[Number(document.activeElement.dataset.row),Number(document.activeElement.dataset.col)]:null;
  board.replaceChildren();
- for(let r=0;r<11;r++)for(let c=0;c<11;c++){
+ if(!headlessBoard)for(let r=0;r<11;r++)for(let c=0;c<11;c++){
   const square=document.createElement('button');square.type='button';
   square.dataset.row=String(r);square.dataset.col=String(c);
   square.disabled=gameBusy||!myTurn();
@@ -380,13 +438,13 @@ async function load(){
   clockReceivedAt=performance.now();serverTimeReceivedAt=state.server_now||Date.now()/1000;
   if(before!==positionKey()||!myTurn())invalidateBoardInteraction();
   render();
-  if(newestMove&&!cue){
+  if(newestMove&&!cue&&!isDesktopManager&&!isDesktopTutorial){
    soundscape.effect('move');
    // A hidden/2D client still receives the authoritative board immediately.
    // The interpolated motion is entirely local and never delays a turn.
    gameBoardView.playMove(newestMove).catch(()=>{});
   }
-  if(cue&&cueKey!==seenCinematic) {
+  if(cue&&cueKey!==seenCinematic&&!isDesktopManager&&!isDesktopTutorial) {
    seenCinematic=cueKey;
    if(skippedCinematic!==cueKey) {
     captureVisualPlaying=true;
@@ -413,6 +471,18 @@ async function load(){
    if(!currentRequest())return;
    const origin='http://'+addr.address+':'+addr.port;
    const panel=$('invitations');
+   const spectatorQR=$('host-spectator-qr');
+   const showSpectatorQR=Boolean(isDesktopBoard&&addr.lan_enabled&&
+     game?.status==='active'&&state.invites.spectator&&gameId);
+   spectatorQR.hidden=!showSpectatorQR;
+   if(showSpectatorQR){
+    const signature=gameId+'|'+addr.address+'|'+addr.port+'|'+state.invites.spectator;
+    if(spectatorQR.dataset.signature!==signature){
+     $('host-spectator-qr-image').src='/api/qr?game='+
+       encodeURIComponent(gameId)+'&role=spectator&v='+Date.now();
+     spectatorQR.dataset.signature=signature;
+    }
+   }
    if(!addr.lan_enabled){panel.hidden=true;return;}
    $('hostmsg').textContent=`Identifiant : ${gameId}`;
    $('link-player').href=origin+'/?game='+encodeURIComponent(gameId)+'&invite='+encodeURIComponent(state.invites.player);
@@ -425,7 +495,7 @@ async function load(){
     panel.dataset.signature=qrSignature;
    }
    panel.hidden=false;
-  }else if(isHost){$('invitations').hidden=true;}
+  }else if(isHost){$('invitations').hidden=true;$('host-spectator-qr').hidden=true;}
  }catch(error){
   if(!currentRequest())return;
   if(session&&['Unauthorized','Unknown game'].includes(error.message)){
@@ -505,6 +575,8 @@ $('create').onclick=async()=>{
   const reconnect=Number($('reconnect-minutes').value)*60;
   if((timeMode!=='unlimited'&&(!Number.isInteger(seconds)||seconds<1||seconds>86400))||
       !Number.isInteger(reconnect)||reconnect<60||reconnect>3600){throw Error('Durée ou délai de reconnexion invalide.');}
+  const popup=reserveHostBoard();
+  try{
   const created=await api('create',{mode:$('mode').value,settings:{
    time_control:{mode:timeMode,seconds},reconnect_timeout_seconds:reconnect,
    capture_cinematic_seconds:Number($('capture-duration').value)
@@ -515,7 +587,8 @@ $('create').onclick=async()=>{
   sessionStorage.setItem('alfastafl.game',gameId);
   if(session)sessionStorage.setItem('alfastafl.session',session);
   else sessionStorage.removeItem('alfastafl.session');
-  await load();await listGames(true);
+  await load();showReservedBoard(popup);await listGames(true);
+  }catch(error){if(popup&&!popup.closed)popup.close();throw error;}
  }catch(error){say(error.message);}
 
 };
@@ -556,6 +629,7 @@ async function hostAction(path,body,confirmation){
 }
 async function chooseHostCamp(camp){
  if(!gameId||!game||game.id!==gameId)return;
+ const popup=reserveHostBoard();
  try{
   const response=await api('host/seat',{game:gameId,camp});
   session=response.session||'';
@@ -564,8 +638,8 @@ async function chooseHostCamp(camp){
   invalidateBoardInteraction();
   say(camp==='dwarf'?'Le PC hôte joue les Nains.':
       camp==='elf'?'Le PC hôte joue les Elfes.':'Le PC hôte reste spectateur.');
-  await load();await listGames(true);
- }catch(error){say(error.message);await load();}
+  await load();showReservedBoard(popup);await listGames(true);
+ }catch(error){if(popup&&!popup.closed)popup.close();say(error.message);await load();}
 }
 $('host-play-dwarf').onclick=()=>chooseHostCamp('dwarf');
 $('host-play-elf').onclick=()=>chooseHostCamp('elf');
@@ -598,7 +672,7 @@ async function pending(){
  }catch(error){}
 }
 async function tick(){
- if(isHost){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
+ if(isHost&&!isDesktopBoard&&!isDesktopTutorial){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
   `Serveur réseau actif : http://${n.address}:${n.port}/`:
   'Mode local. Activez l’accès LAN dans la barre d’outils pour connecter des joueurs.';
  }catch(error){$('lan-status').textContent='Etat du réseau indisponible.';}}
@@ -613,8 +687,9 @@ async function tick(){
    }else if(reply.status==='rejected'){$('joinmsg').textContent='Demande refusee';requestId='';}
   }catch(error){}
  }
- await pending();if(gameId&&(session||isHost))await load();
- await listGames();
+ if(!isDesktopBoard&&!isDesktopTutorial)await pending();
+ if(gameId&&(session||isHost))await load();
+ if(!isDesktopBoard&&!isDesktopTutorial)await listGames();
 }
 if(q.has('invite')){$('gid').value=q.get('game')||'';$('invite').value=q.get('invite')||'';}
 $('mode').addEventListener('change',()=>{if(!game)syncGameBoard();});

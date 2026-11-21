@@ -6,15 +6,21 @@ from .relauncher import schedule_restart
 
 
 def show_main_window(window):
-    """Start maximized while preserving native desktop panels and window controls."""
+    """Keep the administration window maximized, with native desktop controls."""
     window.showMaximized()
+
+
+def show_board_window(window):
+    """A board or tutorial uses its own real OS-level fullscreen window."""
+    window.showFullScreen()
 
 
 def main():
     try:
         from PyQt6.QtWidgets import QApplication, QMainWindow, QToolBar, QMessageBox
-        from PyQt6.QtGui import QAction
-        from PyQt6.QtCore import QUrl, QObject, pyqtSignal, QTimer
+        from PyQt6.QtGui import QAction, QShortcut, QKeySequence
+        from PyQt6.QtCore import QUrl, QObject, pyqtSignal, QTimer, Qt
+        from PyQt6.QtWebEngineCore import QWebEngineSettings
         from PyQt6.QtWebEngineWidgets import QWebEngineView
     except ImportError as exc:
         raise SystemExit('PyQt6 et QtWebEngine requis : apt install python3-pyqt6 python3-pyqt6.qtwebengine') from exc
@@ -31,11 +37,42 @@ def main():
     thread[0].start()
 
     win = QMainWindow()
-    win.setWindowTitle('Álfastafl (DEV)')
+    win.setWindowTitle('Álfastafl — Gestion hôte (DEV)')
     win.resize(1100, 820)
-    view = QWebEngineView()
+
+    # JavaScript window.open is handled by Qt, NOT an embedded browser tab:
+    # the administration window stays visible/available on its own screen,
+    # while each game board/tutorial receives an actual separate OS window.
+    open_windows = []
+    class DisplayWebView(QWebEngineView):
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            settings = self.settings()
+            settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
+            settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanCloseWindows, True)
+
+        def createWindow(self, window_type):
+            popup = QMainWindow()
+            popup.setWindowTitle('Álfastafl — Plateau / Tutoriel')
+            popup.resize(1200, 820)
+            popup.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            content = DisplayWebView(popup)
+            popup.setCentralWidget(content)
+            popup._escape_fullscreen = QShortcut(QKeySequence('F11'), popup)
+            popup._escape_fullscreen.activated.connect(
+                lambda: popup.showNormal() if popup.isFullScreen()
+                else show_board_window(popup))
+            content.page().windowCloseRequested.connect(popup.close)
+            open_windows.append(popup)
+            popup.destroyed.connect(
+                lambda *_: open_windows.remove(popup) if popup in open_windows else None)
+            # Do not open new tabs or cover the management controls.
+            show_board_window(popup)
+            return content
+
+    view = DisplayWebView(win)
     win.setCentralWidget(view)
-    view.setUrl(QUrl(f'http://127.0.0.1:{PORT}/'))
+    view.setUrl(QUrl(f'http://127.0.0.1:{PORT}/?desktop=host'))
     bar = QToolBar('Réseau local')
     win.addToolBar(bar)
     lan_action = QAction('Activer accès LAN', win)
@@ -185,6 +222,8 @@ def main():
     win.updates = UpdateController(win, bar, restart_callback=restart_after_update)
 
     def shutdown():
+        for popup in tuple(open_windows):
+            popup.close()
         controller.quit()
         store.shutdown()
         server[0].shutdown()

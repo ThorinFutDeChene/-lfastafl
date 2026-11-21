@@ -63,6 +63,11 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_tutorial.cjs
+      - name: Verify separate fullscreen host windows and spectator QR
+        timeout-minutes: 4
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_desktop.cjs
       - name: Exercise the 3D board in Chromium
         timeout-minutes: 5
         env:

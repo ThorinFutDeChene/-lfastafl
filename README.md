@@ -1,13 +1,53 @@
-# Álfastafl — 0.7.0-dev7 (canal DEV)
+# Álfastafl — 0.7.0-dev8 (canal DEV)
 
-La **0.7.0-dev7** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.0-dev8** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev7` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev8` est plus récent que `0.5.1~dev5` et `0.5.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.0-dev8 : PC hôte avec plateau dans une nouvelle fenêtre plein écran
+
+**Gestion et affichage désormais séparés dans l'application Ubuntu.**
+La fenêtre principale Qt, toujours maximisée avec sa barre d'outils
+réseau, sert exclusivement à créer/reprendre/supprimer les parties,
+choisir les camps, gérer les demandes d'accès et autoriser le LAN.
+Elle **n'affiche plus le plateau** et n'alloue pas de scène WebGL.
+
+À la création d'une partie (hôte joueur ou spectateur), à la sélection
+d'une sauvegarde, au choix d'un camp ou avec le bouton
+**« Ouvrir le plateau dans une fenêtre plein écran »**, le plateau
+s'ouvre dans une **seconde fenêtre Qt indépendante**, initialement en
+plein écran. Ce plateau possède son propre rendu 3D, ses animations,
+ses contrôles de jeu et de caméra. Le menu discret ☰ ouvre les
+réglages ; **F11** permet de sortir/rentrer du plein écran,
+et **« Fermer »** ne ferme que cette fenêtre (ni le serveur ni la
+fenêtre principale). La partie continue à exister sur le serveur.
+
+**Tutoriel** : le bouton du PC hôte ouvre lui aussi une fenêtre Qt
+distincte en plein écran, avec le plateau d'exercice et les
+instructions. Le tutoriel reste strictement local et indépendant
+des parties ; sa fermeture ramène à l'administration sans détruire
+une partie en cours.
+
+**QR code spectateur** : lorsque l'accès LAN est activé par l'hôte,
+un QR discret en bas à droite du plateau plein écran permet de
+scanner l'invitation **spectateur de la partie affichée**. Le scan
+envoie une demande : l'accès reste soumis à l'**approbation de
+l'hôte**. Le QR est automatiquement masqué lorsque le LAN est
+désactivé, puis réapparaît à la réactivation. Il n'est pas rechargé
+à chaque interrogation du serveur. Il est présent lorsque l'hôte
+joue comme lorsqu'il observe.
+
+Les clients distants autorisés conservent leur interface immersive
+existante. Les règles, sauvegardes, coups et positions, chronomètres
+et autorisations réseau sont inchangés. Les tests de la DEV incluent
+une simulation Chromium des **fenêtres séparées** et du cycle
+de vie du QR, ainsi que des assertions Python sur le plein écran
+Qt. Tests physiques multi-écrans Ubuntu MATE encore nécessaires.
 
 ## DEV 0.7.0-dev7 : flèches enfin tirées depuis l'arc, pas depuis la poitrine
 

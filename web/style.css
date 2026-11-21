@@ -187,41 +187,41 @@
 /* Guest fullscreen layout: applies only after a server-approved /api/state. */
 #guest-menu-toggle[hidden] {display:none!important}
 #guest-menu-toggle {display:none}
-body.guest-board-only {overflow:hidden;overscroll-behavior:none}
-body.guest-board-only main {max-width:none;width:100%;height:100%;margin:0;padding:0}
-body.guest-board-only main > header,
-body.guest-board-only main > footer,
-body.guest-board-only #host,
-body.guest-board-only #join {display:none!important}
-body.guest-board-only #game {
+body:is(.guest-board-only,.desktop-board-only) {overflow:hidden;overscroll-behavior:none}
+body:is(.guest-board-only,.desktop-board-only) main {max-width:none;width:100%;height:100%;margin:0;padding:0}
+body:is(.guest-board-only,.desktop-board-only) main > header,
+body:is(.guest-board-only,.desktop-board-only) main > footer,
+body:is(.guest-board-only,.desktop-board-only) #host,
+body:is(.guest-board-only,.desktop-board-only) #join {display:none!important}
+body:is(.guest-board-only,.desktop-board-only) #game {
  position:fixed;inset:0;z-index:0;width:100%;height:100%;height:100dvh;
  overflow:hidden;margin:0;padding:0;border:0;border-radius:0;background:#0c1712;
 }
-body.guest-board-only #game-board-view {
+body:is(.guest-board-only,.desktop-board-only) #game-board-view {
  position:absolute;inset:0;width:100%;height:100%;min-width:0;margin:0;
 }
-body.guest-board-only #game-board-view .board-stage {
+body:is(.guest-board-only,.desktop-board-only) #game-board-view .board-stage {
  width:100%;height:100%;min-height:100%;border:0;border-radius:0;
 }
-body.guest-board-only #game-board-view #board {
+body:is(.guest-board-only,.desktop-board-only) #game-board-view #board {
  position:absolute;top:50%;left:50%;width:min(94vw,94dvh);
  max-width:none;max-height:none;margin:0;transform:translate(-50%,-50%);
 }
-body.guest-board-only #game .board-legend,
-body.guest-board-only #game .board-help,
-body.guest-board-only #game .board-empty,
-body.guest-board-only #game > h3,
-body.guest-board-only #game > #moves {display:none!important}
-body.guest-board-only #game > .row {
+body:is(.guest-board-only,.desktop-board-only) #game .board-legend,
+body:is(.guest-board-only,.desktop-board-only) #game .board-help,
+body:is(.guest-board-only,.desktop-board-only) #game .board-empty,
+body:is(.guest-board-only,.desktop-board-only) #game > h3,
+body:is(.guest-board-only,.desktop-board-only) #game > #moves {display:none!important}
+body:is(.guest-board-only,.desktop-board-only) #game > .row {
  position:fixed;top:calc(10px + env(safe-area-inset-top,0px));
  left:calc(10px + env(safe-area-inset-left,0px));z-index:25;
  max-width:calc(100vw - 78px);margin:0;padding:8px 12px;
  border:1px solid #b08c4d75;border-radius:10px;
  background:#07140fcf;pointer-events:none;
 }
-body.guest-board-only #game > .row h2 {display:none}
-body.guest-board-only #game > .row #state {font-size:clamp(.73rem,2.2vw,.93rem);overflow-wrap:anywhere}
-body.guest-board-only #guest-menu-toggle {
+body:is(.guest-board-only,.desktop-board-only) #game > .row h2 {display:none}
+body:is(.guest-board-only,.desktop-board-only) #game > .row #state {font-size:clamp(.73rem,2.2vw,.93rem);overflow-wrap:anywhere}
+body:is(.guest-board-only,.desktop-board-only) #guest-menu-toggle {
  display:grid;place-items:center;position:fixed;
  top:calc(10px + env(safe-area-inset-top,0px));
  right:calc(10px + env(safe-area-inset-right,0px));z-index:60;
@@ -229,9 +229,9 @@ body.guest-board-only #guest-menu-toggle {
  border:1px solid #bca276;border-radius:10px;
  background:#15251de6;color:#f2d69d;font-size:22px;line-height:1;
 }
-body.guest-board-only #guest-menu-toggle:focus-visible {outline:3px solid #ffe09a;outline-offset:2px}
-body.guest-board-only #game .board-tools {display:none}
-body.guest-board-only.guest-menu-open #game .board-tools {
+body:is(.guest-board-only,.desktop-board-only) #guest-menu-toggle:focus-visible {outline:3px solid #ffe09a;outline-offset:2px}
+body:is(.guest-board-only,.desktop-board-only) #game .board-tools {display:none}
+body:is(.guest-board-only,.desktop-board-only).guest-menu-open #game .board-tools {
  display:flex;position:fixed;z-index:55;
  top:calc(64px + env(safe-area-inset-top,0px));
  right:calc(10px + env(safe-area-inset-right,0px));
@@ -239,19 +239,19 @@ body.guest-board-only.guest-menu-open #game .board-tools {
  overflow-y:auto;gap:8px;padding:12px;
  background:#15251ef5;box-shadow:0 10px 45px #000b;
 }
-body.guest-board-only #game > #player-controls {display:none!important}
-body.guest-board-only.guest-menu-open #game > #player-controls:not([hidden]) {
+body:is(.guest-board-only,.desktop-board-only) #game > #player-controls {display:none!important}
+body:is(.guest-board-only,.desktop-board-only).guest-menu-open #game > #player-controls:not([hidden]) {
  display:flex!important;flex-wrap:wrap;position:fixed;z-index:55;
  right:calc(10px + env(safe-area-inset-right,0px));
  bottom:calc(12px + env(safe-area-inset-bottom,0px));
  max-width:calc(100vw - 20px);padding:7px;
  border:1px solid #bca276;border-radius:10px;background:#15251ef5;
 }
-body.guest-board-only[data-guest-timed="true"].guest-menu-open #game > #player-controls:not([hidden]) {
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"].guest-menu-open #game > #player-controls:not([hidden]) {
  bottom:calc(80px + env(safe-area-inset-bottom,0px));
 }
-body.guest-board-only #game > #clocks {display:none}
-body.guest-board-only[data-guest-timed="true"] #game > #clocks {
+body:is(.guest-board-only,.desktop-board-only) #game > #clocks {display:none}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] #game > #clocks {
  display:grid;position:fixed;z-index:25;
  bottom:calc(10px + env(safe-area-inset-bottom,0px));
  left:50%;transform:translateX(-50%);
@@ -259,40 +259,40 @@ body.guest-board-only[data-guest-timed="true"] #game > #clocks {
  gap:5px;grid-template-columns:minmax(0,1fr) minmax(90px,1.1fr) minmax(0,1fr);
  padding:5px;border-radius:10px;background:#07140fd4;pointer-events:none;
 }
-body.guest-board-only[data-guest-timed="true"] .clock-box {padding:5px 2px}
-body.guest-board-only[data-guest-timed="true"] .clock-box strong {font-size:clamp(1rem,3vw,1.5rem)}
-body.guest-board-only[data-guest-timed="true"] .clock-box span {font-size:.7rem}
-body.guest-board-only[data-guest-timed="true"] .clock-mode-box {font-size:.7rem}
-body.guest-board-only #game > #msg:not(:empty) {
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-box {padding:5px 2px}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-box strong {font-size:clamp(1rem,3vw,1.5rem)}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-box span {font-size:.7rem}
+body:is(.guest-board-only,.desktop-board-only)[data-guest-timed="true"] .clock-mode-box {font-size:.7rem}
+body:is(.guest-board-only,.desktop-board-only) #game > #msg:not(:empty) {
  position:fixed;z-index:45;top:calc(65px + env(safe-area-inset-top,0px));
  left:calc(10px + env(safe-area-inset-left,0px));
  max-width:min(420px,calc(100vw - 75px));margin:0;padding:9px 12px;
  border-radius:8px;background:#331c15ed;color:#ffdcbb;
 }
-body.guest-board-only #game > #msg:empty {display:none}
-body.guest-board-only #game .board-status {display:none}
-body.guest-board-only #game .board-status[data-kind="error"] {
+body:is(.guest-board-only,.desktop-board-only) #game > #msg:empty {display:none}
+body:is(.guest-board-only,.desktop-board-only) #game .board-status {display:none}
+body:is(.guest-board-only,.desktop-board-only) #game .board-status[data-kind="error"] {
  display:block;position:fixed;bottom:70px;left:50%;
  transform:translateX(-50%);z-index:40;max-width:90vw;
  border-radius:8px;background:#251b17e8;padding:9px 12px;
 }
-body.guest-board-only #game > #connection-state:not([hidden]),
-body.guest-board-only #game > #draw-response:not([hidden]),
-body.guest-board-only #game > #repetition-review:not([hidden]) {
+body:is(.guest-board-only,.desktop-board-only) #game > #connection-state:not([hidden]),
+body:is(.guest-board-only,.desktop-board-only) #game > #draw-response:not([hidden]),
+body:is(.guest-board-only,.desktop-board-only) #game > #repetition-review:not([hidden]) {
  position:fixed;z-index:50;left:50%;transform:translateX(-50%);
  width:min(420px,calc(100vw - 24px));max-height:60dvh;overflow-y:auto;
  box-shadow:0 12px 45px #000c;background:#14231cf5;
 }
-body.guest-board-only #game > #connection-state:not([hidden]) {
+body:is(.guest-board-only,.desktop-board-only) #game > #connection-state:not([hidden]) {
  bottom:calc(78px + env(safe-area-inset-bottom,0px));pointer-events:none;
 }
-body.guest-board-only #game > #draw-response:not([hidden]),
-body.guest-board-only #game > #repetition-review:not([hidden]) {top:50%;transform:translate(-50%,-50%)}
-body.guest-board-only #game > #host-game-controls {display:none!important}
+body:is(.guest-board-only,.desktop-board-only) #game > #draw-response:not([hidden]),
+body:is(.guest-board-only,.desktop-board-only) #game > #repetition-review:not([hidden]) {top:50%;transform:translate(-50%,-50%)}
+body:is(.guest-board-only,.desktop-board-only) #game > #host-game-controls {display:none!important}
 @media(max-width:480px) {
- body.guest-board-only.guest-menu-open #game .board-camera-tools {order:0}
- body.guest-board-only #game > .row {padding:7px 10px}
- body.guest-board-only #game .board-tools select {font-size:.85rem}
+ body:is(.guest-board-only,.desktop-board-only).guest-menu-open #game .board-camera-tools {order:0}
+ body:is(.guest-board-only,.desktop-board-only) #game > .row {padding:7px 10px}
+ body:is(.guest-board-only,.desktop-board-only) #game .board-tools select {font-size:.85rem}
 }
 
 /* Clear, separate host controls for selecting or deleting saved games. */
@@ -360,3 +360,80 @@ body.guest-board-only[data-guest-timed="true"] #capture-overlay{
  .capture-overlay{padding:9px;gap:6px;font-size:.84rem}
  .capture-overlay button{min-height:40px}
 }
+
+/* Qt desktop management is intentionally BOARD-FREE. Never allocate a
+   second WebGL canvas in the maximized management window. */
+body.desktop-host-manager #game-board-view,
+body.desktop-host-manager #tutorial-panel{display:none!important}
+body.desktop-host-manager #host-board-note{color:#e4d5af;font-size:.91rem}
+body.desktop-host-manager #game > .row h2{font-size:1.25rem}
+
+/* Desktop board: Qt makes this a new native fullscreen OS window.
+   The host remains fully able to administer permissions in the first
+   window. Local-browser fallback occupies the viewport as well. */
+body.desktop-board-only main{max-width:none;padding:0;margin:0}
+body.desktop-board-only .host-window-close{
+ display:block;position:fixed;top:10px;left:10px;z-index:62;
+ padding:9px 13px;min-height:42px;background:#14251ee9;
+ color:#f1d8a9;border:1px solid #9a865c;font-size:.83rem;
+}
+body.desktop-board-only .host-fullscreen{
+ display:grid;place-items:center;position:fixed;top:10px;right:65px;
+ z-index:62;min-width:43px;min-height:44px;padding:7px;
+ background:#14251ee9;color:#f1d8a9;border:1px solid #9a865c;
+}
+body.desktop-board-only #game > .row {top:65px;left:10px}
+body.desktop-board-only #game-board-view .board-stage{
+ width:100%;height:100%;min-height:100%;border:0;border-radius:0;
+}
+body.desktop-board-only #game > #clocks:not([hidden]){z-index:26}
+body.desktop-board-only #game .board-tools{z-index:55}
+body.desktop-board-only .host-spectator-qr:not([hidden]){
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ position:fixed;right:calc(14px + env(safe-area-inset-right,0px));
+ bottom:calc(14px + env(safe-area-inset-bottom,0px));
+ z-index:48;max-width:164px;margin:0;padding:8px 10px 6px;
+ border:1px solid #ccb277;border-radius:12px;background:#071511e8;
+ box-shadow:0 4px 22px #000b;pointer-events:auto;color:#f4e0b3;
+}
+body.desktop-board-only .host-spectator-qr img {
+ display:block;width:clamp(85px,9vw,128px);height:auto;aspect-ratio:1;
+ image-rendering:auto;border:4px solid white;border-radius:6px;background:white;
+}
+body.desktop-board-only .host-spectator-qr figcaption{
+ font-size:.68rem;letter-spacing:.11em;font-weight:800;margin-bottom:5px;
+}
+body.desktop-board-only .host-spectator-qr p{
+ font-size:.62rem;line-height:1.24;text-align:center;margin:5px 0 0;
+}
+body.desktop-board-only .capture-overlay{bottom:28px;top:auto}
+body.desktop-board-only .host-spectator-qr:not([hidden]) ~ .capture-overlay{
+ bottom:175px;
+}
+body:not(.desktop-board-only) .host-spectator-qr,
+body:not(.desktop-board-only) .host-window-close,
+body:not(.desktop-board-only) .host-fullscreen{display:none!important}
+body.desktop-board-only .host-window-close:focus-visible,
+body.desktop-board-only .host-fullscreen:focus-visible{
+ outline:3px solid #ffe09a;outline-offset:2px;
+}
+body.desktop-board-only.guest-menu-open #guest-menu-toggle{z-index:68}
+body.desktop-board-only.guest-menu-open #game .board-tools{top:67px}
+@media(max-width:800px){
+ body.desktop-board-only .host-spectator-qr:not([hidden]){max-width:119px;padding:5px}
+ body.desktop-board-only .host-spectator-qr img{width:84px}
+ body.desktop-board-only .host-spectator-qr p{display:none}
+ body.desktop-board-only .host-spectator-qr figcaption{font-size:.60rem}
+ body.desktop-board-only #game > .row{top:61px}
+}
+body.desktop-tutorial-only {overflow:hidden;background:#0c1712}
+body.desktop-tutorial-only main{max-width:none;margin:0;padding:0}
+body.desktop-tutorial-only main > :not(#tutorial-panel){display:none!important}
+body.desktop-tutorial-only #tutorial-panel{
+ display:block;position:fixed;inset:0;width:100vw;height:100dvh;
+ max-width:none;max-height:none;margin:0;padding:14px;
+ border:0;border-radius:0;overflow-y:auto;background:#111c17;color:#f6e7cd;
+}
+body.desktop-tutorial-only #tutorial-panel::backdrop{background:#0c1712}
+body.desktop-tutorial-only .tutorial-play .board-stage{height:clamp(340px,62dvh,800px)}
+body.desktop-tutorial-only .tutorial-layout{width:100%;max-width:none}

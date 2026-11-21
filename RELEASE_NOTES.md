@@ -1,41 +1,48 @@
-# Álfastafl 0.7.0-dev7 — Origine des flèches sur l'arc elfique
+# Álfastafl 0.7.0-dev8 — Fenêtres plein écran du PC hôte
 
-## Correctif 3D
+## Séparation nette entre l'hébergement et l'affichage
 
-**Défaut :** les flèches semblaient sortir de la poitrine des elfes,
-car les cinématiques utilisaient une hauteur fixe par rapport au corps
-plutôt que la géométrie de l'arme.
+- **Fenêtre hôte principale** : démarre toujours maximisée (pas plein
+  écran), conserve la barre d'outils d'autorisation LAN, la création
+  et la sélection des parties, les sauvegardes, les camps et la
+  validation des demandes. **Le plateau n'y est plus affiché** et
+  aucun moteur 3D n'y consomme de ressources.
+- **Nouvelle fenêtre native Qt plein écran** : ouvre le plateau
+  lorsqu'une partie est créée, sélectionnée, lorsque l'hôte
+  choisit de jouer les Nains/Elfes ou de rester spectateur, ou
+  via le bouton de réouverture de plateau. Un joueur hôte peut
+  réellement jouer dans cette fenêtre sans quitter l'administration.
+- **Tutoriel** : s'ouvre depuis la fenêtre principale dans une
+  autre fenêtre native plein écran. Exercices, légalité et affichage
+  3D/2D restent indépendants de la partie et du LAN.
+- **Menu ☰** du plateau pour les réglages, **F11** pour basculer
+  entre plein écran et fenêtre ordinaire, **Fermer** pour retourner
+  à l'administration sans arrêter la partie ni le serveur.
+  La fermeture du logiciel referme proprement toutes ses fenêtres.
 
-**Correction :**
-- Point d'ancrage `combat-bow-nock` ajouté au **milieu de la corde de
-  l'arc déjà sculpté**, attaché au bras gauche articulé.
-- La flèche devient visible **encochée et alignée** vers la cible avant
-  le lâcher. Son extrémité arrière rejoint exactement la corde, même
-  lorsque l'elfe tourne ou lève le bras.
-- Trajectoires calculées à partir du nock 3D transformé en coordonnées
-  monde, y compris les impacts et ricochets contre le bouclier.
-- L'ancienne flèche décorative figée en travers du buste reste
-  présente sur les figurines de jeu immobiles mais est retirée
-  des versions articulées, qui utilisent une véritable flèche animée.
-- Mise en cohérence de **tous les tirs elfes** : prise en étau,
-  capture contre le trône vide (première flèche parée et seconde
-  flèche décisive) et captures ordinaires. Les combats de nains,
-  les attaques collectives contre le roi et la fuite à cheval ne
-  sont pas modifiés.
+## Invitation spectateurs sur le plateau
 
-## Validation
+- En jeu **et** en mode hôte spectateur, QR code
+  **« SPECTATEURS »** en coin inférieur droit.
+- Il pointe uniquement vers l'invitation spectateur de la partie
+  affichée. La demande **ne donne jamais automatiquement accès** :
+  l'hôte doit l'autoriser dans la fenêtre de gestion.
+- QR visible uniquement quand l'accès LAN a été volontairement
+  activé, masqué dès sa désactivation, actualisé seulement si
+  l'URL/invitation change.
+- Les invités distants conservent leur interface actuelle. Aucun
+  droit supplémentaire accordé, pas de port ouvert au démarrage.
 
-- Régression Chromium : le test compare la vraie position du nock
-  et la pointe arrière du projectile (tolérance < 0,005 case),
-  vérifie son départ depuis l'arc et le deuxième tir en situation
-  contre le trône et en duel classique.
-- Aucune modification du Tafl (coups légaux, captures, horloges),
-  de la sauvegarde, de l'état de la partie ou des accès réseau.
-- Articulations et flèches procédurales 3D locales, sans nouveaux
-  téléchargements ni données réseau.
-- Essais visuels sur Ubuntu MATE, tablette et téléphone à confirmer.
+## Compatibilité et validation
 
-## Distribution
+- Moteur de jeu Tafl, animations, son, chronomètres, sauvegardes,
+  autorisations LAN et historique préservés.
+- La stable 0.5.0 reste inchangée.
+- Tests Python pour les deux modes de fenêtres Qt ; nouveaux
+  scénarios Chromium pour la séparation gestion/plateau, la fenêtre
+  tutoriel, l'hôte joueur ou spectateur, le QR et la fermeture /
+  réouverture du plateau.
+- **Tests physiques sur Ubuntu MATE requis**, notamment l'usage
+  sur plusieurs moniteurs et le comportement de QtWebEngine.
 
-- Paquet Debian **0.7.0~dev7** sur le canal **DEV**.
-- Stable 0.5.0 inchangée.
+**Distribution :** canal DEV, paquet Debian `0.7.0~dev8`.
