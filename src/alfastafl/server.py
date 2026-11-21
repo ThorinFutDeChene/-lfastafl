@@ -30,6 +30,9 @@ class Store:
         self._tournament_invites={}
         self._pending_secrets={}
         self._broadcast_sessions={}
+        # Ephemeral host preparation / authenticated spectator activity.
+        # No permanent LAN setting or browser identifier is written to disk.
+        self._lan_activity_until=0.0
         self.repetition_votes={}
         # A presentation is ephemeral and independent of saved game/tournament data.
         self.tutorial_live=None
@@ -102,6 +105,37 @@ class Store:
             except (OSError,AttributeError):pass
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
+
+    def keep_lan_active(self, seconds=12):
+        """Renew a short activity window for an authenticated LAN operation.
+
+        Callers must be authorized by the HTTP route (host loopback, or
+        an already-approved tournament spectator). A request from an
+        unknown LAN visitor must never extend the firewall lease.
+        """
+        with self.lock:
+            self._lan_activity_until=max(self._lan_activity_until,
+                                         self.monotonic()+seconds)
+
+    def lan_in_use(self):
+        """Server-authoritative check for whether the network is still needed.
+
+        Never disconnect active games (including waiting for a second
+        player), reconnect arbitration, real tutorial streams or viewers.
+        Completed and deliberately saved games do not pin the LAN open.
+        """
+        with self.lock:
+            now=self.monotonic()
+            if now < self._lan_activity_until:
+                return True
+            for g in self.games.values():
+                if g.status=='active' or (
+                        g.status=='paused' and
+                        g.reason in ('disconnected','awaiting_substitute',
+                                     'repetition_review','draw_proposal')):
+                    return True
+            live=self.tutorial_live
+            return bool(live and now-live['updated'] <= 20)
 
     def start_tutorial_live(self,mode,lesson=None):
         """The Ubuntu host publishes one temporary, read-only teaching session."""
@@ -320,6 +354,9 @@ class Store:
                                   owner['role'] == 'spectator' and
                                   owner.get('broadcast_tournament') == tid):
                 raise PermissionError('Diffusion du tournoi non autorisée.')
+            # Only successful, authorized live-view polling extends the LAN
+            # lease. This protects spectators between tournament rounds.
+            self.keep_lan_active()
             # A replay supersedes its drawn predecessor. It is part of
             # the SAME round but the old board must not rotate on the
             # live spectator wall again. Ignore byes (no game), and prefer
@@ -1099,6 +1136,13 @@ class AppHandler(BaseHTTPRequestHandler):
                                       'error':'Activation LAN native indisponible.'})
                 activate()
                 return self.send({'active':False,'pending':True},202)
+            if u.path=='/api/lan/activity':
+                if not self.admin() or self.headers.get(
+                        'X-Alfastafl-Host-Action')!='lan-activity':
+                    raise PermissionError('Activité LAN réservée au PC hôte.')
+                if self.server.lan_enabled:
+                    self.server.store.keep_lan_active()
+                return self.send({'active':self.server.lan_enabled})
             if u.path.startswith('/api/tutorial') and not self.admin():
                 raise PermissionError('Tutoriel réservé au PC hôte.')
             d=self.read_json();st=self.server.store
