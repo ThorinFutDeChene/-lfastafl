@@ -213,6 +213,7 @@ async function listGames(force=false){
    button.title='Sélectionner cette partie';
    button.onclick=async()=>{
     clearCinematic();
+    window.AlfastaflTournamentLive?.stop();
     gameId=g.id;session='';game=null;you=null;hostSeats={};invalidateBoardInteraction();render();
     const popup=reserveHostBoard();
     sessionStorage.setItem('alfastafl.game',gameId);
@@ -428,6 +429,7 @@ async function load(){
   const previous=game&&game.id===requestedGame?game:null;
   const previousHistoryCount=previous?.history?.length||0;
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};hostSeats=state.seats||{};
+  window.AlfastaflTournamentLive?.onState(state);
   soundscape.setGame(game);
   // Only animate a newly confirmed server move, never a restored snapshot or
   // a backlog of moves received after reconnecting a sleeping phone.
@@ -717,6 +719,7 @@ async function pending(){
  }catch(error){}
 }
 async function tick(){
+ if(!isHost&&!session&&gameId)await window.AlfastaflTournamentLive?.restore(gameId);
  if(isHost&&!isDesktopBoard&&!isDesktopTutorial){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
   `Serveur réseau actif : http://${n.address}:${n.port}/`:
   'Mode local. Activez l’accès LAN depuis le menu Réseau pour connecter des joueurs.';
