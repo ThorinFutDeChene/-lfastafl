@@ -1,28 +1,30 @@
-# Álfastafl 0.7.1-dev7 — Recette renforcée des tournois
+# Álfastafl 0.7.1-dev8 — Compatibilité Firefox et WebKit
 
-## Tests de finale et captures réellement simultanées
+## Extension des tests de navigateurs
 
-- Un scénario Python contrôle l'intégralité d'une élimination directe
-  à **quatre joueurs** : deux demi-finales, validation par l'hôte,
-  reconnexion des deux gagnants sur la finale, victoire finale,
-  persistance après redémarrage et absence de ronde supplémentaire.
-- Deux captures sont désormais provoquées par de **vrais coups légaux**
-  envoyés simultanément à deux parties indépendantes via l'API.
-  Les animations issues du moteur sont vérifiées dans la diffusion
-  du tournoi depuis un spectateur autorisé.
-- Les tests de navigateur déjà en place continuent de vérifier
-  les connexions de quatre joueurs, la rotation des plateaux,
-  les QR codes, les permissions et la reconnexion.
-- Une procédure de recette physique avec **14 scénarios** sur
-  Ubuntu MATE, quatre appareils joueurs et un spectateur est
-  fournie dans `RECETTE_TOURNOIS_TERRAIN.md`.
+- La recette du tutoriel partagé (QR, sélection des coups, déplacements,
+  lecture seule et révocation) s'exécute maintenant avec les moteurs
+  **Chromium**, **Firefox** et **WebKit** via Playwright.
+- La recette à quatre joueurs / deux rencontres / un spectateur est
+  également exécutée sous ces trois moteurs : autorisations,
+  déplacements, reconnection, rotation des plateaux, scènes de prises
+  simultanées et qualification des finalistes.
+- GitHub Actions installe les moteurs nécessaires et doit réussir ces
+  tests avant toute publication de DEV8.
+- Le cahier de recette physique distingue Firefox Linux/Android,
+  Chrome Android et Safari iOS/macOS.
 
-## Portée de la préversion
+**Limite :** WebKit Linux constitue un test du moteur de rendu,
+et non une validation de Safari sur iPhone, iPad ou macOS. Les essais
+réels sur ces appareils et le Wi-Fi restent obligatoires avant
+une déclaration de compatibilité complète.
 
-Aucun changement de règle, de format de sauvegarde, de protocole
-d'authentification ni de comportement du plateau par rapport
-à 0.7.1-dev6. La branche stable **0.7.0 reste inchangée**.
+## Correctifs et continuité
 
-La réussite de GitHub Actions ne remplace pas les essais avec
-plusieurs appareils réels et un pare-feu UFW actif. La promotion
-en stable dépend notamment de cette recette terrain.
+- Le test de mise à jour lit désormais la version attendue dans
+  `VERSION` pour éviter les blocages CI à chaque nouvelle DEV.
+- Aucun changement de règles, de sauvegarde ou du protocole réseau.
+- Version stable **0.7.0 inchangée**.
+
+Pour les résultats de la recette multijoueurs et les scénarios
+terrain, voir `RECETTE_TOURNOIS_TERRAIN.md`.
