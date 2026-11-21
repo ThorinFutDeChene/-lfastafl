@@ -320,11 +320,24 @@ class Store:
                                   owner['role'] == 'spectator' and
                                   owner.get('broadcast_tournament') == tid):
                 raise PermissionError('Diffusion du tournoi non autorisée.')
+            # A replay supersedes its drawn predecessor. It is part of
+            # the SAME round but the old board must not rotate on the
+            # live spectator wall again. Ignore byes (no game), and prefer
+            # active matches; keep finished match results visible only when
+            # there is no more action to show. A concluding cinematic
+            # remains live even when its game has just finished.
+            current = [m for m in tournament['matches']
+                       if m.get('game') in self.games and
+                       m['round'] == tournament['round_no']]
+            superseded = {m['replay_of'] for m in current
+                          if m.get('replay_of')}
+            current = [m for m in current if m['id'] not in superseded]
+            live = [m for m in current
+                    if self.games[m['game']].status != 'finished' or
+                    self.cinematic_state(m['game'])]
             matches = []
-            for m in tournament['matches']:
-                gid = m.get('game')
-                if gid not in self.games or m['round'] != tournament['round_no']:
-                    continue
+            for m in (live or current):
+                gid = m['game']
                 g = self.games[gid]
                 if not admin:
                     link = self._broadcast_sessions.get((sid, gid))
