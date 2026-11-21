@@ -279,9 +279,9 @@
           <p>Chaque participant joue contre les autres au fil des rondes.
           Le classement donne <strong>3 points par victoire</strong>,
           <strong>1 point par nul</strong> et <strong>0 en cas de défaite</strong>.</p>
-          <p class="tournament-format-caveat">Dans la version actuelle, privilégiez
-          un nombre pair de participants : avec un nombre impair, certaines
-          confrontations peuvent manquer.</p>
+          <p class="tournament-format-caveat">Tous les duels sont programmés une seule
+          fois, y compris avec un nombre impair : une exemption tournante
+          apparaît alors à chaque ronde, sans partie fictive ni point ajouté.</p>
         </section>
         <section data-tournament-format="swiss" hidden>
           <h4>Système suisse</h4>
@@ -291,18 +291,21 @@
           défaite : <strong>0</strong>) et rencontrent autant que possible
           un adversaire de score proche qu'ils n'ont pas déjà affronté.</p>
           <p class="tournament-format-caveat">Avec un nombre impair de participants,
-          un joueur peut ne pas être apparié pendant une ronde ;
-          le moteur ne lui attribue pas de victoire automatique.</p>
+          une exemption est attribuée au joueur ayant eu le moins de repos,
+          parmi les moins bien classés. Elle rapporte <strong>3 points</strong>
+          sans créer de partie ni changer son historique de factions.</p>
         </section>
         <section data-tournament-format="knockout" hidden>
           <h4>Élimination directe</h4>
           <p>Le <strong>vainqueur</strong> de chaque rencontre passe au tour suivant ;
           le <strong>perdant</strong> est éliminé. Les tours se poursuivent jusqu'à
           ce qu'il ne reste qu'un vainqueur.</p>
-          <p class="tournament-format-caveat">Privilégiez
-          <strong>2, 4, 8 ou 16 joueurs</strong> : la gestion des exemptions
-          et des matchs nuls n'est pas encore complète. Une partie nulle
-          ne qualifie aucun des deux joueurs dans cette version.</p>
+          <p class="tournament-format-caveat">Tous les effectifs à partir de
+          deux joueurs sont pris en charge. Le tirage initial attribue
+          aléatoirement les exemptions nécessaires pour obtenir un tableau
+          de puissance de deux. Une exemption qualifie sans créer de partie.
+          En cas de <strong>match nul</strong>, une revanche est organisée
+          dans la même ronde, jusqu'à désigner un vainqueur.</p>
         </section>
       </div>
       <label>Rondes (suisse) <input id="tournament-rounds" type="number" min="1" max="20" value="3"></label>
