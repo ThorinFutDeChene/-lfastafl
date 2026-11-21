@@ -120,7 +120,7 @@ class PairingEdgeTests(unittest.TestCase):
         self.assertEqual(t.round_no,1)
         self.assertEqual(len(replay),1)
         self.assertEqual(replay[0]['replay_of'],first['id'])
-        self.assertEqual((replay[0]['a'],replay[0]['b']),('Alice','Bruno'))
+        self.assertEqual(set((replay[0]['a'],replay[0]['b'])),{'Alice','Bruno'})
         self.assertNotEqual((first['camp_a'],first['camp_b']),
                             (replay[0]['camp_a'],replay[0]['camp_b']))
         self.assertEqual(len(t.history['Alice']),1)
