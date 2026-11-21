@@ -1,0 +1,38 @@
+name: Verify four-player tournament in separate browsers
+on:
+  push:
+    branches: [feature/recette-tournoi-quatre-appareils-071]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: alfastafl-four-device-recette
+  cancel-in-progress: true
+jobs:
+  tournament-recette:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-qrcode python3-pil python3-pyqt6 python3-pyqt6.qtwebengine xvfb xauth x11-utils
+      - name: Compile and run server-side tournament regressions
+        run: |
+          python3 -m compileall -q src tests
+          PYTHONPATH=src python3 -m unittest discover -s tests -v
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Verify browser test syntax
+        run: node --check tests/browser_tournament_four_clients.cjs
+      - name: Install headless Chromium
+        timeout-minutes: 10
+        run: |
+          npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Exercise four independent players and one broadcast spectator
+        timeout-minutes: 6
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_four_clients.cjs
