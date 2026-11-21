@@ -896,6 +896,19 @@ class AppHandler(BaseHTTPRequestHandler):
                 if u.path=='/api/tournaments':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'tournaments':list(st.tournaments.values())})
+                if u.path=='/api/tournament/devices':
+                    if not self.admin():raise PermissionError('Réservé à l’hôte.')
+                    tournament_id=q.get('tournament',[''])[0]
+                    if tournament_id not in st.tournaments:
+                        raise ValueError('Tournoi inconnu.')
+                    members={}
+                    for record in st.tournament_credentials.values():
+                        if record.get('tournament')==tournament_id:
+                            key=(record.get('name'),record.get('role'))
+                            if isinstance(key[0],str) and key[1] in ('player','spectator'):
+                                members[key]=members.get(key,0)+1
+                    return self.send({'devices':[{'name':name,'role':role,'count':count}
+                        for (name,role),count in sorted(members.items())]})
                 if u.path=='/api/tournament/identify':
                     identity=st.tournament_identify(q.get('game',[''])[0])
                     return self.send(identity or {'error':'Pas une rencontre de tournoi'},
