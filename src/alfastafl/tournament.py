@@ -75,22 +75,41 @@ def balanced_camps(a, b, history):
 
 class Tournament:
     FORMATS=('knockout','round_robin','swiss')
-    def __init__(self,name,format,players,rounds=3,id=None,history=None,matches=None,round_no=0):
+    def __init__(self,name,format,players,rounds=3,id=None,history=None,matches=None,round_no=0,
+                 devices=None,spectator_devices=None):
         if format not in self.FORMATS:raise ValueError('Invalid tournament format')
         if len(players)<2 or len(set(players))!=len(players):raise ValueError('Need unique players')
         self.id=id or str(uuid.uuid4());self.name=name;self.format=format;self.players=players
         self.rounds=rounds;self.history=history or {p:[] for p in players}
         self.matches=matches or [];self.round_no=round_no
-    def as_dict(self):return dict(id=self.id,name=self.name,format=self.format,players=self.players,rounds=self.rounds,history=self.history,matches=self.matches,round_no=self.round_no)
+        # SHA-256 fingerprints only: raw per-browser credentials are never
+        # serialized or included in tournament API responses.
+        self.devices=devices or {}
+        self.spectator_devices=spectator_devices or {}
+
+    def as_dict(self):
+        return dict(id=self.id,name=self.name,format=self.format,
+                    players=self.players,rounds=self.rounds,history=self.history,
+                    matches=self.matches,round_no=self.round_no,
+                    devices=self.devices,spectator_devices=self.spectator_devices)
+
     @classmethod
     def from_dict(cls,d):return cls(**d)
+
     def standings(self):
         score={p:0 for p in self.players}
         for m in self.matches:
+            if m.get('bye'):
+                # A Swiss bye is a full, explicitly labelled 3-point bye;
+                # in round-robin an exemption is unscored. Knockout byes
+                # grant qualification but do not fake a game result.
+                if self.format=='swiss':score[m['a']]+=3
+                continue
             if m.get('winner') in score:score[m['winner']]+=3
             elif m.get('winner')=='draw':
                 score[m['a']]+=1;score[m['b']]+=1
         return score
+
     def result(self,match_id,winner):
         m=next((m for m in self.matches if m['id']==match_id),None)
         if not m:raise ValueError('Unknown match')
@@ -99,35 +118,96 @@ class Tournament:
         m['winner']=winner
         self.history.setdefault(m['a'], []).append({'camp':m['camp_a'], 'round':m['round']})
         self.history.setdefault(m['b'], []).append({'camp':m['camp_b'], 'round':m['round']})
+
+    def _bye(self,player):
+        """Record an exemption, not a fictitious game or camp assignment."""
+        m={'id':str(uuid.uuid4()),'round':self.round_no,'a':player,'b':None,
+           'camp_a':None,'camp_b':None,'winner':player,'bye':True,'game':None}
+        self.matches.append(m)
+
+    def _match(self,a,b,replay_of=None):
+        ca,cb=balanced_camps(a,b,self.history)
+        m={'id':str(uuid.uuid4()),'round':self.round_no,'a':a,'b':b,
+           'camp_a':ca,'camp_b':cb,'winner':None}
+        if replay_of is not None:m['replay_of']=replay_of
+        self.matches.append(m)
+        return m
+
     def next_round(self):
-        if any(m.get('winner') is None for m in self.matches):raise ValueError('Finish current round')
+        if any(m.get('winner') is None for m in self.matches):
+            raise ValueError('Finish current round')
         if self.format=='swiss' and self.round_no>=self.rounds:return []
-        if self.format=='round_robin' and self.round_no>=len(self.players)-1:return []
+        # For an odd round-robin, the extra round is essential: N players
+        # need N rounds to meet all N-1 opponents exactly once.
+        if self.format=='round_robin' and self.round_no>=(
+                len(self.players) if len(self.players)%2 else len(self.players)-1):
+            return []
+
         if self.format=='knockout' and self.round_no:
-            last=[m for m in self.matches if m['round']==self.round_no]
-            pool=[m['winner'] for m in last if m['winner'] not in (None,'draw')]
+            previous=[m for m in self.matches if m['round']==self.round_no]
+            replaced={m.get('replay_of') for m in previous if m.get('replay_of')}
+            # A draw NEVER eliminates both contenders. Instead, create a new
+            # independent game in the SAME round, until there is a winner.
+            # The historical drawn games remain auditable and their real
+            # factions count towards a balanced rematch.
+            drawn=[m for m in previous if m.get('winner')=='draw' and
+                   m['id'] not in replaced]
+            if drawn:
+                return [self._match(m['a'],m['b'],replay_of=m['id']) for m in drawn]
+            decisive=[m for m in previous if m['id'] not in replaced]
+            pool=[m['winner'] for m in decisive if m.get('winner') not in (None,'draw')]
             if len(pool)<2:return []
-        else:pool=list(self.players)
+        else:
+            pool=list(self.players)
+
         self.round_no+=1
         pairs=[]
         if self.format=='round_robin':
             people=pool[:]
             if len(people)%2:people.append(None)
             n=len(people)
-            for _ in range(self.round_no-1):people=[people[0]]+[people[-1]]+people[1:-1]
-            pairs=[(people[i],people[n-i-1]) for i in range(n//2) if people[i] and people[n-i-1]]
+            for _ in range(self.round_no-1):
+                people=[people[0]]+[people[-1]]+people[1:-1]
+            for i in range(n//2):
+                a,b=people[i],people[n-i-1]
+                if a is None or b is None:self._bye(a if a is not None else b)
+                else:pairs.append((a,b))
         elif self.format=='swiss':
-            past={frozenset((m['a'],m['b'])) for m in self.matches}
-            scores=self.standings();pool=sorted(pool,key=lambda p:(-scores[p],p))
+            past={frozenset((m['a'],m['b'])) for m in self.matches if
+                  m.get('b') is not None}
+            scores=self.standings()
+            pool=sorted(pool,key=lambda p:(-scores[p],p))
+            if len(pool)%2:
+                # Protect against repeated byes: always select a player with
+                # the LEAST exemptions so far; among those take the lowest
+                # ranked. Byes are visible and earn 3 points, no false game.
+                bye_counts={p:sum(bool(m.get('bye') and m['a']==p)
+                                  for m in self.matches) for p in pool}
+                least=min(bye_counts.values())
+                eligible=[p for p in pool if bye_counts[p]==least]
+                lowest_score=min(scores[p] for p in eligible)
+                # Tied candidates must be drawn, not favored for having
+                # the alphabetically last registration name.
+                player=secrets.choice([p for p in eligible
+                                       if scores[p]==lowest_score])
+                pool.remove(player)
+                self._bye(player)
             while len(pool)>1:
                 a=pool.pop(0)
-                idx=next((i for i,b in enumerate(pool) if frozenset((a,b)) not in past),0)
+                idx=next((i for i,b in enumerate(pool)
+                          if frozenset((a,b)) not in past),0)
                 pairs.append((a,pool.pop(idx)))
         else:
-            for i in range(0,len(pool)-1,2):pairs.append((pool[i],pool[i+1]))
-        round_matches=[]
-        for a,b in pairs:
-            ca,cb=balanced_camps(a,b,self.history)
-            m={'id':str(uuid.uuid4()),'round':self.round_no,'a':a,'b':b,'camp_a':ca,'camp_b':cb,'winner':None}
-            self.matches.append(m);round_matches.append(m)
-        return round_matches
+            if self.round_no==1:
+                # Make initial knockout byes equitable, not an advantage of
+                # being the last player typed into the registration form.
+                secrets.SystemRandom().shuffle(pool)
+                # Byes take us to the next power-of-two bracket. E.g. five
+                # entrants -> 3 first-round byes + 1 played encounter -> 4.
+                bracket=1<<(len(pool)-1).bit_length()
+                byes=bracket-len(pool)
+                for p in pool[:byes]:self._bye(p)
+                pool=pool[byes:]
+            for i in range(0,len(pool)-1,2):
+                pairs.append((pool[i],pool[i+1]))
+        return [self._match(a,b) for a,b in pairs]

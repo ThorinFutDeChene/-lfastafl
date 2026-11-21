@@ -99,7 +99,8 @@ class ReleaseSelectionTests(TestCase):
             u.parse_releases([], 'inconnu')
 
     def test_current_source_version(self):
-        self.assertEqual(u.local_version(), '0.7.0')
+        expected = (Path(__file__).resolve().parents[1] / 'VERSION').read_text(encoding='utf-8').strip()
+        self.assertEqual(u.local_version(), expected)
 
 
 class PackageTests(TestCase):

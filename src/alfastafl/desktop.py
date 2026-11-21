@@ -1,5 +1,6 @@
-"""Qt6 native host: local-only startup with optional session-scoped LAN access."""
+"""Qt6 native host: open and retire a scoped LAN lease for live sessions."""
 import threading
+import time
 
 from .server import run, Store, PORT
 from .relauncher import schedule_restart
@@ -13,6 +14,25 @@ def show_main_window(window):
 def show_board_window(window):
     """A board or tutorial uses its own real OS-level fullscreen window."""
     window.showFullScreen()
+
+
+def toggle_main_fullscreen(window, action=None):
+    """Switch between a normal desktop window and the immersive board.
+
+    Returning to windowed mode only changes the Qt window state; the local
+    server, LAN invitations, tournament and saved game stay untouched.
+    The menu label always describes the NEXT available action.
+    """
+    if window.isFullScreen():
+        window.showNormal()
+        fullscreen = False
+    else:
+        show_main_window(window)
+        fullscreen = True
+    if action is not None:
+        action.setText('Quitter le plein écran (F11)' if fullscreen
+                       else 'Passer en plein écran (F11)')
+    return fullscreen
 
 
 def main():
@@ -80,17 +100,20 @@ def main():
     bar = QToolBar('Contrôles internes')
     win.addToolBar(bar)
     bar.hide()
-    lan_action = QAction('Activer accès LAN', win)
-    lan_action.setCheckable(True)
-    # Sharing is opt-in for each application session, never restored on startup.
-    lan_action.setChecked(False)
+    # LAN is activated by an explicit activity (new game, resumed saved game,
+    # tutorial or tournament), never via another manual toggle.
     # Menu commands reach the live page and open its existing controls in
     # modal windows. The game board stays the sole WebGL rendering surface.
     def menu_command(menu, label, command):
         action = menu.addAction(label)
-        action.triggered.connect(
-            lambda *_: view.page().runJavaScript(
-                "window.AlfastaflShell?.open(" + repr(command) + ")"))
+        def dispatch(*_):
+            if command in ('new', 'tutorial', 'tournament'):
+                # Start immediately on the real native-menu action. The
+                # asynchronous firewall helper never blocks the Qt UI.
+                controller.start()
+            view.page().runJavaScript(
+                "window.AlfastaflShell?.open(" + repr(command) + ")")
+        action.triggered.connect(dispatch)
         return action
 
     menus = win.menuBar()
@@ -107,22 +130,30 @@ def main():
     menu_command(game_menu, 'Historique des coups…', 'history')
     menu_command(game_menu, 'Tutoriel…', 'tutorial')
     menu_command(game_menu, 'Tournois et tirage des factions…', 'tournament')
+    menu_command(game_menu, 'Diffusion des rencontres du tournoi…', 'tournament')
 
     settings_menu = menus.addMenu('Paramètres')
     menu_command(settings_menu, 'Réglages du jeu, affichage et son…', 'settings')
 
     network_menu = menus.addMenu('Réseau')
-    network_menu.addAction(lan_action)
     menu_command(network_menu, 'Connexions et demandes d’accès…', 'connections')
 
     view_menu = menus.addMenu('Affichage')
     menu_command(view_menu, 'Caméra vue de dessus', 'top')
     menu_command(view_menu, 'Réinitialiser la caméra', 'reset-camera')
     menu_command(view_menu, 'Qualité et caméra…', 'settings')
+    menu_command(view_menu, 'Arrêter la diffusion du tournoi', 'broadcast-stop')
+    # An explicit visible command is essential in a full-screen game:
+    # users should never need to know the F11 shortcut to restore Ubuntu's
+    # window borders and desktop. Both controls execute the SAME transition.
+    fullscreen_action = view_menu.addAction('Quitter le plein écran (F11)')
+    fullscreen_action.triggered.connect(
+        lambda *_: toggle_main_fullscreen(win, fullscreen_action))
     fullscreen_shortcut = QShortcut(QKeySequence('F11'), win)
     fullscreen_shortcut.activated.connect(
-        lambda: win.showNormal() if win.isFullScreen() else show_main_window(win))
-    # Keep this reference: Qt owns the shortcut for the application lifetime.
+        lambda: toggle_main_fullscreen(win, fullscreen_action))
+    # Keep Qt objects alive as long as the main window exists.
+    win.fullscreen_action = fullscreen_action
     win.fullscreen_shortcut = fullscreen_shortcut
 
     # A second listener is bound to the exact private LAN IPv4 address.
@@ -151,34 +182,37 @@ def main():
             remote.shutdown()
             remote.server_close()
 
+    LAN_IDLE_SECONDS = 60  # Grace for preparing or reopening a session.
+
     class LanController(QObject):
         ready = pyqtSignal(object, object)
         error = pyqtSignal(str)
+        requested = pyqtSignal()
 
         def __init__(self):
             super().__init__(win)
             self.lease = None
             self.activating = False
             self.closing = False
+            self.idle_since = None
             self.ready.connect(self.on_ready)
             self.error.connect(self.on_error)
+            # The host-only HTTP endpoint is served from a worker thread.
+            # Qt automatically delivers this signal on its UI thread.
+            self.requested.connect(self.start)
             self.timer = QTimer(self)
             self.timer.timeout.connect(self.monitor)
             self.timer.start(1500)
 
-        def set_action(self, active, label):
-            lan_action.blockSignals(True)
-            lan_action.setChecked(active)
-            lan_action.setText(label)
-            lan_action.setEnabled(True)
-            lan_action.blockSignals(False)
-
         def start(self):
-            if self.activating or self.lease or self.closing:
+            if self.closing:
+                return
+            # A renewed host activity cancels a previous idle countdown.
+            self.idle_since = None
+            if self.activating or self.lease:
                 return
             self.activating = True
-            lan_action.setEnabled(False)
-            lan_action.setText('Ouverture sécurisée du LAN…')
+            win.statusBar().showMessage('Ouverture automatique du réseau local…')
 
             def worker():
                 lease = FirewallLease()
@@ -205,13 +239,12 @@ def main():
                 open_network_server(network)
             except OSError as exc:
                 lease.close()
-                self.set_action(False, 'Activer accès LAN')
                 QMessageBox.warning(win, 'Serveur local',
                                     f'Ouverture du serveur LAN impossible : {exc}\n'
                                     'Le jeu reste disponible sur cet ordinateur.')
                 return
             self.lease = lease
-            self.set_action(True, 'Accès LAN actif — désactiver')
+            self.idle_since = None
             win.statusBar().showMessage(
                 f'Partage local actif : http://{network.address}:{PORT}/', 10000)
 
@@ -219,30 +252,39 @@ def main():
             self.activating = False
             if self.closing:
                 return
-            self.set_action(False, 'Activer accès LAN')
             QMessageBox.warning(win, 'Réseau local indisponible',
                                 message + '\n\nLe plateau local reste utilisable. '
                                 'Aucune ouverture générale du pare-feu n’a été effectuée.')
 
         def stop(self):
+            self.idle_since = None
             close_network_server()
             if self.lease is not None:
                 self.lease.close()
                 self.lease = None
-            self.set_action(False, 'Activer accès LAN')
+            win.statusBar().showMessage('Réseau local fermé')
 
         def monitor(self):
-            if self.lease and not self.lease.alive():
+            if self.closing or not self.lease:
+                return
+            if not self.lease.alive():
                 self.stop()
                 QMessageBox.warning(win, 'Pare-feu LAN',
                                     'Le service de surveillance du pare-feu s’est arrêté. '
                                     'L’accès réseau a été désactivé par précaution.')
-
-        def toggle(self, enabled):
-            if enabled:
-                self.start()
-            else:
+                return
+            if store.lan_in_use():
+                self.idle_since = None
+                return
+            now = time.monotonic()
+            if self.idle_since is None:
+                self.idle_since = now
+            elif now - self.idle_since >= LAN_IDLE_SECONDS:
+                # Listener is closed BEFORE the privileged UFW lease.
+                # The local host and its saved games remain untouched.
                 self.stop()
+                win.statusBar().showMessage(
+                    'LAN fermé automatiquement : aucune activité réseau', 10000)
 
         def quit(self):
             self.closing = True
@@ -250,7 +292,9 @@ def main():
             self.stop()
 
     controller = LanController()
-    lan_action.toggled.connect(controller.toggle)
+    # The local server alone can enqueue the native activation. LAN peers
+    # have no handler for this endpoint and cannot obtain a privileged action.
+    server[0].lan_activation_requested = controller.requested.emit
     restart_pending = [False]
 
     def restart_after_update():
@@ -277,7 +321,7 @@ def main():
 
     app.aboutToQuit.connect(shutdown)
     show_main_window(win)
-    # LAN remains opt-in via its native Réseau menu; never restored on startup.
+    # No LAN listener until game creation, selected save or tutorial use.
     sys.exit(app.exec())
 
 

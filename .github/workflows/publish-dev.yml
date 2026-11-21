@@ -57,15 +57,63 @@ jobs:
       - name: Verify two-way captures against the hostile empty throne
         run: node tests/ui_throne_capture.cjs
       - name: Install tutorial browser test dependencies
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: |
           npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
-          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium firefox webkit
       - name: Exercise the host tutorial in Chromium
         timeout-minutes: 5
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_tutorial.cjs
+      - name: Verify QR-based read-only live tutorial with a guest browser
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tutorial_shared.cjs
+      - name: Verify automatic LAN activation (new game, saved game, tutorial)
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_auto_lan.cjs
+      - name: Verify automatic LAN retirement policy and firewall lease timing
+        run: |
+          PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_lan_idle.py' -v
+          PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_desktop_lan.py' -v
+      - name: Verify odd tournament byes, Swiss points and knockout draw replays
+        timeout-minutes: 6
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_edge_formats.cjs
+      - name: Verify four independent tournament players and spectator broadcast
+        timeout-minutes: 6
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_four_clients.cjs
+      - name: Verify shared QR tutorial under Firefox
+        timeout-minutes: 7
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: firefox
+        run: node tests/browser_tutorial_shared.cjs
+      - name: Verify four-player tournament under Firefox
+        timeout-minutes: 9
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: firefox
+        run: node tests/browser_tournament_four_clients.cjs
+      - name: Verify shared QR tutorial under WebKit (Safari engine)
+        timeout-minutes: 7
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: webkit
+        run: node tests/browser_tutorial_shared.cjs
+      - name: Verify four-player tournament under WebKit (Safari engine)
+        timeout-minutes: 9
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: webkit
+        run: node tests/browser_tournament_four_clients.cjs
       - name: Verify native single-board fullscreen host shell and both QR codes
         timeout-minutes: 4
         env:

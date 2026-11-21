@@ -89,6 +89,47 @@ async function main(){
   assert(Math.abs(box.game[3]-box.viewport[1])<=2);
   assert.equal(box.overflow,false);
  });
+ await check('Tournament ? beside format explains Swiss and elimination correctly',async()=>{
+  assert.equal(await open('tournament'),true);
+  await page.locator('#shell-tournament-dialog[open]').waitFor();
+  const format=page.locator('#tournament-format');
+  const help=page.locator('#tournament-format-help');
+  const explanation=page.locator('#tournament-format-explanation');
+  assert.equal(await help.getAttribute('aria-expanded'),'false');
+  assert.equal(await explanation.isVisible(),false);
+  const selectBox=await format.boundingBox();
+  const helpBox=await help.boundingBox();
+  assert(selectBox&&helpBox);
+  assert(helpBox.x>=selectBox.x+selectBox.width-2,
+   'The ? must be immediately to the RIGHT of the tournament format select');
+  assert(Math.abs(helpBox.y-selectBox.y)<17,'The ? must line up with its dropdown');
+  await format.selectOption('swiss');
+  await help.click();
+  assert.equal(await help.getAttribute('aria-expanded'),'true');
+  assert.equal(await explanation.isVisible(),true);
+  const swiss=explanation.locator('[data-tournament-format="swiss"]');
+  assert.equal(await swiss.isVisible(),true);
+  assert.match(await swiss.textContent(),/3/);
+  assert.match(await swiss.textContent(),/1/);
+  assert.match(await swiss.textContent(),/points|score/i);
+  assert.match(await swiss.textContent(),/rondes/i);
+  assert.equal(await page.locator('#tournament-rounds').isEnabled(),true);
+  await format.selectOption('knockout');
+  assert.equal(await swiss.isVisible(),false);
+  const elimination=explanation.locator('[data-tournament-format="knockout"]');
+  assert.equal(await elimination.isVisible(),true);
+  assert.match(await elimination.textContent(),/vainqueur/i);
+  assert.match(await elimination.textContent(),/éliminé/i);
+  assert.match(await elimination.textContent(),/exemptions/i);
+  assert.equal(await page.locator('#tournament-rounds').isEnabled(),false);
+  await format.selectOption('round_robin');
+  assert.equal(await explanation.locator('[data-tournament-format="round_robin"]').isVisible(),true);
+  assert.equal(await elimination.isVisible(),false);
+  await help.click();
+  assert.equal(await explanation.isVisible(),false);
+  assert.equal(await help.getAttribute('aria-expanded'),'false');
+  await page.locator('#shell-tournament-dialog [data-shell-close]').click();
+ });
  await check('Paramètres opens a modal window for game rules, time, 3D, sound, and camera',async()=>{
   assert.equal(await open('settings'),true);
   await page.locator('#shell-settings-dialog[open]').waitFor();
@@ -296,6 +337,64 @@ async function main(){
   const selected=(await state(match.game)).game;
   assert.equal(selected.id,match.game);
   assert.equal(pages,1,'Tournament match shares the existing fullscreen board');
+ });
+ await check('Four-person tournament schedules two live games and the host wall rotates both',async()=>{
+  const created=await context.request.post(base+'/api/tournament/create',{data:{
+   name:'Tournoi 4 joueurs','format':'swiss',
+   players:['Alice','Bruno','Chloé','David'],rounds:3
+  }});
+  assert.equal(created.status(),200);
+  const tid=(await created.json()).tournament.id;
+  const played=await context.request.post(base+'/api/tournament/round',{
+   data:{tournament:tid,mode:'fetlar'}});
+  assert.equal(played.status(),200);
+  const scheduled=(await played.json()).matches;
+  assert.equal(scheduled.length,2);
+  assert.notEqual(scheduled[0].game,scheduled[1].game);
+  assert.equal(await page.evaluate(tid=>
+   window.AlfastaflBroadcast.start(tid),tid),true);
+  await page.waitForFunction(()=>!document.getElementById('broadcast-wall').hidden&&
+   document.getElementById('broadcast-main').getAttribute('src')?.includes('broadcast-view=main'));
+  const first=await page.locator('#broadcast-main').getAttribute('src');
+  await page.evaluate(()=>window.AlfastaflBroadcast.next());
+  await page.waitForFunction(previous=>
+   document.getElementById('broadcast-main').getAttribute('src')!==previous,first);
+  const second=await page.locator('#broadcast-main').getAttribute('src');
+  assert.notEqual(first,second,'Two independent matches must alternate on the big screen');
+  const expectedGames=new Set(scheduled.map(m=>m.game));
+  const frameGame=url=>new URL(url,base).searchParams.get('game');
+  assert.deepEqual(new Set([frameGame(first),frameGame(second)]),expectedGames);
+  await page.waitForFunction(()=>['shell-player-image','shell-spectator-image'].every(id=>
+   document.getElementById(id).getAttribute('src')?.includes('tournament=')));
+  const playerQR=await page.locator('#shell-player-image').getAttribute('src');
+  const watcherQR=await page.locator('#shell-spectator-image').getAttribute('src');
+  assert.match(playerQR,/role=player/);
+  assert.match(watcherQR,/role=spectator/);
+  assert.equal(await page.locator('#broadcast-name').textContent(),'Tournoi 4 joueurs');
+  assert.match(await page.locator('#broadcast-pairing').textContent(),/Elfes|Nains/);
+  // Simulate two simultaneous capture cues at the broadcast feed boundary.
+  // This tests separate overlapping panels, not synthetic game captures.
+  await page.route('**/api/tournament/broadcast?*',async route=>{
+   const response=await route.fetch();
+   const feed=await response.json();
+   for(let i=0;i<feed.matches.length;i++){
+    feed.matches[i].cinematic={duration:8,remaining:7,
+     move:{n:100+i,piece:'E',from:[5,1],to:[5,3],captured:[[5,4,'N']]}};
+   }
+   await route.fulfill({response,json:feed});
+  });
+  await page.waitForFunction(()=>document.querySelectorAll(
+   '#broadcast-scenes .broadcast-scene iframe').length===2);
+  const captions=await page.locator('#broadcast-scenes .broadcast-scene h3').allTextContents();
+  assert.equal(captions.length,2);
+  for(const caption of captions)assert.match(caption,/Elfes.*Nains.*prise en direct/);
+  const shown=await page.locator('#broadcast-scenes .broadcast-scene').evaluateAll(rows=>
+   rows.map(row=>row.dataset.game));
+  assert.deepEqual(new Set(shown),expectedGames);
+  await page.unroute('**/api/tournament/broadcast?*');
+  await page.locator('#broadcast-stop').click();
+  assert.equal(await page.locator('#broadcast-wall').isVisible(),false);
+  assert.equal(pages,1);
  });
  assert.deepEqual(report.errors,[],'Unexpected JS errors');
  await context.close();

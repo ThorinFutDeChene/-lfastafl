@@ -425,7 +425,14 @@ async function main() {
       assert.equal(await guest.locator('#tutorial-open').count(), 0);
       assert.equal(await guest.locator('#tutorial-panel').count(), 0);
       assert.deepEqual(guestTutorialCalls, []);
-    } finally { await guestContext.close(); }
+    } finally {
+      // Wait for in-flight route callbacks before disposing the separate
+      // guest API context. Otherwise Chromium can abort a late static-module
+      // proxy request (e.g. escape-motion.js) during cleanup and make an
+      // otherwise successful tutorial run intermittently fail.
+      await guestContext.unrouteAll({behavior: 'wait'});
+      await guestContext.close();
+    }
   });
 
   await scenario('Tutorial leaves games, LAN access and browser storage unchanged', async () => {

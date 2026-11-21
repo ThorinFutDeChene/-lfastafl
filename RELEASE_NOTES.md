@@ -1,51 +1,59 @@
-# Álfastafl 0.7.0 — Version stable
+# Álfastafl 0.7.1 — Version stable
 
-La **0.7.0 stable** reprend l'intégralité du code de la
-**0.7.0-dev12**, après validation automatisée complète.
+La **0.7.1** reprend les fonctionnalités et les corrections de
+**0.7.1-dev9**. Elle succède à la stable 0.7.0, sans migration
+des sauvegardes `.alfastafl` ni remise à zéro des paramètres.
 
-## Interface et réseau
+## Tournois et multijoueur
 
-- **Fenêtre unique plein écran** pour l'hôte Ubuntu : le plateau 3D
-  reste visible ; la gestion s'effectue via les menus natifs Fichier,
-  Partie, Paramètres, Réseau, Affichage et Mises à jour.
-- **Colonne gauche** : QR joueur en haut, QR spectateur en bas ;
-  ces invitations apparaissent uniquement si une partie est en cours
-  et que l'hôte a explicitement ouvert le réseau local.
-- Connexion et attribution de factions sous contrôle du serveur :
-  chaque accès nécessite l'accord de l'hôte ; si un camp est déjà
-  occupé, seul l'autre est disponible.
-- Téléphones, tablettes et ordinateurs invités : plateau immersif
-  sans commandes d'administration.
+- Plusieurs rencontres peuvent se jouer en parallèle dans un tournoi,
+  notamment deux demi-finales à quatre joueurs, avec une finale
+  créée à partir des résultats des parties effectivement terminées.
+- Tournois suisses et à élimination directe : affichage des règles
+  via le bouton « ? », gestion des effectifs impairs, exemptions,
+  classement et replays en cas de match nul en élimination.
+- Reconnexion via le QR du tournoi : les appareils déjà approuvés
+  sont reconnus par un secret enregistré dans leur navigateur ;
+  une nouvelle approbation est exigée pour un appareil inconnu.
+- Spectateurs en lecture seule : rotation des plateaux,
+  noms des joueurs, scènes de capture et plusieurs encarts
+  simultanés quand plusieurs rencontres sont actives.
 
-## Plateau, règles et cinématiques
+## Tutoriel, réseau et interface
 
-- Plateau 11 × 11 en bois avec figurines 3D d'elfes, de nains et du roi.
-- Déplacements animés, musique et effets sonores avec réglages indépendants.
-- Captures animées : combats entre elfes et nains, captures utilisant
-  le trône vide, affrontement du roi contre deux, trois ou quatre nains
-  selon la variante, échappée royale à cheval avec escorte.
-- Les flèches des **quatre cases de sortie** pointent désormais
-  correctement **vers l'extérieur** (correctif de la DEV12).
-- Tutoriel local, parties sauvegardées et reprise.
+- Tutoriel présenté exclusivement depuis le PC hôte, avec QR code
+  pour partager les coups légaux, sélections, déplacements et
+  explications sur les appareils des invités.
+- Activation automatique de l'accès LAN lors de la création,
+  de la reprise d'une partie ou de l'ouverture d'un tutoriel.
+  Extinction du partage après 60 secondes sans activité protégée ;
+  les rencontres actives ne sont pas coupées et la boucle locale
+  reste accessible.
+- Quitter ou rétablir le plein écran avec F11 ; améliorations
+  du plateau 3D et de l'interface des joueurs.
 
-## Tournois
+## Validation
 
-- Création de rencontres et attribution automatique des factions.
-- Première rencontre tirée au sort ; ensuite répartition en faveur
-  de la faction la moins jouée, départage sur l'ancienneté du camp
-  et ultime tirage au sort en cas d'égalité.
-- Historique des parties et des factions conservé lors du redémarrage.
+- Recette automatisée du moteur de règles et des sauvegardes.
+- Simulation de quatre joueurs, deux parties simultanées,
+  un spectateur et une finale jouée jusqu'au résultat.
+- Vérifications du tutoriel partagé et du tournoi sur
+  **Chromium, Firefox et WebKit** ; contrôles QtWebEngine,
+  animations 3D, construction et intégrité du paquet Debian.
+- Correction des scripts de test Playwright, sans altération
+  du fonctionnement du jeu.
 
-## Vérification et publication
+**Limites de validation :** la recette sur plusieurs téléphones,
+tablettes et ordinateurs physiques n'a pas encore été clôturée.
+Le comportement sur Wi-Fi réel, l'ouverture et la fermeture UFW
+sur Ubuntu MATE ainsi que Safari natif sur iPhone, iPad ou Mac
+restent à vérifier. Le passage des tests WebKit sur Linux
+ne garantit pas à lui seul Safari sur les appareils Apple.
+Ces validations sont suivies dans
+[le ticket n°7](https://github.com/ThorinFutDeChene/-lfastafl/issues/7).
 
-Cette release déclenche à nouveau la suite de tests complète,
-avec **démarrage réel de QtWebEngine sous Xvfb**, tests du moteur,
-scénarios Chromium du tutoriel, de l'interface et du plateau 3D,
-et vérification des quatre orientations des flèches de sortie.
-Le paquet Debian est contrôlé avant sa mise en ligne.
+## Installation
 
-Les fichiers de sauvegarde et les préférences existantes sont
-conservés lors de la mise à jour.
-
-**Version Debian : `0.7.0`**. Canal : **Stable** (également
-visible depuis le canal DEV). Remplace la stable 0.5.0.
+Paquet Debian : `alfastafl_0.7.1_all.deb`.
+Le canal stable n'installe pas les préversions DEV.
+Le choix de canal des installations existantes est conservé.

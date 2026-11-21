@@ -43,9 +43,12 @@
    const item=div('tournament-item');
    const title=text(item,'h3',tournament.name+' — '+(formatName[tournament.format]||tournament.format));
    title.className='tournament-title';
+   const decided=tournament.matches.filter(m=>m.winner!=null&&!m.bye).length;
+   const byes=tournament.matches.filter(m=>m.bye).length;
    text(item,'p',tournament.players.length+' participants · Ronde '+tournament.round_no+
-    ' · '+tournament.matches.filter(m=>m.winner!=null).length+
-    ' résultat(s) enregistré(s)');
+    ' · '+decided+' résultat(s) · '+byes+' exemption(s)');
+   const replaced=new Set(tournament.matches.filter(m=>m.replay_of)
+      .map(m=>m.replay_of));
    const grouped=new Map();
    for(const match of tournament.matches){
     const round=grouped.get(match.round)||[];
@@ -55,18 +58,36 @@
     text(item,'h4','Ronde '+round);
     for(const match of entries){
      const row=div('tournament-match');
-     text(row,'span',match.a+' : '+campName(match.camp_a)+
-       '  ·  '+match.b+' : '+campName(match.camp_b));
-     if(match.winner!=null)
-      text(row,'strong',match.winner==='draw'?'Nul':'Victoire : '+match.winner);
-     else
-      text(row,'em','Partie à jouer ou à valider');
+     if(match.bye){
+      text(row,'span',match.a+' · Exemption (aucune partie)');
+      const outcome=tournament.format==='knockout'
+       ?'Qualification automatique'
+       :tournament.format==='swiss'
+        ?'3 points attribués (aucune faction jouée)'
+        :'Repos · aucun point';
+      text(row,'strong',outcome);
+     }else{
+      const heading=(match.replay_of?'Revanche · ':'')+
+        match.a+' : '+campName(match.camp_a)+
+        '  ·  '+match.b+' : '+campName(match.camp_b);
+      text(row,'span',heading);
+      if(match.winner==='draw')
+       text(row,'strong',tournament.format==='knockout'
+         ?replaced.has(match.id)?'Nul · revanche enregistrée'
+          :'Nul · une revanche est nécessaire':'Match nul');
+      else if(match.winner!=null)
+       text(row,'strong','Victoire : '+match.winner);
+      else
+       text(row,'em',match.replay_of
+        ?'Revanche à jouer ou à valider':'Partie à jouer ou à valider');
+     }
      if(match.game){
       row.append(button('Afficher le plateau',async()=>{
        await listGames(true);
        const gameButton=Array.from(document.querySelectorAll('#game-list .game-select'))
         .find(x=>x.dataset.game===match.game);
        if(!gameButton)throw Error('La partie du tournoi est introuvable.');
+       globalThis.AlfastaflBroadcast?.stop();
        el('shell-tournament-dialog').close();
        gameButton.click();
       },'tournament-view'));
@@ -74,12 +95,81 @@
      item.append(row);
     }
    }
-   item.append(button(tournament.round_no?'Valider les résultats et ronde suivante':'Tirer la première ronde',async()=>{
+   if(tournament.format==='swiss'||tournament.format==='round_robin'){
+    const score=Object.fromEntries(tournament.players.map(p=>[p,0]));
+    for(const match of tournament.matches){
+     if(match.bye){
+      if(tournament.format==='swiss')score[match.a]+=3;
+     }else if(match.winner==='draw'){
+      score[match.a]+=1;score[match.b]+=1;
+     }else if(match.winner in score){score[match.winner]+=3;}
+    }
+    const ranked=[...tournament.players].sort((a,b)=>score[b]-score[a]||
+      a.localeCompare(b,'fr'));
+    text(item,'h4','Classement par points');
+    const standing=div('tournament-standings');
+    for(const player of ranked)
+     text(standing,'span',player+' : '+score[player]+' point(s)');
+    item.append(standing);
+   }else if(tournament.round_no){
+    const last=tournament.matches.filter(m=>m.round===tournament.round_no);
+    const replacedHere=new Set(last.filter(m=>m.replay_of).map(m=>m.replay_of));
+    const live=last.filter(m=>!replacedHere.has(m.id));
+    if(live.length===1&&live[0].winner!=null&&!live[0].bye&&
+       live[0].winner!=='draw')
+      text(item,'h4','Tournoi terminé · vainqueur : '+live[0].winner);
+   }
+   const controls=div('tournament-controls');
+   controls.append(button('Diffuser les rencontres en direct',async()=>{
+    if(!tournament.round_no)
+     throw Error('Commencez par créer la première ronde du tournoi.');
+    globalThis.AlfastaflBroadcast?.start(tournament.id);
+    el('shell-tournament-dialog').close();
+   },'tournament-broadcast-start'));
+   item.append(controls);
+   const records=[
+    ['player',tournament.devices||{},'Joueur'],
+    ['spectator',tournament.spectator_devices||{},'Spectateur'],
+   ];
+   if(records.some(([,people])=>Object.keys(people).length)){
+    text(item,'h4','Appareils reconnus · révocation');
+    for(const [role,people,label] of records){
+     for(const [name,proofs] of Object.entries(people)){
+      if(!proofs.length)continue;
+      const row=div('tournament-device-row');
+      text(row,'span',label+' '+name+' · '+proofs.length+' appareil(s) autorisé(s)');
+      row.append(button('Révoquer',async()=>{
+       if(!confirm('Révoquer les appareils de '+name+' pour ce tournoi ?'))return;
+       await api('tournament/revoke',{tournament:tournament.id,name,role});
+       status('Autorisation révoquée. Une nouvelle validation de l’hôte sera nécessaire.');
+       await refresh();
+      },'tournament-revoke'));
+      item.append(row);
+     }
+    }
+   }
+   const currentDraws=tournament.matches.filter(m=>m.round===tournament.round_no&&
+    m.winner==='draw'&&!replaced.has(m.id));
+   const nextLabel=!tournament.round_no?'Tirer la première ronde':
+    tournament.format==='knockout'&&currentDraws.length
+     ?'Valider les résultats et créer les revanches':
+      'Valider les résultats et ronde suivante';
+   item.append(button(nextLabel,async()=>{
+    // A new round creates real matches: its QR must be ready without
+    // asking the host to activate networking separately.
+    ensureLanForSession();
     const res=await api('tournament/round',{
      tournament:tournament.id,mode:el('mode').value,
     });
     if(!res.matches?.length)status('Ce tournoi ne comporte plus de ronde à jouer.');
-    else status(res.matches.length+' rencontre(s) créée(s). Factions attribuées automatiquement.');
+    else {
+     const replayCount=res.matches.filter(m=>m.replay_of).length;
+     status(replayCount?replayCount+' revanche(s) créée(s) après match nul.':
+      res.matches.length+' rencontre(s) créée(s) et indépendantes. Diffusion tournante activée.');
+     // All games of the round can be played at the same time. Displaying
+     // a match never locks another one or its time control.
+     globalThis.AlfastaflBroadcast?.start(tournament.id);
+    }
     await refresh();
    },'tournament-next'));
    list.append(item);
@@ -99,6 +189,7 @@
   if(!nameInput.value.trim())throw Error('Le tournoi doit avoir un nom.');
   const rounds=Number(roundsInput.value);
   if(!Number.isInteger(rounds)||rounds<1||rounds>20)throw Error('Nombre de rondes invalide.');
+  ensureLanForSession();
   const result=await api('tournament/create',{
    name:nameInput.value.trim(),format:formatInput.value,
    players,rounds,
@@ -114,8 +205,23 @@
   catch(error){status(error.message||String(error),true);}
   finally{b.disabled=false;}
  });
+ const helpButton=el('tournament-format-help');
+ const helpPanel=el('tournament-format-explanation');
+ function syncFormatHelp(){
+  // Show only the explanation matching the SELECTED tournament format.
+  // No invented Swiss or knock-out rules: the text documents the current
+  // server implementation, including odd-player and drawn-match limits.
+  for(const section of helpPanel.querySelectorAll('[data-tournament-format]'))
+   section.hidden=section.dataset.tournamentFormat!==formatInput.value;
+  helpButton.setAttribute('aria-expanded',String(!helpPanel.hidden));
+ }
+ helpButton.addEventListener('click',()=>{
+  helpPanel.hidden=!helpPanel.hidden;
+  syncFormatHelp();
+ });
  formatInput.addEventListener('change',()=>{
   roundsInput.disabled=formatInput.value!=='swiss';
+  syncFormatHelp();
  });
  formatInput.dispatchEvent(new Event('change'));
  window.AlfastaflTournaments={refresh};

@@ -1,5 +1,5 @@
 """Local-network web service. All game mutations are server-authoritative."""
-import json, threading, secrets, os, tempfile, pathlib, time, socket, io, uuid
+import json, threading, secrets, os, tempfile, pathlib, time, socket, io, uuid, hashlib, hmac
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
@@ -27,7 +27,15 @@ class Store:
         self.pending={}
         self.sessions={}
         self.tournaments={}
+        self._tournament_invites={}
+        self._pending_secrets={}
+        self._broadcast_sessions={}
+        # Ephemeral host preparation / authenticated spectator activity.
+        # No permanent LAN setting or browser identifier is written to disk.
+        self._lan_activity_until=0.0
         self.repetition_votes={}
+        # A presentation is ephemeral and independent of saved game/tournament data.
+        self.tutorial_live=None
         # Tournament faction history must survive app restarts, unlike
         # authorization sessions, which are deliberately ephemeral.
         self._tournament_file=self.path/'.tournaments.json'
@@ -42,6 +50,9 @@ class Store:
                             self.tournaments[identifier]=tournament.as_dict()
             except (OSError,ValueError,TypeError,KeyError):
                 pass
+        for ident in self.tournaments:
+            self._tournament_invites[ident]={'player':secrets.token_urlsafe(30),
+                                               'spectator':secrets.token_urlsafe(30)}
         for f in self.path.glob('*.alfastafl'):
             try:
                 d=json.loads(f.read_text('utf-8'))
@@ -95,6 +106,99 @@ class Store:
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
 
+    def keep_lan_active(self, seconds=12):
+        """Renew a short activity window for an authenticated LAN operation.
+
+        Callers must be authorized by the HTTP route (host loopback, or
+        an already-approved tournament spectator). A request from an
+        unknown LAN visitor must never extend the firewall lease.
+        """
+        with self.lock:
+            self._lan_activity_until=max(self._lan_activity_until,
+                                         self.monotonic()+seconds)
+
+    def lan_in_use(self):
+        """Server-authoritative check for whether the network is still needed.
+
+        Never disconnect active games (including waiting for a second
+        player), reconnect arbitration, real tutorial streams or viewers.
+        Completed and deliberately saved games do not pin the LAN open.
+        """
+        with self.lock:
+            now=self.monotonic()
+            if now < self._lan_activity_until:
+                return True
+            for g in self.games.values():
+                if g.status=='active' or (
+                        g.status=='paused' and
+                        g.reason in ('disconnected','awaiting_substitute',
+                                     'repetition_review','draw_proposal')):
+                    return True
+            live=self.tutorial_live
+            return bool(live and now-live['updated'] <= 20)
+
+    def start_tutorial_live(self,mode,lesson=None):
+        """The Ubuntu host publishes one temporary, read-only teaching session."""
+        with self.lock:
+            state=tutorial.lesson_state(mode,lesson)
+            token=secrets.token_urlsafe(42)
+            self.tutorial_live={'token':token,'revision':1,'state':state,
+                'selected':None,'legal':[],'captures':[],'hint_visible':False,
+                'updated':self.monotonic(),'event':None}
+            return {'token':token,'revision':1}
+
+    def update_tutorial_live(self,token,state,selected=None,legal=None,
+                             captures=None,hint_visible=False):
+        """Accept ONLY snapshots from the local host, never the LAN viewer."""
+        with self.lock:
+            live=self.tutorial_live
+            if not live or not isinstance(token,str) or not hmac.compare_digest(
+                    token,live['token']):
+                raise ValueError('Présentation du tutoriel expirée.')
+            if not isinstance(state,dict) or not isinstance(state.get('mode'),str) or \
+                    not isinstance(state.get('lesson'),str):
+                raise ValueError('État de démonstration invalide.')
+            # Reject malformed positions before exposing them to spectators.
+            tutorial.lesson_state(state['mode'],state['lesson'])
+            board=state.get('board')
+            if not isinstance(board,list) or len(board)!=11 or any(
+                    not isinstance(row,list) or len(row)!=11 for row in board):
+                raise ValueError('Plateau de démonstration invalide.')
+            for points in (legal,captures):
+                if not isinstance(points,list) or len(points)>121:
+                    raise ValueError('Cases de démonstration invalides.')
+            if selected is not None and (not isinstance(selected,list) or
+                    len(selected)!=2 or any(type(v)!=int or v<0 or v>10 for v in selected)):
+                raise ValueError('Sélection de démonstration invalide.')
+            snapshot={'state':state,'selected':selected,'legal':legal,
+                      'captures':captures,'hint_visible':bool(hint_visible)}
+            if any(live[k]!=v for k,v in snapshot.items()):
+                live.update(snapshot)
+                live['revision']+=1
+                # A move event must have a revision to prevent repeat animations.
+                live['event']=state.get('last_move') if state.get('completed') else None
+            live['updated']=self.monotonic()
+            return {'revision':live['revision']}
+
+    def tutorial_live_state(self,token,lan_enabled):
+        with self.lock:
+            live=self.tutorial_live
+            if not lan_enabled or not live or not isinstance(token,str) or \
+                    len(token)>200 or not hmac.compare_digest(token,live['token']) or \
+                    self.monotonic()-live['updated']>20:
+                raise PermissionError('Présentation indisponible ou terminée.')
+            return {key:live[key] for key in ('revision','state','selected',
+                       'legal','captures','hint_visible','event')}
+
+    def stop_tutorial_live(self,token):
+        with self.lock:
+            live=self.tutorial_live
+            if live and isinstance(token,str) and hmac.compare_digest(
+                    token,live['token']):
+                self.tutorial_live=None
+                return True
+            return False
+
     def tournament_match(self,gid):
         """The scheduled identities and immutable camps for a tournament game."""
         for t in self.tournaments.values():
@@ -102,6 +206,215 @@ class Store:
                 if match.get('game')==gid:
                     return match
         return None
+
+    def tournament_for_game(self, gid):
+        for ident, t in self.tournaments.items():
+            for match in t.get('matches', []):
+                if match.get('game') == gid:
+                    return ident, match
+        return None, None
+
+    def tournament_invitations(self, tid):
+        if tid not in self.tournaments:
+            raise ValueError('Tournoi inconnu.')
+        if tid not in self._tournament_invites:
+            self._tournament_invites[tid] = {
+                'player': secrets.token_urlsafe(30),
+                'spectator': secrets.token_urlsafe(30),
+            }
+        return self._tournament_invites[tid]
+
+    def _trusted_device(self, tid, role, name, secret):
+        """A bearer proof, scoped to ONE registered player or spectator.
+
+        The network/browser does not reveal MAC addresses. Only the SHA256
+        fingerprint is persisted. Compare in constant time and never treat
+        the public QR invitation itself as a trusted device.
+        """
+        if not isinstance(secret, str) or not 36 <= len(secret) <= 160:
+            return None
+        if tid not in self.tournaments or role not in ('player', 'spectator'):
+            return None
+        field = 'devices' if role == 'player' else 'spectator_devices'
+        fingerprints = self.tournaments[tid].get(field, {}).get(name, [])
+        digest = hashlib.sha256(secret.encode('utf-8')).hexdigest()
+        return digest if any(hmac.compare_digest(digest, x)
+                             for x in fingerprints) else None
+
+    def _scheduled_match(self, tid, name=None, role='player'):
+        tournament = self.tournaments[tid]
+        matches = [m for m in tournament['matches']
+                   if m.get('game') in self.games
+                   and m.get('winner') is None
+                   and self.games[m['game']].status != 'finished'
+                   and (role == 'spectator' or name in (m['a'], m['b']))]
+        # Each participant has no more than one encounter in a round. A
+        # tournament with four participants has TWO independent active games.
+        return max(matches, key=lambda m: m['round'], default=None)
+
+    def _resume_tournament_game(self, gid):
+        g = self.games[gid]
+        if g.status == 'paused' and g.reason in ('host_restarted', 'saved_by_host'):
+            self.resume(gid)
+        elif g.status == 'paused' and g.reason in ('disconnected', 'awaiting_substitute'):
+            if not g.disconnect or g.disconnect.get('action_required'):
+                raise ValueError('Arbitrage requis : délai de reconnexion dépassé.')
+        elif g.status != 'active':
+            raise ValueError('Partie indisponible.')
+
+    def _trusted_tournament_session(self, tid, game_id, name, role, fingerprint):
+        g = self.games[game_id]
+        self._resume_tournament_game(game_id)
+        camp = None
+        if role == 'player':
+            _, match = self.tournament_for_game(game_id)
+            camp = match['camp_a'] if match['a'] == name else match['camp_b']
+            old = [(key, x) for key, x in self.sessions.items()
+                   if x['game'] == game_id and x['active'] and
+                   x['role'] == 'player' and x['camp'] == camp]
+            # Same browser may refresh/scan again without stealing its own
+            # seat; an unrelated device cannot evict the approved player.
+            if old:
+                if old[0][1].get('device_fp') != fingerprint:
+                    raise PermissionError('La place est déjà attribuée à un autre appareil.')
+                return old[0][0]
+        else:
+            old = [(key, x) for key, x in self.sessions.items()
+                   if x['game'] == game_id and x['active'] and
+                   x['role'] == 'spectator' and x.get('broadcast_tournament') == tid
+                   and x.get('device_fp') == fingerprint]
+            if old:
+                return old[0][0]
+        now = self.monotonic()
+        sid = secrets.token_urlsafe(30)
+        self.sessions[sid] = {
+            'game': game_id, 'role': role, 'camp': camp, 'name': name,
+            'active': True, 'seen': False, 'connected': True,
+            'last_seen': now, 'device_fp': fingerprint,
+            'broadcast_tournament': tid if role == 'spectator' else None,
+        }
+        if camp:
+            g.players[camp] = name
+            self.save(g)
+        return sid
+
+    def enter_tournament(self, tid, invite, name, device_token=None):
+        """Enter the participant's next outstanding match with ONE tournament QR.
+
+        First-time devices request host approval. Once approved, the browser
+        presents a per-tournament secret to resume a seat without a new
+        approval, even after the game host process restarts.
+        """
+        with self.lock:
+            t = self.tournaments.get(tid)
+            if t is None:
+                raise ValueError('Tournoi inconnu.')
+            invites = self.tournament_invitations(tid)
+            role = next((r for r, secret in invites.items()
+                         if hmac.compare_digest(invite, secret)), None)
+            if role is None:
+                raise PermissionError('Invitation de tournoi invalide.')
+            name = name.strip() if isinstance(name, str) else ''
+            if not 1 <= len(name) <= 60:
+                raise ValueError('Nom invalide.')
+            if role == 'player' and name not in t['players']:
+                raise PermissionError('Ce nom ne figure pas parmi les inscrits.')
+            match = self._scheduled_match(tid, name, role)
+            if match is None:
+                return {'status': 'waiting_match', 'tournament': tid,
+                        'message': 'Aucune rencontre en attente pour ce participant.'}
+            gid = match['game']
+            proof = self._trusted_device(tid, role, name, device_token)
+            if proof is not None:
+                sid = self._trusted_tournament_session(tid, gid, name, role, proof)
+                return {'status': 'approved', 'game': gid, 'session': sid,
+                        'role': role, 'camp': self.sessions[sid]['camp'],
+                        'tournament': tid, 'name': name}
+            g = self.games[gid]
+            if g.status == 'paused' and g.reason in ('host_restarted', 'saved_by_host'):
+                return {'status': 'awaiting_host',
+                        'message': 'Un appareil inconnu nécessite une nouvelle autorisation de l’hôte.'}
+            req = self.request(gid, self.invites[gid][role], name)
+            self.pending[req]['broadcast_tournament'] = tid if role == 'spectator' else None
+            return {'status': 'pending', 'game': gid, 'request': req,
+                    'tournament': tid, 'role': role, 'name': name}
+
+    def broadcast(self, tid, sid=None, admin=False):
+        """Authorized spectators and host receive safe live match switching.
+
+        Frame credentials are read-only, individually scoped to one match.
+        There is no stream from the organizer's desktop or user camera.
+        """
+        with self.lock:
+            tournament = self.tournaments.get(tid)
+            if tournament is None:
+                raise ValueError('Tournoi inconnu.')
+            owner = self.sessions.get(sid) if sid else None
+            if not admin and not (owner and owner['active'] and
+                                  owner['role'] == 'spectator' and
+                                  owner.get('broadcast_tournament') == tid):
+                raise PermissionError('Diffusion du tournoi non autorisée.')
+            # Only successful, authorized live-view polling extends the LAN
+            # lease. This protects spectators between tournament rounds.
+            self.keep_lan_active()
+            # A replay supersedes its drawn predecessor. It is part of
+            # the SAME round but the old board must not rotate on the
+            # live spectator wall again. Ignore byes (no game), and prefer
+            # active matches; keep finished match results visible only when
+            # there is no more action to show. A concluding cinematic
+            # remains live even when its game has just finished.
+            current = [m for m in tournament['matches']
+                       if m.get('game') in self.games and
+                       m['round'] == tournament['round_no']]
+            superseded = {m['replay_of'] for m in current
+                          if m.get('replay_of')}
+            current = [m for m in current if m['id'] not in superseded]
+            live = [m for m in current
+                    if self.games[m['game']].status != 'finished' or
+                    self.cinematic_state(m['game'])]
+            matches = []
+            for m in (live or current):
+                gid = m['game']
+                g = self.games[gid]
+                if not admin:
+                    link = self._broadcast_sessions.get((sid, gid))
+                    if not link or not self.sessions.get(link, {}).get('active'):
+                        link = secrets.token_urlsafe(30)
+                        self.sessions[link] = {
+                            'game': gid, 'role': 'spectator', 'camp': None,
+                            'name': owner['name'], 'active': True,
+                            'seen': False, 'connected': True,
+                            'last_seen': self.monotonic(),
+                            'device_fp': owner.get('device_fp'),
+                            'broadcast_tournament': tid,
+                        }
+                        self._broadcast_sessions[(sid, gid)] = link
+                else:
+                    link = None
+                matches.append({
+                    'id': m['id'], 'game': gid, 'round': m['round'],
+                    'a': m['a'], 'b': m['b'], 'camp_a': m['camp_a'],
+                    'camp_b': m['camp_b'],
+                    'status': g.status, 'turn': g.turn, 'moves': len(g.history),
+                    'winner': m.get('winner') or (
+                        m['a'] if g.winner == m['camp_a'] else
+                        m['b'] if g.winner == m['camp_b'] else None),
+                    'cinematic': self.cinematic_state(gid),
+                    'session': link,
+                })
+            return {'id': tid, 'name': tournament['name'],
+                    'round': tournament['round_no'], 'matches': matches}
+
+    def revoke_tournament_device(self, tid, name, role):
+        with self.lock:
+            t = self.tournaments[tid]
+            key = 'devices' if role == 'player' else 'spectator_devices'
+            removed = t.get(key, {}).pop(name, [])
+            for entry in self.sessions.values():
+                if entry.get('device_fp') in removed:
+                    entry['active'] = False
+            self.save_tournaments()
+            return len(removed)
 
     def available_camps(self,gid,name=None):
         """Server-authoritative choices for the host's approval dialog.
@@ -444,6 +757,7 @@ class Store:
     def shutdown(self):
         """Persist the current clocks; host closure cannot silently burn time."""
         with self.lock:
+            self.tutorial_live=None
             self._tick_locked()
             self._cinematics.clear()
             for g in self.games.values():
@@ -499,6 +813,20 @@ class Store:
                                 'active':True,'seen':False,'connected':True,
                                 'last_seen':self.monotonic()}
             req.update(status='approved',session=sid)
+            tid,match=self.tournament_for_game(gid)
+            if tid is not None:
+                # Host-approved identity is enrolled on this browser ONLY;
+                # future tournament rounds can rejoin by secret proof.
+                raw=secrets.token_urlsafe(36)
+                fingerprint=hashlib.sha256(raw.encode('utf-8')).hexdigest()
+                field='devices' if req['role']=='player' else 'spectator_devices'
+                self.tournaments[tid].setdefault(field,{}).setdefault(req['name'],[]).append(fingerprint)
+                self._pending_secrets[request_id]={'token':raw,'tournament':tid,
+                                                    'name':req['name'],'role':req['role']}
+                self.sessions[sid]['device_fp']=fingerprint
+                if req['role']=='spectator':
+                    self.sessions[sid]['broadcast_tournament']=tid
+                self.save_tournaments()
             return sid
     def player(self, gid, sid):
         session = self.sessions.get(sid)
@@ -628,7 +956,7 @@ class Store:
             return event
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version='AlfastaflDEV/0.3'
+    server_version='Alfastafl/0.7.1'
     def send(self,body,status=200):
         raw=json.dumps(body,ensure_ascii=False).encode('utf-8')
         self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
@@ -641,7 +969,8 @@ class AppHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError,UnicodeDecodeError):raise ValueError('Invalid JSON')
     def static(self,path):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
-        assets=('index.html','app.js','tutorial.js','host-shell.js','tournament-ui.js','style.css',
+        assets=('index.html','app.js','tutorial.js','tutorial-view.html','tutorial-view.js','host-shell.js','tournament-ui.js',
+                'tournament-client.js','tournament-broadcast.js','style.css',
                 'board-view.js','board3d.js','figurines3d.js','move3d.js','cinematic3d.js','combat-motion.js','flank-capture.js',
                 'flank-cinematic3d.js','archery3d.js','throne-capture.js',
                 'throne-cinematic3d.js','escape-motion.js','king-escape3d.js','king-siege-motion.js',
@@ -659,18 +988,50 @@ class AppHandler(BaseHTTPRequestHandler):
         if u.path=='/api/qr':
             try:
                 import qrcode
-                gid=q.get('game',[''])[0];role=q.get('role',[''])[0]
+                gid=q.get('game',[''])[0];tid=q.get('tournament',[''])[0]
+                role=q.get('role',[''])[0]
                 if not self.admin() or role not in ('player','spectator'):return self.send({'error':'Forbidden'},403)
                 if not self.server.lan_enabled:return self.send({'error':'Le réseau local est désactivé'},503)
                 st=self.server.store
-                if gid not in st.invites:return self.send({'error':'Unknown game'},404)
                 ip=self.server.lan_address
-                url='http://'+ip+':'+str(self.server.server_address[1])+'/?game='+gid+'&invite='+st.invites[gid][role]
+                origin='http://'+ip+':'+str(self.server.server_address[1])
+                if tid:
+                    with st.lock:
+                        invites=st.tournament_invitations(tid)
+                        url=origin+'/?tournament='+tid+'&invite='+invites[role]
+                else:
+                    if gid not in st.invites:return self.send({'error':'Unknown game'},404)
+                    url=origin+'/?game='+gid+'&invite='+st.invites[gid][role]
                 img=qrcode.make(url);output=io.BytesIO();img.save(output,format='PNG');raw=output.getvalue()
                 self.send_response(200);self.send_header('Content-Type','image/png');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw);return
             except ImportError:return self.send({'error':'Install python3-qrcode'},503)
         
         try:
+            if u.path=='/api/tutorial/live/state':
+                return self.send(self.server.store.tutorial_live_state(
+                    q.get('token',[''])[0],self.server.lan_enabled))
+            if u.path=='/api/tutorial/live/qr':
+                if not self.admin():return self.send({'error':'QR réservé au PC hôte.'},403)
+                if not self.server.lan_enabled:
+                    return self.send({'error':'Activez le réseau LAN pour partager.'},503)
+                token=q.get('token',[''])[0]
+                self.server.store.tutorial_live_state(token,True)
+                try:
+                    import qrcode
+                except ImportError:
+                    return self.send({'error':'Module QR indisponible'},503)
+                url=('http://'+self.server.lan_address+':'+
+                     str(self.server.server_address[1])+'/tutorial-view.html?tutorial_view='+token)
+                output=io.BytesIO()
+                qrcode.make(url).save(output,format='PNG')
+                raw=output.getvalue()
+                self.send_response(200)
+                self.send_header('Content-Type','image/png')
+                self.send_header('Content-Length',str(len(raw)))
+                self.send_header('Cache-Control','no-store')
+                self.end_headers()
+                self.wfile.write(raw)
+                return
             if u.path.startswith('/api/tutorial'):
                 if not self.admin():return self.send({'error':'Tutoriel réservé au PC hôte.'},403)
                 mode=q.get('mode',['fetlar'])[0]
@@ -702,7 +1063,13 @@ class AppHandler(BaseHTTPRequestHandler):
                                    if v['role']=='player' else [])
                                   for k,v in st.pending.items() if v['status']=='waiting']})
                 if u.path=='/api/request':
-                    req=st.pending.get(q.get('id',[''])[0]);return self.send({'status':req['status'],'session':req['session']} if req else {'error':'Unknown request'},200 if req else 404)
+                    request_id=q.get('id',[''])[0]
+                    req=st.pending.get(request_id)
+                    if req is None:return self.send({'error':'Unknown request'},404)
+                    answer={'status':req['status'],'session':req['session']}
+                    if req['status']=='approved' and request_id in st._pending_secrets:
+                        answer.update(st._pending_secrets[request_id])
+                    return self.send(answer)
                 if u.path=='/api/state':
                     gid=q.get('game',[''])[0];g=st.games.get(gid)
                     if not g:return self.send({'error':'Unknown game'},404)
@@ -710,12 +1077,21 @@ class AppHandler(BaseHTTPRequestHandler):
                     auth=st.touch(gid,sid)
                     g=st.games[gid]
                     if not self.admin() and (not auth or auth['game']!=gid or not auth['active']):return self.send({'error':'Unauthorized'},403)
+                    if not self.admin() and auth and auth['role']=='spectator':
+                        # A connected, authorized viewer may still watch the
+                        # result/cinematic after a match is finished.
+                        st.keep_lan_active()
                     return self.send({'game':g.as_dict(),'you':auth and {'role':auth['role'],'camp':auth['camp'],'name':auth['name']},'invites':st.invites.get(gid) if self.admin() else None,
                                       'seats':{camp:{'name':seat['name'],'host':bool(seat.get('local_host'))}
                                                for camp,seat in st._seats(gid).items()}
                                                if self.admin() else None,
                                       'review_votes':st.repetition_votes.get(gid,{}),
                                       'cinematic':st.cinematic_state(gid),
+                                      'tournament':(
+                                       {'id':tid,'name':st.tournaments[tid]['name'],
+                                        'round':match['round'],'a':match['a'],'b':match['b']}
+                                       if (tid:=st.tournament_for_game(gid)[0]) and
+                                       (match:=st.tournament_for_game(gid)[1]) else None),
                                       'server_now':st.wall_clock()})
                 if u.path=='/api/legal':
                     gid=q.get('game',[''])[0];sid=q.get('session',[''])[0]
@@ -726,6 +1102,15 @@ class AppHandler(BaseHTTPRequestHandler):
                 if u.path=='/api/tournaments':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'tournaments':list(st.tournaments.values())})
+                if u.path=='/api/tournament/invites':
+                    if not self.admin():raise PermissionError('Host-only action')
+                    tid=q.get('tournament',[''])[0]
+                    return self.send({'invites':st.tournament_invitations(tid)})
+                if u.path=='/api/tournament/broadcast':
+                    tid=q.get('tournament',[''])[0]
+                    sid=q.get('session',[''])[0]
+                    st._tick_locked()
+                    return self.send(st.broadcast(tid,sid,admin=self.admin()))
             return self.static(u.path)
         except PermissionError as e:return self.send({'error':str(e)},403)
         except (ValueError,TypeError,KeyError,IndexError) as e:return self.send({'error':str(e)},400)
@@ -733,14 +1118,55 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             u=urlparse(self.path)
+            if u.path=='/api/lan/activate':
+                # Only the native host's own page can request an automatic
+                # session-scoped network opening. A foreign website must
+                # not be able to silently trigger the privileged UFW helper.
+                # The custom header requires a browser CORS preflight from
+                # cross-origin pages; no CORS permissions are sent here.
+                if not self.admin() or self.headers.get(
+                        'X-Alfastafl-Host-Action')!='lan-activate':
+                    raise PermissionError('Activation réseau réservée au PC hôte.')
+                if self.server.lan_enabled:
+                    return self.send({'active':True,'pending':False})
+                activate=getattr(self.server,'lan_activation_requested',None)
+                if not callable(activate):
+                    # A direct CLI/local test server has no Qt controller and
+                    # must remain offline. This is an expected capability
+                    # response, not a failing network resource (which would
+                    # also pollute 3D browser error monitoring).
+                    return self.send({'active':False,'pending':False,
+                                      'available':False,
+                                      'error':'Activation LAN native indisponible.'})
+                activate()
+                return self.send({'active':False,'pending':True},202)
+            if u.path=='/api/lan/activity':
+                if not self.admin() or self.headers.get(
+                        'X-Alfastafl-Host-Action')!='lan-activity':
+                    raise PermissionError('Activité LAN réservée au PC hôte.')
+                if self.server.lan_enabled:
+                    self.server.store.keep_lan_active()
+                return self.send({'active':self.server.lan_enabled})
             if u.path.startswith('/api/tutorial') and not self.admin():
                 raise PermissionError('Tutoriel réservé au PC hôte.')
             d=self.read_json();st=self.server.store
+            if u.path=='/api/tutorial/live/start':
+                if not self.server.lan_enabled:
+                    raise PermissionError('Le LAN n’est pas encore actif : ouverture automatique en cours ou autorisation Ubuntu nécessaire.')
+                return self.send(st.start_tutorial_live(d.get('mode','fetlar'),
+                                                      d.get('lesson')))
+            if u.path=='/api/tutorial/live/publish':
+                return self.send(st.update_tutorial_live(
+                    d.get('token'),d.get('state'),d.get('selected'),d.get('legal',[]),
+                    d.get('captures',[]),d.get('hint_visible',False)))
+            if u.path=='/api/tutorial/live/stop':
+                return self.send({'stopped':st.stop_tutorial_live(d.get('token'))})
             if u.path=='/api/tutorial/move':
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
-            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
+            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round',
+                           '/api/tournament/revoke') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/create':
                 host_camp=d.get('host_camp')
                 if host_camp not in (None,'elf','dwarf'):
@@ -752,6 +1178,10 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path=='/api/host/seat':
                 return self.send({'session':st.seat_host(d['game'],d.get('camp')),'camp':d.get('camp')})
             if u.path=='/api/join':return self.send({'request':st.request(d['game'],d['invite'],d.get('name','Guest'))})
+            if u.path=='/api/tournament/enter':
+                return self.send(st.enter_tournament(
+                    d['tournament'],d['invite'],d.get('name',''),
+                    d.get('device_token')))
             if u.path=='/api/approve':
                 sid=st.approve(d['request'],d.get('camp'))
                 return self.send({'session':sid,'camp':st.sessions[sid]['camp']})
@@ -773,8 +1203,12 @@ class AppHandler(BaseHTTPRequestHandler):
                 t=Tournament(d['name'],d['format'],d['players'],int(d.get('rounds',3)))
                 with st.lock:
                     st.tournaments[t.id]=t.as_dict()
+                    st.tournament_invitations(t.id)
                     st.save_tournaments()
                 return self.send({'tournament':st.tournaments[t.id]})
+            if u.path=='/api/tournament/revoke':
+                return self.send({'revoked':st.revoke_tournament_device(
+                    d['tournament'],d['name'],d.get('role','player'))})
             if u.path=='/api/tournament/round':
                 from .tournament import Tournament
                 with st.lock:

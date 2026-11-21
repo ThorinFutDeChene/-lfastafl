@@ -61,6 +61,9 @@
   document.title=title;
  }
  function syncInvites(invites,address,id){
+  // While broadcasting, the left-hand QRs belong to the WHOLE tournament,
+  // not whichever match happens to be displayed this second.
+  if(globalThis.AlfastaflBroadcast?.currentTournament())return;
   const visible=Boolean(id&&game&&game.id===id&&game.status==='active'&&
    invites?.player&&invites?.spectator&&address?.lan_enabled);
   el('shell-network-status').textContent=address?.lan_enabled
@@ -72,7 +75,7 @@
    x.note.textContent=visible ? (x.role==='player'
     ?'Scanner pour demander à jouer':'Scanner pour demander à regarder')
     :address?.lan_enabled?'Créez ou reprenez une partie.':
-     'Activez le réseau dans le menu Réseau.';
+     'Le LAN s’active automatiquement à la création ou reprise d’une partie.';
    if(visible){
     // The server provides a real QR bound to an invitation and the current
     // LAN address. Cache the signature to avoid breaking camera scans.
@@ -88,9 +91,15 @@
   }
  }
  function open(name){
+  // The native menu and the web dialog both use the same idempotent request.
+  if(name==='new'||name==='tutorial'||name==='tournament')
+   ensureLanForSession();
   if(name==='tutorial'){
    for(const m of Object.values(dialogs))if(m.open)m.close();
    tutorialTrigger.click();return true;
+  }
+  if(name==='broadcast-stop'){
+   globalThis.AlfastaflBroadcast?.stop();return true;
   }
   if(name==='save'){
    if(!game||game.status==='finished'||game.reason==='saved_by_host')return false;
@@ -115,6 +124,7 @@
   updateStatus();
  }
  function onSelected(){
+  globalThis.AlfastaflBroadcast?.stop();
   if(dialogs.saves.open)dialogs.saves.close();
   updateStatus();
  }
@@ -126,5 +136,14 @@
  // No active game should ever display dead, scannable invitations.
  updateStatus();
  syncInvites(null,null,null);
+ // Keep the ephemeral LAN open while the organizer is preparing an
+ // invitation, managing a tournament, or showing the live tournament wall.
+ // Closing those views stops heartbeats; the native idle grace closes UFW.
+ setInterval(()=>{
+  if(!(dialogs.new.open||dialogs.tournament.open||
+       globalThis.AlfastaflBroadcast?.currentTournament()))return;
+  fetch('/api/lan/activity',{method:'POST',
+   headers:{'X-Alfastafl-Host-Action':'lan-activity'}}).catch(()=>{});
+ },4500);
  window.AlfastaflShell={open,syncInvites,onCreated,onSelected,updateStatus};
 })();

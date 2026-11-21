@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Álfastafl 0.7.0</title>
+  <title>Álfastafl 0.7.1</title>
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
 </head>
@@ -14,7 +14,7 @@
     <figure id="shell-player-code" class="shell-qr-card" data-role="player">
       <figcaption>JOUEURS</figcaption>
       <img id="shell-player-image" alt="QR pour demander à jouer" width="140" height="140" hidden>
-      <p id="shell-player-note">Activez le réseau local et créez une partie.</p>
+      <p id="shell-player-note">Créez ou reprenez une partie pour ouvrir le réseau automatiquement.</p>
     </figure>
     <div class="shell-rail-middle"><span>ᚠ</span><small>RÉSEAU LOCAL</small><span>ᚦ</span></div>
     <figure id="shell-spectator-code" class="shell-qr-card" data-role="spectator">
@@ -25,7 +25,7 @@
     <div id="shell-network-status" aria-live="polite">LAN inactif</div>
   </aside>
   <header>
-    <h1>ᚨ Álfastafl <small>0.7.0 STABLE</small></h1>
+    <h1>ᚨ Álfastafl <small>0.7.1</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -71,7 +71,7 @@
       <button id="create" type="button">Créer une partie</button>
       <button id="tutorial-open" type="button" aria-haspopup="dialog" aria-controls="tutorial-panel" hidden>Tutoriel</button>
     </div>
-    <p id="lan-status" role="status">Mode local. Activez l’accès LAN depuis le menu Réseau pour connecter des joueurs.</p>
+    <p id="lan-status" role="status">Mode local · le réseau est ouvert automatiquement à la création ou reprise d’une partie.</p>
     <div class="saved-games">
       <h3>Parties hébergées et sauvegardées</h3>
       <div id="game-list">Aucune partie à afficher.</div>
@@ -106,6 +106,32 @@
     <label>Identifiant de partie <input id="gid" placeholder="Identifiant reçu"></label>
     <button id="request" type="button">Demander l'accès</button>
     <p id="joinmsg"></p>
+  </section>
+  <section id="tournament-connect" class="tournament-connect" hidden aria-label="Connexion au tournoi">
+    <h2>Rejoindre le tournoi</h2>
+    <p>Les rencontres sont attribuées par le tournoi. Vous pouvez commencer
+       votre partie quand votre adversaire est prêt.</p>
+    <label>Nom utilisé lors de l'inscription
+      <input id="tournament-entrant-name" type="text" maxlength="60" autocomplete="nickname"
+             placeholder="Nom inscrit ou nom du spectateur">
+    </label>
+    <button id="tournament-enter" type="button">Rejoindre ma rencontre</button>
+    <p id="tournament-enter-status" role="status" aria-live="polite"></p>
+    <p class="tournament-connect-detail">Après la première autorisation de l'hôte,
+       cet appareil est reconnu pour la suite du tournoi. Effacer les données
+       du navigateur ou changer d'appareil nécessitera une nouvelle autorisation.</p>
+  </section>
+  <section id="broadcast-wall" class="broadcast-wall" hidden aria-label="Diffusion des rencontres du tournoi">
+    <div class="broadcast-heading">
+      <strong id="broadcast-name">Tournoi</strong>
+      <span id="broadcast-round">Ronde</span>
+      <span id="broadcast-pairing">En attente des rencontres</span>
+      <button id="broadcast-next" type="button" hidden>Rencontre suivante</button>
+      <button id="broadcast-stop" type="button" hidden>Revenir au plateau</button>
+    </div>
+    <iframe id="broadcast-main" title="Plateau de la rencontre diffusée en direct"
+            loading="eager" allow="autoplay" referrerpolicy="same-origin"></iframe>
+    <div id="broadcast-scenes" class="broadcast-scenes" aria-live="polite"></div>
   </section>
   <section id="game">
     <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
@@ -232,11 +258,56 @@
     <section class="tournament-create">
       <h3>Créer un tournoi</h3>
       <label>Nom <input id="tournament-name" type="text" maxlength="100" placeholder="Tournoi de l’hiver"></label>
-      <label>Format <select id="tournament-format">
-        <option value="round_robin">Toutes rencontres</option>
-        <option value="swiss">Système suisse</option>
-        <option value="knockout">Élimination directe</option>
-      </select></label>
+      <div class="tournament-format-field">
+        <label for="tournament-format">Type de tournoi</label>
+        <div class="tournament-format-input">
+          <select id="tournament-format">
+            <option value="round_robin">Toutes rencontres</option>
+            <option value="swiss">Système suisse</option>
+            <option value="knockout">Élimination directe</option>
+          </select>
+          <button id="tournament-format-help" class="tournament-format-help-button"
+                  type="button" title="Comprendre le type de tournoi"
+                  aria-label="Expliquer le type de tournoi sélectionné"
+                  aria-expanded="false" aria-controls="tournament-format-explanation">?</button>
+        </div>
+      </div>
+      <div id="tournament-format-explanation" class="tournament-format-explanation"
+           role="note" aria-live="polite" hidden>
+        <section data-tournament-format="round_robin">
+          <h4>Toutes rencontres</h4>
+          <p>Chaque participant joue contre les autres au fil des rondes.
+          Le classement donne <strong>3 points par victoire</strong>,
+          <strong>1 point par nul</strong> et <strong>0 en cas de défaite</strong>.</p>
+          <p class="tournament-format-caveat">Tous les duels sont programmés une seule
+          fois, y compris avec un nombre impair : une exemption tournante
+          apparaît alors à chaque ronde, sans partie fictive ni point ajouté.</p>
+        </section>
+        <section data-tournament-format="swiss" hidden>
+          <h4>Système suisse</h4>
+          <p>Tout le monde continue à jouer pendant le <strong>nombre de rondes fixé</strong>,
+          même après une défaite. À chaque nouvelle ronde, les participants sont
+          classés par points (victoire : <strong>3</strong>, nul : <strong>1</strong>,
+          défaite : <strong>0</strong>) et rencontrent autant que possible
+          un adversaire de score proche qu'ils n'ont pas déjà affronté.</p>
+          <p class="tournament-format-caveat">Avec un nombre impair de participants,
+          une exemption est attribuée au joueur ayant eu le moins de repos,
+          parmi les moins bien classés. Elle rapporte <strong>3 points</strong>
+          sans créer de partie ni changer son historique de factions.</p>
+        </section>
+        <section data-tournament-format="knockout" hidden>
+          <h4>Élimination directe</h4>
+          <p>Le <strong>vainqueur</strong> de chaque rencontre passe au tour suivant ;
+          le <strong>perdant</strong> est éliminé. Les tours se poursuivent jusqu'à
+          ce qu'il ne reste qu'un vainqueur.</p>
+          <p class="tournament-format-caveat">Tous les effectifs à partir de
+          deux joueurs sont pris en charge. Le tirage initial attribue
+          aléatoirement les exemptions nécessaires pour obtenir un tableau
+          de puissance de deux. Une exemption qualifie sans créer de partie.
+          En cas de <strong>match nul</strong>, une revanche est organisée
+          dans la même ronde, jusqu'à désigner un vainqueur.</p>
+        </section>
+      </div>
       <label>Rondes (suisse) <input id="tournament-rounds" type="number" min="1" max="20" value="3"></label>
       <label>Joueurs, un nom par ligne
         <textarea id="tournament-players" rows="5" placeholder="Alice&#10;Bruno&#10;Chloé&#10;David"></textarea>
@@ -259,6 +330,15 @@
         <h2 id="tutorial-heading" tabindex="-1">Tutoriel</h2>
         <p id="tutorial-mode-label" class="tutorial-mode-label"></p>
       </div>
+      <aside id="tutorial-live-panel" class="tutorial-live-panel" aria-label="Diffusion du tutoriel">
+        <div class="tutorial-live-copy">
+          <strong>Partager le tutoriel</strong>
+          <p id="tutorial-live-status" role="status" aria-live="polite">Le réseau s’ouvre automatiquement à l’ouverture du tutoriel.</p>
+          <a id="tutorial-live-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Ouvrir la vue spectateur</a>
+          <button id="tutorial-live-toggle" type="button" class="tutorial-secondary" hidden>Arrêter le partage</button>
+        </div>
+        <img id="tutorial-live-qr" width="160" height="160" alt="QR code pour suivre ce tutoriel en lecture seule" hidden>
+      </aside>
       <button id="tutorial-close" type="button" class="tutorial-secondary">Retour au jeu</button>
     </div>
     <div class="tutorial-toolbar">
@@ -321,7 +401,7 @@
       <ul id="tutorial-limitations"></ul>
       <div id="tutorial-sources" class="tutorial-sources"></div>
     </details>
-    <p class="tutorial-footnote">Exercices sur le PC hôte, indépendants de vos parties. Le tutoriel ne nécessite pas d’activer l’accès LAN.</p>
+    <p class="tutorial-footnote">Le PC hôte contrôle tous les exercices. Le tutoriel local fonctionne hors réseau ; avec le LAN actif, les invités peuvent suivre les déplacements en direct via le QR code ci-dessus, sans pouvoir jouer.</p>
   </dialog>
   <footer>Plateau 3D, sculptures animées et ambiance sonore originale générée localement. Les scènes et le son sont réglables.</footer>
 </main>
@@ -331,5 +411,7 @@
 <script src="/tutorial.js"></script>
 <script src="/host-shell.js"></script>
 <script src="/tournament-ui.js"></script>
+<script src="/tournament-client.js"></script>
+<script src="/tournament-broadcast.js"></script>
 </body>
 </html>

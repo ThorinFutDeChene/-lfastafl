@@ -1,47 +1,268 @@
-# Álfastafl — 0.7.0 (stable)
+# Álfastafl — 0.7.1 (stable)
 
-**Version stable 0.7.0**, issue du code validé en `0.7.0-dev12`.
-Elle remplace la stable 0.5.0 et conserve les sauvegardes, paramètres
-et parties sans migration destructive.
+**Álfastafl 0.7.1 stable** reprend les développements et corrections validés en
+**0.7.1-dev9**. Cette version remplace la stable 0.7.0 et conserve le
+format des sauvegardes ainsi que les paramètres des installations antérieures.
 
-**PC hôte Ubuntu :** fenêtre unique en plein écran, plateau et figurines
-3D, menus natifs « Fichier », « Partie », « Paramètres », « Réseau »,
-« Affichage » et « Mises à jour ». À gauche : QR joueur en haut et
-QR spectateur en bas, actifs seulement quand le réseau local est
-volontairement autorisé et une partie active. Chaque connexion doit
-être approuvée par l'hôte.
+**Principales évolutions :** tournois suisses et à élimination directe avec
+plusieurs parties simultanées ; joueurs reconnus à la reconnexion grâce à
+un jeton conservé par leur navigateur (pas à une adresse MAC) ; diffusion
+spectateur avec rotation des plateaux et scènes de capture ; tutoriel
+partagé via QR code sous le contrôle exclusif de l'hôte ; activation
+automatique du LAN et extinction du partage après 60 secondes
+d'inactivité ; aide aux formats de tournoi et sortie du plein écran
+avec F11.
 
-**Jeu :** animations de déplacement, musique et bruitages, scènes de
-combat articulées (nains et elfes), captures contre le trône, capture
-du roi selon les règles, échappée royale à cheval ; les quatre flèches
-de sortie pointent bien vers les coins extérieurs. Tutoriel sur le
-PC hôte, invitations LAN, contrôle des factions, sauvegardes et reprise.
+**Mises à jour :** le canal stable est le choix initial sur une installation
+stable neuve. Un choix de canal déjà enregistré est préservé ; le canal
+DEV reçoit également les versions stables. Numéro Debian : `0.7.1`.
+La stable précédente est consultable dans
+[la publication 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0).
 
-**Tournois :** tirage au sort des factions à la première rencontre,
-puis répartition équilibrée selon les parties déjà jouées et
-l'ancienneté du camp. Les décisions du serveur font autorité et
-l'historique des tournois est conservé.
+**Validation :** tests automatisés Python, application QtWebEngine,
+scénarios Chromium, Firefox et WebKit, plateau 3D et paquet Debian.
+**Réserve explicite :** les essais multijoueurs sur plusieurs appareils
+physiques, le Wi-Fi/UFW réel et Safari natif sur iPhone/iPad/Mac
+ne sont pas encore clôturés. Le suivi reste ouvert :
+[recette terrain n°7](https://github.com/ThorinFutDeChene/-lfastafl/issues/7).
+Le rendu et les effets sonores peuvent encore nécessiter des ajustements
+selon les matériels. Une publication stable n'efface pas ces limites.
 
-**Contrôles avant publication :** tests Python, véritable lancement
-QtWebEngine sous Ubuntu/Xvfb, tests d'interface dans Chromium,
-connexions, tutoriel, scénarios de combats 3D et orientation des
-quatre sorties. Le jeu ne dépend d'aucun CDN Internet pour son
-affichage. Les essais sur une installation Ubuntu MATE réelle et
-sur différents appareils clients sont complémentaires.
+Projet libre GPL-3.0 de jeu de tafl Viking-fantasy pour Ubuntu, hôte
+local et invités via navigateur.
 
-**Mises à jour :** le canal **Stable** reçoit exclusivement les
-releases stables ; le canal **Développement (DEV)** reçoit les
-préversions et les nouvelles stables. Le canal déjà choisi est
-conservé. La version Debian `0.7.0` remplace `0.7.0~dev12`
-(selon l'ordre des versions Debian).
+## Stable 0.7.1 — Synthèse de la mise à jour
 
-**Historique technique des préversions 0.7.0 :** les rubriques
-ci-dessous sont conservées pour tracer les correctifs depuis
-0.7.0-dev1. Leurs indications historiques « stable inchangée
-0.5.0 » concernent la date de leur développement, avant cette
-publication stable.
+- **Tournois :** rencontres concurrentes, qualifications et finale,
+  effectifs impairs, exemptions, classements et matchs nuls avec revanche.
+- **Diffusion :** spectateurs en lecture seule, rotation des rencontres,
+  identification des joueurs, scènes de captures pouvant coexister.
+- **Tutoriel partagé :** QR code dans la fenêtre de présentation,
+  synchronisation des sélections, coups légaux et déplacements.
+- **Réseau :** activation à la création/reprise d'une partie ou à
+  l'ouverture du tutoriel ; retrait du partage LAN/UFW après
+  inactivité, tout en conservant le serveur local.
+- **Ergonomie :** aide « ? » pour les types de tournoi, F11 pour
+  sortir du plein écran, corrections des interfaces et des QR codes.
+- **Recette :** scénarios de tournoi à quatre joueurs, finale complète
+  et vérification des navigateurs Chromium/Firefox/WebKit.
 
-Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+### Historique des préversions de cette stable
+
+## DEV 0.7.1-dev9 : fiabilisation de la recette multijoueur
+
+La fermeture des contextes navigateur dans les tests Playwright de
+tournoi à quatre joueurs et de tutoriel partagé a été simplifiée :
+elle n'attend plus les requêtes HTTP de surveillance encore actives.
+Le fonctionnement du jeu, les règles, le réseau et les sauvegardes
+sont identiques à la version DEV8.
+
+La publication DEV9 reste conditionnée à la réussite des recettes
+automatisées Chromium, Firefox et WebKit. Les essais physiques
+sur Ubuntu MATE et appareils réels restent à effectuer.
+
+## DEV 0.7.1-dev8 : vérification Firefox et moteur Safari (WebKit)
+
+Les recettes automatisées du **tutoriel partagé** et des
+**tournois à quatre joueurs** s'exécutent désormais aussi sur
+Firefox et WebKit, en complément de Chromium. Le pipeline doit
+valider les trois moteurs avant publication.
+
+La [recette terrain](RECETTE_TOURNOIS_TERRAIN.md) décrit désormais
+une matrice Firefox sur Linux/Android, Chrome Android et Safari sur
+iPhone, iPad et Mac. **WebKit sur Linux n'est pas une validation
+sur Safari natif** : la recette sur appareils physiques reste à faire.
+
+## DEV 0.7.1-dev7 : recette renforcée des tournois
+
+La validation automatisée couvre désormais une **finale terminée** après
+deux demi-finales à quatre joueurs, y compris les identifiants approuvés
+des finalistes, les résultats et sauvegardes après redémarrage, et
+l'absence de ronde surnuméraire. Deux **captures réelles du moteur**
+sur deux parties indépendantes sont émises en parallèle puis contrôlées
+dans la régie spectateur.
+
+La nouvelle [recette physique des tournois](RECETTE_TOURNOIS_TERRAIN.md)
+décrit 14 scénarios reproductibles pour Ubuntu MATE, quatre joueurs et
+un spectateur. Ces essais restent **à exécuter** avant passage en stable.
+Le moteur et le fonctionnement utilisateur sont inchangés depuis DEV6.
+
+## DEV 0.7.1-dev6 : fermeture automatique du LAN après inactivité
+
+Le partage réseau ouvert par les menus hôtes est désormais
+**temporaire même si l'application reste ouverte**. Lorsque plus aucune
+activité protégée n'a lieu, une période de grâce de **60 secondes**
+commence. À son expiration, le serveur lié à l'adresse LAN est fermé,
+puis la règle de pare-feu UFW temporaire est retirée. Le serveur
+127.0.0.1, les sauvegardes et les tournois restent disponibles.
+
+**Le LAN reste ouvert** tant qu'une partie est active (y compris
+en attente d'un joueur), qu'un incident de déconnexion ou un arbitrage
+est en cours, que le tutoriel partagé émet ses mises à jour, ou qu'un
+spectateur autorisé / une régie de tournoi consulte encore les matchs.
+La préparation d'une partie et la fenêtre d'administration d'un
+tournoi maintiennent aussi une courte activité hôte. Les parties
+terminées et les parties sauvegardées ne retiennent plus le réseau
+indéfiniment lorsque toute diffusion est arrêtée.
+
+À la création ou à la reprise d'une activité, le LAN peut être rouvert
+automatiquement par les commandes habituelles. En particulier,
+**Réactiver le partage** dans un tutoriel redemande le LAN si celui-ci
+a été fermé pendant une pause. Les visiteurs réseau inconnus ne peuvent
+ni demander l'ouverture du pare-feu ni prolonger la période active.
+
+Des tests contrôlent l'ordre d'arrêt serveur → UFW, la temporisation,
+les parties attendant un deuxième joueur, les reconnexions,
+les spectateurs autorisés et les tutoriaux expirés. Les essais avec
+le véritable pare-feu UFW et les appareils physiques restent nécessaires.
+
+## DEV 0.7.1-dev5 : tournois à effectifs impairs et matchs nuls
+
+**Toutes rencontres :** chaque joueur affronte exactement une fois tous les
+autres. Un nombre impair de participants ajoute une ronde, avec une
+**exemption tournante sans point**, sans plateau ni faction artificielle.
+
+**Système suisse :** quand un participant doit être exempté, le moteur
+choisit d'abord parmi ceux ayant reçu le moins d'exemptions, puis les
+moins bien classés. Les ex æquo sont départagés par tirage au sort.
+L'exemption vaut **3 points**, mais ne crée ni déplacement ni historique
+de faction. Les rencontres normales conservent la notation 3/1/0.
+
+**Élimination directe :** les tableaux à 3, 5, 6, 7 joueurs et autres
+effectifs sont possibles. Un tirage aléatoire initial attribue les
+exemptions permettant d'atteindre la prochaine puissance de deux.
+Ces joueurs sont qualifiés sans fausse partie. Une **rencontre nulle**
+doit être rejouée **dans la même ronde** jusqu'à l'obtention d'un
+vainqueur. Les factions des revanches sont équilibrées avec le
+véritable historique des rencontres.
+
+**Interface :** exemptions, qualifications, revanches et classements
+par points sont visibles. La diffusion des matchs privilégie les
+rencontres actives, n'affiche plus l'ancien plateau d'une rencontre
+nulle remplacée et conserve les cinématiques de fin.
+
+**Validation :** 279 tests Python réussis, interface Chromium des trois
+formats vérifiée et recette à quatre navigateurs joueurs indépendants
+réussie. Les contrôles sur téléphones physiques et sur le pare-feu
+Ubuntu demeurent nécessaires avant promotion en stable.
+
+## DEV 0.7.1-dev4 : LAN activé automatiquement pour jouer et présenter
+
+Le menu natif **Réseau → Activer accès LAN** est supprimé. Il n'est
+plus nécessaire d'ouvrir le réseau avant de commencer à jouer.
+
+La demande est déclenchée dès **Fichier → Nouvelle partie**, lors
+de la **sélection d'une partie sauvegardée**, et lors de la commande
+de **reprise d'une partie suspendue**. Les menus du **tutoriel** et
+des **tournois** déclenchent également le partage réseau pour leurs
+QR codes. Une activité supplémentaire ne crée aucune règle doublon.
+
+L'application démarre toujours sur la boucle locale uniquement.
+L'ouverture nécessite une action de l'hôte et une autorisation système
+Ubuntu via **polkit** peut encore apparaître pour le pare-feu UFW.
+La règle est limitée à l'interface, au sous-réseau et au seul port TCP
+8766. Si l'autorisation échoue, le jeu fonctionne localement.
+
+Le menu Réseau conserve les **connexions et demandes d'autorisation**.
+À la fermeture de l'application, le serveur réseau et la règle UFW
+temporaire sont supprimés. Les sauvegardes, tournois et autorisations
+des joueurs restent inchangés.
+
+## DEV 0.7.1-dev3 : tutoriel partagé en direct sur le réseau local
+
+Le PC hôte conserve seul le contrôle du tutoriel. Lorsque le réseau
+local a été volontairement activé, un **QR code directement dans la
+fenêtre du tutoriel** ouvre une page de spectateur dédiée. Les invités
+voient le même exercice, les indications, les sélections, les coups
+légaux et les déplacements confirmés, avec leur propre caméra 3D.
+La vue 2D reste disponible pour les appareils sans WebGL.
+
+Les accès invités sont strictement en **lecture seule** : aucune
+commande du jeu ou du tutoriel ne peut être exécutée à distance.
+Le QR est lié à une session temporaire avec jeton aléatoire ;
+l'arrêt du partage, la fermeture du tutoriel ou l'arrêt du LAN
+invalident l'accès. La session ne conserve aucune donnée sur disque.
+Les parties et tournois existants restent inchangés.
+
+## DEV 0.7.1-dev2 : tournois multirencontres, reconnaissance et diffusion
+
+**Plusieurs rencontres en parallèle** : un tournoi à quatre participants
+crée deux parties distinctes, chacune avec son propre plateau, son
+chronomètre, ses invitations et ses sauvegardes. Les deux paires peuvent
+jouer en même temps, ou commencer plus tard lorsque leurs deux joueurs
+sont présents. L'organisateur valide les résultats pour créer la ronde
+suivante : une partie ne bloque pas les autres.
+
+**QR commun au tournoi** : une fois la diffusion lancée, la colonne
+gauche contient un QR joueur et un QR spectateur pour tout le tournoi.
+Chaque joueur scanne, saisit son nom d'inscription et retrouve son
+match planifié. La **première connexion** exige l'accord de l'hôte ;
+le navigateur reçoit alors un **jeton aléatoire fort** spécifique
+au joueur, au rôle et au tournoi. Le serveur conserve uniquement son
+empreinte SHA-256. Il n'utilise pas l'adresse MAC : les navigateurs
+n'y ont pas accès. Aux rondes suivantes, scanner le QR permet au même
+appareil de récupérer sa propre faction **sans réautorisation**,
+y compris après redémarrage du PC hôte. Un autre appareil ou un
+navigateur dont les données ont été supprimées doit être approuvé
+de nouveau. **Révocation** des appareils : Partie → Tournois.
+
+**Diffusion en direct** : l'écran hôte et les écrans spectateurs
+autorisés font défiler automatiquement les plateaux 3D des rencontres,
+**une toutes les 12 secondes**, avec noms, factions et état de jeu.
+L'hôte peut passer manuellement à la rencontre suivante ou arrêter
+la diffusion. En cas de prise, une fenêtre cinématique 3D indique
+les adversaires concernés ; plusieurs scènes indépendantes peuvent
+apparaître simultanément (**six maximum**, suivant les capacités
+graphiques). Il s'agit de vues de jeu WebGL en direct, pas de
+captures vidéo du bureau ni de fichiers multimédias enregistrés.
+
+Les appareils spectateurs n'ont aucun droit de déplacement :
+la diffusion leur est accordée par l'hôte pour le tournoi.
+Dans cette ancienne DEV2, l'activation était manuelle ; la DEV4 la déclenche automatiquement.
+L'ancien menu **Affichage → Quitter le plein écran (F11)** et le
+bouton d'aide **?** sur le format suisse/élimination de la
+DEV1 sont conservés.
+
+**Essais nécessaires avant stable** : quatre appareils connectés,
+plusieurs cinématiques au même instant et charge GPU des téléphones.
+La ronde suivante n'est pas lancée sans validation de l'organisateur.
+
+## DEV 0.7.1-dev1 : quitter le plein écran et aide aux formats de tournoi
+
+**Affichage → Quitter le plein écran (F11).** Une commande visible
+dans la barre de menus native Qt permet désormais de restaurer une
+**fenêtre normale Ubuntu**, avec ses bordures et contrôles. La
+commande devient **Passer en plein écran (F11)** dans ce mode.
+La touche F11 exécute exactement la même bascule. Quitter le plein
+écran ne ferme pas le jeu, ne coupe pas les connexions et ne
+modifie ni la partie ni les sauvegardes.
+
+**Partie → Tournois et tirage des factions.** Un bouton rond
+**?**, directement **à droite de la liste Type de tournoi**, ouvre
+une aide contextuelle qui s'adapte immédiatement au format sélectionné :
+
+- **Système suisse :** tous les participants continuent pendant
+  le nombre de rondes paramétré. À chaque ronde, le moteur classe
+  les joueurs par points (3 victoire, 1 nul, 0 défaite) et recherche
+  des adversaires de score proche, en évitant autant que possible
+  les confrontations déjà jouées. Avec un nombre impair de joueurs,
+  le participant non apparié ne reçoit pas de victoire automatique.
+- **Élimination directe :** seuls les vainqueurs poursuivent ; les
+  perdants sont éliminés. Pour éviter les limites actuelles de
+  gestion des exemptions et matchs nuls, privilégier un tableau
+  de **2, 4, 8 ou 16 joueurs**. Une partie nulle ne qualifie
+  aucun des joueurs dans cette version.
+- **Toutes rencontres :** les participants s'affrontent lors
+  de rondes successives, de préférence avec un nombre **pair**
+  de joueurs car le calendrier actuel à effectif impair ne couvre
+  pas nécessairement tous les duels.
+
+L'aide peut être ouverte et fermée au clavier ou à la souris,
+indique l'état **ouvert/fermé** aux outils d'accessibilité et ne
+modifie pas le calcul du tournoi. Le correctif est volontairement
+limité à l'interface, aux indications et à l'affichage de fenêtre.
+La stable **0.7.0 reste inchangée** ; ce correctif appartient au
+prochain cycle **0.7.1**.
 
 ## DEV 0.7.0-dev12 : quatre flèches de sortie correctement orientées
 
@@ -505,7 +726,7 @@ Le formulaire de confirmation permet d'annuler sans aucune modification. Si le d
 
 Après accord explicite et installation réussie d'un paquet vérifié par SHA-256 via APT/pkexec, l'application **se ferme et se relance automatiquement**, sans boîte de dialogue finale demandant une relance manuelle. Un processus auxiliaire, détaché et exécuté **sans privilèges administrateur**, attend la disparition de l'ancienne instance avant d'ouvrir la nouvelle version installée. Il reconnaît également les états *zombie* et les identifiants de processus réutilisés, évitant les relances multiples.
 
-À la fermeture, les parties en cours sont **sauvegardées et mises en pause**, les horloges sont suspendues et les règles UFW temporaires ainsi que le serveur LAN sont fermés. Pour éviter toute ouverture réseau involontaire, le **LAN doit être réactivé volontairement** après redémarrage ; la partie sauvegardée peut alors être reprise et les joueurs réinvités.
+À la fermeture, les parties en cours sont **sauvegardées et mises en pause**, les horloges sont suspendues et les règles UFW temporaires ainsi que le serveur LAN sont fermés. Pour éviter toute ouverture réseau involontaire, le LAN est **rouvert automatiquement** dès que l'hôte sélectionne une sauvegarde ou demande une nouvelle partie ; les joueurs peuvent alors être réinvités.
 
 Un refus d'installation, une erreur de téléchargement ou un échec APT ne déclenche **aucun redémarrage**. Si l'installation aboutit mais que le processus de relance ne peut pas être programmé, l'application reste ouverte et indique la relance manuelle nécessaire. Le processus auxiliaire expire sans rien lancer si l'ancienne instance ne s'est pas fermée.
 
@@ -555,21 +776,21 @@ Le parcours propose **9 exercices en Historique · Tawlbwrdd**, **9 en Classique
 
 Chaque exercice présente une position, une explication et un objectif. Sélectionner une pièce affiche ses destinations légales, calculées par le moteur de règles du jeu. Un coup refusé ou un objectif non atteint reçoit une explication. Les commandes **Afficher un indice**, **Recommencer l'exercice**, **Précédent** et **Suivant**, ainsi que la liste des exercices, permettent de progresser librement. Le **mémo des règles** s'adapte à la variante et fournit les références déjà réunies dans [RULES.md](RULES.md).
 
-Le tutoriel fonctionne **sans activer l'accès LAN**. Il est réservé au PC hôte, avec un contrôle d'accès également effectué par le serveur. Ses exercices utilisent des positions indépendantes des parties, des sauvegardes et des invitations QR. La progression n'est pas conservée entre les ouvertures ; ce parcours propose des exercices ciblés, sans adversaire IA ni partie complète accompagnée.
+Le tutoriel reste utilisable **sans réseau**, même si son ouverture tente désormais d'activer automatiquement le LAN pour le partage par QR. Il est réservé au PC hôte, avec un contrôle d'accès également effectué par le serveur. Ses exercices utilisent des positions indépendantes des parties, des sauvegardes et des invitations QR. La progression n'est pas conservée entre les ouvertures ; ce parcours propose des exercices ciblés, sans adversaire IA ni partie complète accompagnée.
 
 Les limites du moteur s'appliquent aussi au tutoriel : les forteresses de sortie complexes, certains nuls théoriques de Fetlar et les interprétations historiques nécessitent encore une validation approfondie. Le mémo présente les règles de la variante retenue et les limites correspondantes.
 
-## Accès LAN volontaire et gestion automatique du pare-feu
+## Accès LAN automatique à l'ouverture d'une activité et gestion du pare-feu
 
 **Démarrage normal sur Ubuntu :** Álfastafl lance uniquement le serveur d’administration sur `127.0.0.1:8766`. L'accès LAN reste désactivé, sans demande d'autorisation du pare-feu ni nouvelle règle UFW.
 
-**Activation manuelle :** cliquer sur **Activer accès LAN** dans la barre d'outils. Álfastafl détecte alors une interface Wi-Fi/Ethernet privée et demande l’authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
+**Activation automatique :** dès la création d'une partie, la sélection d'une sauvegarde, la reprise d'une partie, l'ouverture d'un tutoriel ou la préparation d'un tournoi, Álfastafl détecte une interface Wi-Fi/Ethernet privée et demande, si nécessaire, l'authentification administrateur via **polkit** (`pkexec`), sans commande terminal. Le service privilégié installe une règle UFW **limitée à cette interface, à son sous-réseau et au seul port TCP 8766**. L’application lance alors un second serveur, lié **uniquement à l’adresse IPv4 locale**, et affiche les QR codes joueur/spectateur. Les invitations ne sont pas affichées avant activation effective du serveur LAN.
 
 **Fermeture normale :** Álfastafl désactive le partage, ferme le serveur LAN et retire automatiquement **sa propre règle UFW**, identifiée par un commentaire unique. Le lancement suivant reste toujours en mode local. Les règles existantes des autres programmes (par exemple Enyalië sur 8765) ne sont jamais supprimées. Un processus privilégié garde le canal ouvert : si le programme s’arrête brutalement, la fermeture de ce canal déclenche le nettoyage. Après une coupure électrique ou un arrêt forcé du service privilégié, les anciennes règles marquées Álfastafl sont nettoyées à la prochaine activation LAN autorisée.
 
-**Échec d'autorisation :** si polkit refuse, que le Wi-Fi n’est pas disponible ou qu'UFW ne confirme pas l’ouverture, aucune exposition réseau n’est lancée ; le plateau reste disponible en local. L’accès peut être réessayé dans la barre d’outils. La désactivation manuelle du LAN retire également la règle. Il faut qu’**UFW et iproute2** soient installés, ainsi qu’un agent polkit fonctionnel sur le bureau Ubuntu.
+**Échec d'autorisation :** si polkit refuse, que le Wi-Fi n’est pas disponible ou qu'UFW ne confirme pas l’ouverture, aucune exposition réseau n’est lancée ; le plateau reste disponible en local. L'accès peut être réessayé en relançant une activité ou en re-sélectionnant la sauvegarde. La fermeture d'Álfastafl retire automatiquement sa règle ; il n'existe plus de commande manuelle d'activation. Il faut qu’**UFW et iproute2** soient installés, ainsi qu’un agent polkit fonctionnel sur le bureau Ubuntu.
 
-**Limites de sécurité :** les liaisons restent en HTTP non chiffré ; utilisation exclusive sur un réseau local de confiance. L’ouverture ne concerne que le réseau privé détecté, sans redirection NAT vers Internet. Si une règle UFW équivalente existait déjà **avant** Álfastafl, elle appartient à l’administrateur et sera conservée. Si l'adresse IP change pendant la partie, il peut être nécessaire de désactiver puis réactiver le LAN.
+**Limites de sécurité :** les liaisons restent en HTTP non chiffré ; utilisation exclusive sur un réseau local de confiance. L’ouverture ne concerne que le réseau privé détecté, sans redirection NAT vers Internet. Si une règle UFW équivalente existait déjà **avant** Álfastafl, elle appartient à l’administrateur et sera conservée. Si l'adresse IP locale change pendant la partie, il peut être nécessaire de redémarrer Álfastafl puis de re-sélectionner la partie pour reconstruire la règle.
 
 ## DEV 0.3.0-dev1 : temps et continuité des parties
 

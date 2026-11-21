@@ -11,6 +11,7 @@ document.body.classList.toggle('desktop-shell',isDesktopShell);
 document.body.classList.toggle('desktop-host-manager',isDesktopManager);
 document.body.classList.toggle('desktop-board-only',isDesktopBoard);
 document.body.classList.toggle('desktop-tutorial-only',isDesktopTutorial);
+document.body.classList.toggle('broadcast-frame',q.has('broadcast-view'));
 let gameId=isDesktopTutorial?'':q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
 // Retain an approved device session across browser restarts for reconnection.
 function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+id)||'';}catch(_){return '';}}
@@ -89,6 +90,25 @@ async function api(path,data){
  const result=await response.json();
  if(!response.ok)throw Error(result.error||response.status);
  return result;
+}
+// The first requested activity opens one temporary LAN lease through Qt.
+// A failed firewall authorization never prevents local play or loading a save.
+let lanRequestPromise=null;
+function ensureLanForSession(){
+ if(!isHost)return Promise.resolve(false);
+ if(lanRequestPromise)return lanRequestPromise;
+ lanRequestPromise=(async()=>{
+  const response=await fetch('/api/lan/activate',{
+   method:'POST',headers:{'X-Alfastafl-Host-Action':'lan-activate'}
+  });
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||response.status);
+  return Boolean(result.active||result.pending);
+ })().catch(error=>{
+  say('Réseau local indisponible ; la partie reste accessible sur le PC hôte. '+error.message);
+  return false;
+ }).finally(()=>{lanRequestPromise=null;});
+ return lanRequestPromise;
 }
 function captureKey(cue){
  const e=cue?.move;
@@ -212,6 +232,8 @@ async function listGames(force=false){
    button.textContent=`${g.mode} • ${g.moves} coups • ${g.status} • ${g.id.slice(0,8)}`;
    button.title='Sélectionner cette partie';
    button.onclick=async()=>{
+    // Selecting an existing save is the moment multiplayer access is needed.
+    ensureLanForSession();
     clearCinematic();
     gameId=g.id;session='';game=null;you=null;hostSeats={};invalidateBoardInteraction();render();
     const popup=reserveHostBoard();
@@ -428,6 +450,11 @@ async function load(){
   const previous=game&&game.id===requestedGame?game:null;
   const previousHistoryCount=previous?.history?.length||0;
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};hostSeats=state.seats||{};
+  // A tournament spectator follows every match on the authenticated live
+  // tournament wall. Embedded board frames must never start nested walls.
+  if(!isHost&&!q.has('broadcast-view')&&you?.role==='spectator'&&
+      state.tournament?.id)
+   globalThis.AlfastaflBroadcast?.start(state.tournament.id);
   soundscape.setGame(game);
   // Only animate a newly confirmed server move, never a restored snapshot or
   // a backlog of moves received after reconnecting a sleeping phone.
@@ -580,6 +607,8 @@ async function dropGamePiece(from,to){
 }
 $('create').onclick=async()=>{
  try{
+  // Direct game creation works even when the native menu was bypassed.
+  ensureLanForSession();
   const timeMode=$('time-mode').value;
   const seconds=timeMode==='unlimited'?0:Number($('time-seconds').value);
   const reconnect=Number($('reconnect-minutes').value)*60;
@@ -635,6 +664,7 @@ for(const button of $('repetition-options').querySelectorAll('button')){
 }
 async function hostAction(path,body,confirmation){
  if(confirmation&&!confirm(confirmation))return;
+ if(path==='resume')ensureLanForSession();
  try{await api(path,body);say('Opération enregistrée.');await load();await listGames(true);}
  catch(error){say(error.message);}
 }
@@ -719,13 +749,21 @@ async function pending(){
 async function tick(){
  if(isHost&&!isDesktopBoard&&!isDesktopTutorial){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
   `Serveur réseau actif : http://${n.address}:${n.port}/`:
-  'Mode local. Activez l’accès LAN depuis le menu Réseau pour connecter des joueurs.';
+  'Mode local · le LAN s’ouvre automatiquement à la création ou reprise d’une partie.';
  }catch(error){$('lan-status').textContent='Etat du réseau indisponible.';}}
  if(requestId&&!session){
   try{
    const reply=await api('request?id='+encodeURIComponent(requestId));
    if(reply.status==='approved'){
     session=reply.session;requestId='';invalidateBoardInteraction();sessionStorage.setItem('alfastafl.session',session);
+    if(reply.tournament&&reply.token&&reply.name&&reply.role){
+     // Raw device proof stays in this browser, not the server save. It is
+     // scoped to exactly one tournament identity and role.
+     try{localStorage.setItem('alfastafl.credential.'+reply.tournament+'.'+
+       reply.role+'.'+reply.name,reply.token);
+       localStorage.setItem('alfastafl.last-name.'+reply.tournament,reply.name);
+       localStorage.setItem('alfastafl.tournament.role.'+reply.tournament,reply.role);}catch(_){}
+    }
     rememberDevice(gameId,session);
     sessionStorage.setItem('alfastafl.game',gameId);
     $('joinmsg').textContent='Connexion autorisee';await load();
