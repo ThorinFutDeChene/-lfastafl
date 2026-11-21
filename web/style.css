@@ -763,3 +763,76 @@ body.desktop-shell .tournament-format-explanation p{
 body.desktop-shell .tournament-format-explanation .tournament-format-caveat{
  margin:0;font-size:.88rem;color:#f3c7a2
 }
+
+/* DEV 0.7.1 multi-match tournament control room. */
+#my-tournament[hidden],#tournament-broadcast-bar[hidden],#tournament-captures[hidden]{display:none!important}
+.tournament-personal-panel{
+ position:fixed;top:calc(57px + env(safe-area-inset-top,0px));right:12px;
+ z-index:65;width:min(375px,calc(100vw - 24px));max-height:60dvh;overflow:auto;
+ background:#13241dec;border:1px solid #be9d65;border-radius:12px;
+ padding:7px 10px;color:#f1d8ac;box-shadow:0 6px 20px #0009;
+}
+.tournament-personal-panel summary{cursor:pointer;font-weight:750;font-size:.85rem}
+.tournament-personal-panel strong{display:block;margin:12px 0 8px}
+.tournament-personal-match{display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:7px 0;border-top:1px solid #5a6955;font-size:.79rem}
+.tournament-personal-match button{padding:7px;font-size:.78rem;flex-shrink:0}
+#tournament-personal-status{color:#f3c7a1;font-size:.75rem}
+.tournament-broadcast-bar{
+ position:fixed;top:6px;left:50%;transform:translateX(-50%);
+ z-index:64;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);
+ padding:7px 9px;border:1px solid #bea16a;border-radius:10px;
+ background:#102219ed;color:#f6e1b7;box-shadow:0 5px 17px #0009;
+ pointer-events:auto;font-size:.84rem;
+}
+.tournament-broadcast-bar div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.tournament-broadcast-bar strong,.tournament-broadcast-bar span{
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.tournament-broadcast-bar span{color:#ddd4b8;font-size:.76rem}
+.tournament-broadcast-bar button{font-size:.74rem;padding:6px 8px;flex-shrink:0}
+body.desktop-shell .tournament-broadcast-bar{
+ left:calc(var(--shell-rail) + (100vw - var(--shell-rail))/2)
+}
+.tournament-captures{
+ position:fixed;right:12px;bottom:15px;z-index:62;
+ display:flex;align-items:flex-end;gap:9px;
+ max-width:calc(100vw - 24px);padding:7px;overflow-x:auto;
+ background:#08140cd9;border:1px solid #a68c61;border-radius:11px;
+ box-shadow:0 8px 25px #000b
+}
+body.desktop-shell .tournament-captures{max-width:calc(100vw - var(--shell-rail) - 20px)}
+.tournament-capture-card{
+ margin:0;padding:5px;border:1px solid #b7a074;border-radius:8px;
+ width:clamp(190px,22vw,295px);min-width:190px;flex-shrink:0;
+ background:#1d2921
+}
+.tournament-capture-card h3{margin:2px 3px 7px;font-size:.73rem;color:#ffe2aa;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tournament-capture-card iframe{display:block;width:100%;height:clamp(118px,15vw,185px);
+ background:#0b1610;border:0;border-radius:6px}
+.tournament-personal-panel:not([open]) #tournament-personal-list,
+.tournament-personal-panel:not([open]) #my-tournament-name,
+.tournament-personal-panel:not([open]) #tournament-personal-status{display:none}
+body.tournament-capture-only{overflow:hidden!important;background:#080f0b}
+body.tournament-capture-only main{position:fixed;inset:0;width:100vw!important;height:100dvh!important;
+ max-width:none!important;margin:0!important;padding:0!important;overflow:hidden}
+body.tournament-capture-only main> :not(#game){display:none!important}
+body.tournament-capture-only #game{position:fixed!important;inset:0!important;
+ width:100vw!important;height:100dvh!important;margin:0!important;padding:0!important;
+ border:0!important;overflow:hidden!important}
+body.tournament-capture-only #game> :not(#game-board-view){display:none!important}
+body.tournament-capture-only #game-board-view{position:absolute!important;inset:0!important;
+ width:100%!important;height:100%!important;margin:0!important;padding:0!important}
+body.tournament-capture-only #game-board-view> :not(#game-board-3d){display:none!important}
+body.tournament-capture-only #game-board-3d{position:absolute!important;inset:0!important;
+ width:100%!important;height:100%!important;min-height:100%!important;margin:0!important}
+body.desktop-shell.tournament-capture-only #game{left:0!important}
+@media(max-width:600px){
+ .tournament-broadcast-bar{top:4px;gap:5px;width:min(97vw,440px);font-size:.75rem}
+ .tournament-broadcast-bar button{font-size:.68rem;padding:6px}
+ .tournament-personal-panel{top:48px;max-height:55dvh}
+ .tournament-captures{right:4px;bottom:5px;max-width:98vw;gap:5px}
+ .tournament-capture-card{min-width:155px;width:160px}
+ .tournament-capture-card iframe{height:100px}
+}
