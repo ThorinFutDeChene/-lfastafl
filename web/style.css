@@ -891,3 +891,78 @@ body.desktop-shell .tournament-device-row button{
  .broadcast-scene{min-height:110px}
  .broadcast-scene iframe{height:110px}
 }
+
+/* DEV 0.7.1: temporary host-led tutorial presentation with direct QR. */
+.tutorial-header{align-items:center}
+.tutorial-live-panel{
+ display:flex;align-items:center;justify-content:space-between;gap:11px;
+ flex:0 1 370px;min-width:240px;padding:9px 11px;
+ border:1px solid #947b53;border-radius:11px;background:#132820;
+}
+.tutorial-live-copy{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.tutorial-live-copy strong{color:#f2d4a0;font-size:.87rem}
+.tutorial-live-copy p{margin:0;font-size:.72rem;line-height:1.3;color:#d3ddc8}
+.tutorial-live-copy a{font-size:.74rem;color:#ffe0a5;overflow-wrap:anywhere}
+.tutorial-live-copy button{padding:5px 8px;font-size:.74rem}
+.tutorial-live-panel img:not([hidden]){
+ display:block;width:104px;height:104px;flex-shrink:0;
+ padding:4px;border-radius:7px;background:white;
+}
+.tutorial-live-panel [hidden]{display:none!important}
+@media(max-width:920px){
+ .tutorial-header{flex-wrap:wrap;justify-content:space-between}
+ .tutorial-live-panel{order:3;flex:1 1 100%;max-width:100%}
+}
+body.tutorial-remote{background:#0d1913;color:#f0e6d4;overflow-x:hidden}
+body.tutorial-remote .tutorial-remote-main{
+ max-width:1450px;min-height:100dvh;margin:auto;padding:clamp(8px,2vw,25px);
+}
+.tutorial-remote-header{
+ display:flex;justify-content:space-between;align-items:center;gap:18px;
+ padding:8px 5px 18px;border-bottom:1px solid #667553;
+ text-align:left;
+}
+.tutorial-remote-header h1{font-size:clamp(1.35rem,3vw,2.25rem);margin:0;color:#ecd19f}
+.tutorial-remote-header p{margin:5px 0;font-size:.85rem}
+.tutorial-remote-header .tutorial-eyebrow{margin:0 0 6px;letter-spacing:.14em;font-size:.73rem}
+#tutorial-remote-connection{
+ max-width:340px;padding:9px 12px;
+ border-radius:9px;background:#1e3729;border:1px solid #73986f;
+ color:#c8ecc8;text-align:right;line-height:1.35;
+}
+#tutorial-remote-connection[data-status="error"]{color:#ffe0b3;border-color:#be9867}
+#tutorial-remote-connection[data-status="closed"]{color:#ffd0c8;border-color:#b67b6f}
+.tutorial-remote-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(245px,.75fr);
+ gap:clamp(12px,2.3vw,30px);align-items:start}
+.tutorial-remote-play{min-width:0}
+.tutorial-remote-play .board-view{margin-top:12px}
+.tutorial-remote-play .board-stage{height:min(72dvh,790px);min-height:340px}
+.tutorial-remote-play .tutorial-board-frame{max-height:72dvh;max-width:min(100%,72dvh);
+ margin:12px auto;aspect-ratio:1}
+.tutorial-remote-play .tutorial-board{border-width:6px}
+.tutorial-remote-play .tutorial-board .square{cursor:default;pointer-events:none}
+.tutorial-remote-play .tutorial-board .piece{pointer-events:none}
+.tutorial-remote-notice{
+ font-size:.78rem;line-height:1.5;color:#c5d2bd;margin:12px 4px;
+}
+.tutorial-remote-instructions{margin-top:12px;padding:clamp(12px,2vw,22px);
+ border-radius:12px;border:1px solid #657654;background:#1d2c23;
+ line-height:1.5}
+.tutorial-remote-instructions h2{margin:4px 0 10px;font-size:clamp(1.05rem,2.5vw,1.4rem);
+ color:#f2d19b}
+#tutorial-remote-progress{font-size:.75rem;font-weight:750;text-transform:uppercase;color:#deb77e}
+#tutorial-remote-camp{font-weight:600;color:#f0d8ac}
+#tutorial-remote-explanation p{font-size:.88rem;line-height:1.55}
+.tutorial-remote-instructions .tutorial-objective{margin-top:18px}
+.tutorial-remote-instructions .tutorial-feedback{font-size:.84rem}
+.tutorial-remote-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:.72rem;color:#d6dac8}
+.tutorial-remote-legend span{display:flex;gap:6px;align-items:center}
+.tutorial-remote-readonly{margin-top:25px;padding-top:13px;border-top:1px solid #536851;
+ font-size:.79rem;color:#b6cbb7}
+@media(max-width:850px){
+ .tutorial-remote-layout{grid-template-columns:minmax(0,1fr)}
+ .tutorial-remote-play .board-stage{height:min(62dvh,620px);min-height:290px}
+ .tutorial-remote-instructions{margin:0}
+ .tutorial-remote-header{flex-wrap:wrap}
+ #tutorial-remote-connection{text-align:left;max-width:none}
+}
