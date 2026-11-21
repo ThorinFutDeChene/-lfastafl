@@ -1,13 +1,82 @@
-# Álfastafl — 0.7.1-dev9 (canal DEV)
+# Álfastafl — 0.7.2-dev1 (canal DEV)
 
-La **0.7.1-dev9** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. Le réseau local est ouvert automatiquement lors de la création ou reprise d'une partie, d'un tutoriel ou d'un tournoi, et se referme automatiquement lorsque les activités réseau sont terminées, ou à l'arrêt du logiciel.
+Cette préversion reprend la **stable 0.7.1** avec une simplification
+des menus natifs de l'hôte Ubuntu MATE, **sans modifier les règles du jeu,
+les sauvegardes, la gestion des tournois ou le protocole LAN**.
 
-**Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
+## DEV 0.7.2-dev1 — Simplification des menus
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev9` est plus récent que la stable `0.7.0`.
+- **Fichier** : retrait de « Nouvelle partie… » ; les commandes de
+  sauvegarde, consultation des sauvegardes et fermeture restent disponibles.
+- **Partie** : nouvelle commande « **2 joueurs** », qui ouvre la même
+  création de partie qu'auparavant et déclenche automatiquement l'accès LAN.
+- **Partie** : retrait de « Jouer / Spectateur / Arbitrage… »,
+  « Historique des coups… » et
+  « Diffusion des rencontres du tournoi… ».
+- **Partie** : maintien du tutoriel et des tournois.
+- Les fonctionnalités du jeu sous-jacentes ne sont **pas supprimées** :
+  seuls ces points d'entrée redondants dans le menu natif disparaissent.
 
+Les tests automatisés vérifient la composition des deux menus,
+la commande de création de partie et les scénarios de partie,
+de tutoriel et de tournoi. La stable 0.7.1 reste disponible.
 
-Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+**Version Debian** : `0.7.2~dev1` (postérieure à 0.7.1).
+Pour recevoir cette préversion, sélectionner le canal
+**Mises à jour → Développement (DEV)**.
+
+## Historique des versions stables
+
+## Álfastafl 0.7.1 (stable — référence)
+
+**Álfastafl 0.7.1 stable** reprend les développements et corrections validés en
+**0.7.1-dev9**. Cette version remplace la stable 0.7.0 et conserve le
+format des sauvegardes ainsi que les paramètres des installations antérieures.
+
+**Principales évolutions :** tournois suisses et à élimination directe avec
+plusieurs parties simultanées ; joueurs reconnus à la reconnexion grâce à
+un jeton conservé par leur navigateur (pas à une adresse MAC) ; diffusion
+spectateur avec rotation des plateaux et scènes de capture ; tutoriel
+partagé via QR code sous le contrôle exclusif de l'hôte ; activation
+automatique du LAN et extinction du partage après 60 secondes
+d'inactivité ; aide aux formats de tournoi et sortie du plein écran
+avec F11.
+
+**Mises à jour :** le canal stable est le choix initial sur une installation
+stable neuve. Un choix de canal déjà enregistré est préservé ; le canal
+DEV reçoit également les versions stables. Numéro Debian : `0.7.1`.
+La stable précédente est consultable dans
+[la publication 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0).
+
+**Validation :** tests automatisés Python, application QtWebEngine,
+scénarios Chromium, Firefox et WebKit, plateau 3D et paquet Debian.
+**Réserve explicite :** les essais multijoueurs sur plusieurs appareils
+physiques, le Wi-Fi/UFW réel et Safari natif sur iPhone/iPad/Mac
+ne sont pas encore clôturés. Le suivi reste ouvert :
+[recette terrain n°7](https://github.com/ThorinFutDeChene/-lfastafl/issues/7).
+Le rendu et les effets sonores peuvent encore nécessiter des ajustements
+selon les matériels. Une publication stable n'efface pas ces limites.
+
+Projet libre GPL-3.0 de jeu de tafl Viking-fantasy pour Ubuntu, hôte
+local et invités via navigateur.
+
+## Stable 0.7.1 — Synthèse de la mise à jour
+
+- **Tournois :** rencontres concurrentes, qualifications et finale,
+  effectifs impairs, exemptions, classements et matchs nuls avec revanche.
+- **Diffusion :** spectateurs en lecture seule, rotation des rencontres,
+  identification des joueurs, scènes de captures pouvant coexister.
+- **Tutoriel partagé :** QR code dans la fenêtre de présentation,
+  synchronisation des sélections, coups légaux et déplacements.
+- **Réseau :** activation à la création/reprise d'une partie ou à
+  l'ouverture du tutoriel ; retrait du partage LAN/UFW après
+  inactivité, tout en conservant le serveur local.
+- **Ergonomie :** aide « ? » pour les types de tournoi, F11 pour
+  sortir du plein écran, corrections des interfaces et des QR codes.
+- **Recette :** scénarios de tournoi à quatre joueurs, finale complète
+  et vérification des navigateurs Chromium/Firefox/WebKit.
+
+### Historique des préversions de cette stable
 
 ## DEV 0.7.1-dev9 : fiabilisation de la recette multijoueur
 

@@ -1,22 +1,39 @@
-# Álfastafl 0.7.1-dev9 — Fiabilisation des recettes multi-navigateurs
+# Álfastafl 0.7.2-dev1 — Menus simplifiés
 
-## Correctif de tests automatisés
+## Nouvelle organisation des menus hôte
 
-- La fermeture des contextes Playwright dans les scénarios
-  **tournoi à quatre joueurs** et **tutoriel partagé** ne patiente
-  plus sur des requêtes HTTP d'actualisation de l'affichage.
-- Les scénarios testent toujours les autorisations, les deux rencontres
-  simultanées, la rotation des spectateurs, les captures, la reconnexion
-  des finalistes, ainsi que les déplacements du tutoriel partagé.
-- Les tests Chromium, Firefox et WebKit restent obligatoires avant
-  la publication de cette préversion sur GitHub Actions.
+**Fichier**
+- Sauvegarder la partie
+- Sauvegardes…
+- Quitter
 
-## Compatibilité et limites
+**Partie**
+- **2 joueurs** — ouvre le formulaire de création d'une partie à
+  deux joueurs, anciennement dans « Fichier → Nouvelle partie »,
+  avec activation automatique du réseau local.
+- Tutoriel…
+- Tournois et tirage des factions…
 
-Ce correctif ne change **aucune fonctionnalité du jeu** ni les règles
-de tafl, les sauvegardes, le protocole réseau ou les animations.
-La stable **0.7.0** est inchangée.
+**Entrées retirées du menu Partie**
+- Jouer / Spectateur / Arbitrage…
+- Historique des coups…
+- Diffusion des rencontres du tournoi…
 
-La recette physique Ubuntu MATE, téléphones et tablettes, incluant
-Safari iOS/macOS, reste à exécuter selon
-`RECETTE_TOURNOIS_TERRAIN.md` (suivi : issue GitHub n°7).
+## Compatibilité
+
+Les commandes ne sont supprimées **que du menu natif**.
+La gestion des autorisations, les rôles, l'historique interne et la
+diffusion des tournois restent disponibles dans le jeu par leurs
+autres interfaces et mécanismes existants.
+
+La création de partie conserve le même formulaire, les mêmes QR
+codes et la même ouverture automatique du LAN. Aucun changement
+des règles, des formats de sauvegarde ni de l'API réseau.
+
+## Recette
+
+Tests de la composition des menus et de la liaison « 2 joueurs »
+à la commande de création. Régressions moteur, tournoi, tutoriel
+et interfaces Qt/Chromium/Firefox/WebKit exécutées en CI.
+
+**Canal :** développement (DEV). **Stable 0.7.1 inchangée.**

@@ -1,6 +1,9 @@
 """Keep one native fullscreen host application with a real menu bar."""
 from unittest import TestCase
-from alfastafl.desktop import show_main_window, show_board_window, toggle_main_fullscreen
+from alfastafl.desktop import (
+    show_main_window, show_board_window, toggle_main_fullscreen,
+    FILE_MENU_COMMANDS, PARTY_MENU_COMMANDS, LAN_ACTIVATING_COMMANDS,
+)
 
 
 class DummyWindow:
@@ -27,6 +30,33 @@ class DummyWindow:
 
 
 class DesktopWindowTests(TestCase):
+    def test_file_menu_no_longer_contains_new_game(self):
+        self.assertEqual(
+            FILE_MENU_COMMANDS,
+            (('Sauvegarder la partie', 'save'), ('Sauvegardes…', 'saves')),
+        )
+        self.assertNotIn('new', dict((cmd, label) for label, cmd in FILE_MENU_COMMANDS))
+
+    def test_partie_menu_has_only_two_players_tutorial_and_tournaments(self):
+        self.assertEqual(
+            PARTY_MENU_COMMANDS,
+            (('2 joueurs', 'new'),
+             ('Tutoriel…', 'tutorial'),
+             ('Tournois et tirage des factions…', 'tournament')),
+        )
+        self.assertEqual(
+            [cmd for _, cmd in PARTY_MENU_COMMANDS],
+            ['new', 'tutorial', 'tournament'],
+        )
+        self.assertNotIn('history', [cmd for _, cmd in PARTY_MENU_COMMANDS])
+        self.assertNotIn('game', [cmd for _, cmd in PARTY_MENU_COMMANDS])
+
+    def test_two_player_entry_preserves_lan_activation(self):
+        self.assertEqual(PARTY_MENU_COMMANDS[0], ('2 joueurs', 'new'))
+        self.assertIn('new', LAN_ACTIVATING_COMMANDS)
+        self.assertIn('tutorial', LAN_ACTIVATING_COMMANDS)
+        self.assertIn('tournament', LAN_ACTIVATING_COMMANDS)
+
     def test_starts_fullscreen_with_native_menus(self):
         window = DummyWindow()
         show_main_window(window)
