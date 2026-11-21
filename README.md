@@ -1,13 +1,43 @@
-# Álfastafl — 0.7.1-dev4 (canal DEV)
+# Álfastafl — 0.7.1-dev5 (canal DEV)
 
-La **0.7.1-dev4** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. Le réseau local est ouvert automatiquement lors de la création ou reprise d'une partie, d'un tutoriel ou d'un tournoi, et se referme à l'arrêt du logiciel.
+La **0.7.1-dev5** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. Le réseau local est ouvert automatiquement lors de la création ou reprise d'une partie, d'un tutoriel ou d'un tournoi, et se referme à l'arrêt du logiciel.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev4` est plus récent que la stable `0.7.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev5` est plus récent que la stable `0.7.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.1-dev5 : tournois à effectifs impairs et matchs nuls
+
+**Toutes rencontres :** chaque joueur affronte exactement une fois tous les
+autres. Un nombre impair de participants ajoute une ronde, avec une
+**exemption tournante sans point**, sans plateau ni faction artificielle.
+
+**Système suisse :** quand un participant doit être exempté, le moteur
+choisit d'abord parmi ceux ayant reçu le moins d'exemptions, puis les
+moins bien classés. Les ex æquo sont départagés par tirage au sort.
+L'exemption vaut **3 points**, mais ne crée ni déplacement ni historique
+de faction. Les rencontres normales conservent la notation 3/1/0.
+
+**Élimination directe :** les tableaux à 3, 5, 6, 7 joueurs et autres
+effectifs sont possibles. Un tirage aléatoire initial attribue les
+exemptions permettant d'atteindre la prochaine puissance de deux.
+Ces joueurs sont qualifiés sans fausse partie. Une **rencontre nulle**
+doit être rejouée **dans la même ronde** jusqu'à l'obtention d'un
+vainqueur. Les factions des revanches sont équilibrées avec le
+véritable historique des rencontres.
+
+**Interface :** exemptions, qualifications, revanches et classements
+par points sont visibles. La diffusion des matchs privilégie les
+rencontres actives, n'affiche plus l'ancien plateau d'une rencontre
+nulle remplacée et conserve les cinématiques de fin.
+
+**Validation :** 279 tests Python réussis, interface Chromium des trois
+formats vérifiée et recette à quatre navigateurs joueurs indépendants
+réussie. Les contrôles sur téléphones physiques et sur le pare-feu
+Ubuntu demeurent nécessaires avant promotion en stable.
 
 ## DEV 0.7.1-dev4 : LAN activé automatiquement pour jouer et présenter
 

@@ -1,37 +1,38 @@
-# Álfastafl 0.7.1-dev4 — Activation automatique du réseau local
+# Álfastafl 0.7.1-dev5 — Tournois : exemptions et revanches
 
-## Plus d'ouverture manuelle du LAN
+## Formats achevés
 
-- **Fichier → Nouvelle partie** : le menu déclenche automatiquement
-  l'ouverture du réseau local. La création d'une partie fonctionne
-  également si le menu natif a été contourné.
-- **Fichier → Sauvegardes** : sélectionner une partie sauvegardée ou
-  demander la reprise d'une partie suspendue ouvre automatiquement
-  le réseau si nécessaire.
-- **Partie → Tutoriel** et les **tournois** déclenchent également
-  l'ouverture du LAN, afin de rendre leurs QR codes disponibles.
-- Suppression de la commande **Réseau → Activer accès LAN**.
-  Le menu Réseau conserve les connexions et demandes d'autorisation.
-- Les demandes répétées n'ouvrent ni second serveur ni seconde règle UFW.
+- **Toutes rencontres :** calendrier complet à effectif impair, une
+  exemption par ronde, sans attribution de point ni partie simulée.
+- **Système suisse :** exemptions attribuées aux joueurs ayant eu
+  le moins de repos, puis aux moins bien classés ; tirage au sort
+  parmi les ex æquo. Une exemption rapporte **3 points**, sans
+  affecter l'historique des factions.
+- **Élimination directe :** effectifs non puissances de deux pris
+  en charge, exemptions aléatoires pour former un tableau équilibré.
+  Une exemption qualifie sans rencontre fictive.
+- **Match nul :** la validation des résultats crée une revanche
+  dans la même ronde, autant de fois que nécessaire. Les anciennes
+  parties restent archivées, les factions des revanches sont équilibrées.
 
-## Sécurité et disponibilité
+## Affichage et diffusions
 
-- Au lancement d'Álfastafl, aucun serveur LAN n'est encore ouvert :
-  le programme reste sur la boucle locale jusqu'à une activité de l'hôte.
-- Une éventuelle autorisation système **polkit** reste nécessaire
-  pour ajouter une règle UFW temporaire.
-- Le réseau est limité à l'adresse IPv4 et au sous-réseau privés détectés,
-  et au seul port TCP 8766.
-- En cas de refus ou d'indisponibilité réseau, le jeu reste localement
-  utilisable sans interrompre les sauvegardes.
-- L'arrêt du programme ferme automatiquement le serveur LAN
-  et sa règle UFW. La mise à jour conserve cette fermeture préalable.
-- Les clients LAN ne peuvent pas déclencher l'ouverture du pare-feu :
-  la demande exige le PC hôte local et un en-tête spécifique.
+- Le gestionnaire affiche explicitement les exemptions, revanches,
+  qualifications et classements par points.
+- Les spectateurs voient prioritairement les rencontres en cours.
+  Une ancienne rencontre nulle remplacée ne revient pas dans la
+  rotation, tandis qu'une cinématique finale reste visible.
+- Sauvegardes de tournois précédentes compatibles.
 
-## Compatibilité
+## Recette et publication
 
-Les règles, sauvegardes, tournois simultanés, tutoriel partagé, droits
-des joueurs et animations 3D sont inchangés. Stable 0.7.0 intacte.
+279 tests Python, tests Chromium des nouveaux formats, recette
+quatre joueurs / deux parties / spectateur / captures / reconnexion
+et finale, ainsi que la régression du menu hôte : tous validés.
+Les deux nouvelles recettes deviennent obligatoires pour les
+prochaines publications DEV et stable. Tests physiques encore requis.
 
-**Canal DEV : paquet Debian `0.7.1~dev4`.**
+Le LAN automatique et le tutoriel collectif des DEV précédentes
+restent en place. Stable 0.7.0 inchangée.
+
+**Canal DEV : paquet Debian `0.7.1~dev5`.**
