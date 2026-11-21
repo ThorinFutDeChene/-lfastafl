@@ -192,6 +192,7 @@ class Store:
                     'camp_a':match['camp_a'],'camp_b':match['camp_b'],
                     'winner':match.get('winner'),'status':g.status if g else 'missing',
                     'moves':len(g.history) if g else 0,
+                    'players_seated':len(self._seats(g.id)) if g else 0,
                     'cinematic':self.cinematic_state(g.id) if g else None})
             return {'tournament':{'id':tournament['id'],'name':tournament['name'],
                                  'format':tournament['format'],'round_no':tournament['round_no']},
@@ -442,8 +443,10 @@ class Store:
             now=self.monotonic()
             self._tick_locked(now)
             s=self.sessions.get(sid)
-            if not s or s['game']!=gid or not s['active']:
+            if not s or not s['active']:
                 return None
+            if s['game']!=gid:
+                return self.tournament_spectator(gid,sid)
             if s['role']=='player':
                 s['seen']=True
                 s['last_seen']=now
@@ -661,6 +664,7 @@ class Store:
                                 'active':True,'seen':False,'connected':True,
                                 'last_seen':self.monotonic()}
             req.update(status='approved',session=sid)
+            self._register_tournament_device(gid,self.sessions[sid])
             return sid
     def player(self, gid, sid):
         session = self.sessions.get(sid)
@@ -878,6 +882,10 @@ class AppHandler(BaseHTTPRequestHandler):
                                                if self.admin() else None,
                                       'review_votes':st.repetition_votes.get(gid,{}),
                                       'cinematic':st.cinematic_state(gid),
+                                      'tournament_access':({'tournament':auth['tournament_id'],
+                                          'credential':auth['tournament_credential'],
+                                          'role':auth['role']} if auth and
+                                          auth.get('tournament_credential') else None),
                                       'server_now':st.wall_clock()})
                 if u.path=='/api/legal':
                     gid=q.get('game',[''])[0];sid=q.get('session',[''])[0]
@@ -888,6 +896,27 @@ class AppHandler(BaseHTTPRequestHandler):
                 if u.path=='/api/tournaments':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'tournaments':list(st.tournaments.values())})
+                if u.path=='/api/tournament/identify':
+                    identity=st.tournament_identify(q.get('game',[''])[0])
+                    return self.send(identity or {'error':'Pas une rencontre de tournoi'},
+                                     200 if identity else 404)
+                if u.path=='/api/tournament/live':
+                    tournament_id=q.get('tournament',[''])[0]
+                    if not self.admin():
+                        sid=q.get('session',[''])[0]
+                        origin=st.sessions.get(sid)
+                        if not origin or not origin['active'] or origin['role']!='spectator':
+                            raise PermissionError('Diffusion réservée aux spectateurs autorisés.')
+                        home,_=st.tournament_for_game(origin['game'])
+                        if not home or (tournament_id and home['id']!=tournament_id):
+                            raise PermissionError('Spectateur hors de son tournoi.')
+                        tournament_id=home['id']
+                    if not tournament_id:
+                        tournament,_=st.tournament_for_game(q.get('game',[''])[0])
+                        tournament_id=tournament['id'] if tournament else ''
+                    if not tournament_id or tournament_id not in st.tournaments:
+                        raise ValueError('Tournoi inconnu.')
+                    return self.send(st.tournament_live(tournament_id)))
             return self.static(u.path)
         except PermissionError as e:return self.send({'error':str(e)},403)
         except (ValueError,TypeError,KeyError,IndexError) as e:return self.send({'error':str(e)},400)
@@ -902,7 +931,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
-            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round') and not self.admin():raise PermissionError('Host-only action')
+            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round','/api/tournament/revoke') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/create':
                 host_camp=d.get('host_camp')
                 if host_camp not in (None,'elf','dwarf'):
@@ -930,6 +959,13 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path=='/api/delete':return self.send({'deleted':st.delete_game(d['game'])})
             if u.path=='/api/disconnect/decide':
                 return self.send({'game':st.disconnect_decision(d['game'],d['action'],d.get('camp'))})
+            if u.path=='/api/tournament/mine':
+                return self.send(st.tournament_my_matches(d.get('credential')))
+            if u.path=='/api/tournament/enter':
+                return self.send(st.tournament_enter(d.get('credential'),d.get('game')))
+            if u.path=='/api/tournament/revoke':
+                return self.send({'revoked':st.tournament_revoke(
+                    d.get('tournament'),d.get('name'),d.get('role','player'))})
             if u.path=='/api/tournament/create':
                 from .tournament import Tournament
                 t=Tournament(d['name'],d['format'],d['players'],int(d.get('rounds',3)))
@@ -966,7 +1002,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self.send({'matches':matches})
             return self.send({'error':'Unknown endpoint'},404)
         except (KeyError,ValueError,PermissionError,IndexError,TypeError) as e:return self.send({'error':str(e)},403 if isinstance(e,PermissionError) else 400)
-        except OSError:return self.send({'error':'La suppression a échoué sur le disque ; la partie est conservée.'},500)
+        except OSError:return self.send({'error':'Opération impossible sur le disque ; les données existantes sont conservées.'},500)
     def log_message(self,*args):pass
 
 class GameServer(ThreadingHTTPServer):
