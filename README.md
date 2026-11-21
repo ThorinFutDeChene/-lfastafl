@@ -1,13 +1,33 @@
-# Álfastafl — 0.7.1-dev1 (canal DEV)
+# Álfastafl — 0.7.1-dev2 (canal DEV)
 
-La **0.7.1-dev1** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.1-dev2** conserve les correctifs F11 et l'aide aux tournois de la DEV1 et ajoute les **tournois multi-rencontres**, avec deux parties simultanées pour quatre joueurs, des QR permanents par tournoi, la reconnexion des appareils autorisés, une régie spectateur tournante et plusieurs encarts de prises simultanées. La [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) reste inchangée. Le réseau local est ouvert uniquement par l'hôte et se referme à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev1` est plus récent que la stable `0.7.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev2` est plus récent que la stable `0.7.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.1-dev2 : rencontres simultanées et régie de tournoi
+
+Le PC hôte peut lancer une diffusion de tournoi depuis **Partie → Tournois et tirage des factions → Diffuser les rencontres sur cet écran**. La diffusion affiche alternativement les plateaux des rencontres actives (environ toutes les 8,5 secondes), identifie leur ronde et les deux adversaires et donne priorité aux rencontres ayant au moins un joueur connecté. La commande **Arrêter la diffusion** revient à un plateau fixe sans interrompre les parties.
+
+### QR et autorisations persistantes
+- Pendant la diffusion, les deux QR de la colonne gauche **restent ceux du tournoi entier**, et non ceux de la partie affichée : **Joueurs** en haut, **Spectateurs** en bas.
+- Un joueur inscrit scanne le QR du tournoi, saisit **exactement le nom de l'inscription** et demande l'autorisation. Le serveur trouve automatiquement sa rencontre et son camp préattribué. **L'hôte doit accepter une première fois**.
+- Après cette approbation, le navigateur reçoit un jeton d'appareil aléatoire, conservé localement ; le serveur n'en enregistre que l'empreinte SHA-256. Le jeton peut être réutilisé pour rejoindre **les nouvelles rencontres de ce même tournoi**, y compris après fermeture puis redémarrage de l'hôte, sans nouvelle autorisation. Les autres tournois et les camps non attribués restent interdits.
+- Aucune adresse MAC n'est utilisée : un navigateur ne permet pas d'identifier un appareil de cette manière. La reconnaissance dépend du stockage local de l'appareil et de l'adresse réseau conservée de l'hôte. Après effacement du stockage du navigateur ou changement d'origine réseau, une nouvelle approbation peut être nécessaire.
+- L'hôte peut examiner les appareils connus et **révoquer les jetons d'un joueur ou d'un spectateur** dans la fiche du tournoi.
+
+### Plusieurs parties et suivi
+- Pour **quatre joueurs**, la première ronde peut produire **deux parties indépendantes** en même temps ; les joueurs peuvent ouvrir leur partie dès qu'ils sont disponibles. L'horloge d'une partie ne commence que lorsque ses deux joueurs sont présents.
+- Le participant autorisé dispose de **Mes rencontres du tournoi** sur son téléphone, lui permettant de rejoindre la rencontre suivante sans intervention de l'hôte.
+- Un spectateur autorisé peut voir **toutes les rencontres du même tournoi**, mais n'acquiert aucun droit de jouer, d'arbitrer ou d'administrer. Son écran défile automatiquement de plateau en plateau.
+- Quand une capture est confirmée par le serveur sur une ou plusieurs rencontres, une **fenêtre de scène 3D indépendante pour chaque rencontre** apparaît, avec les noms des deux joueurs. Plusieurs fenêtres peuvent être affichées simultanément.
+- La création de la ronde suivante reste une **validation explicite de l'hôte**, après achèvement des parties précédentes, comme dans le moteur 0.7.0. Les parties et résultats restent enregistrés séparément.
+
+**Périmètre :** pas de modification des règles Tafl, du moteur de déplacement, des horloges, des cinématiques existantes ou de l'ancien format `.alfastafl`. L'interface de diffusion nécessite WebGL pour les scènes 3D. Le rendu et la performance sur appareils physiques Ubuntu et mobiles restent à vérifier.
 
 ## DEV 0.7.1-dev1 : quitter le plein écran et aide aux formats de tournoi
 
