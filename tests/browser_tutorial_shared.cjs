@@ -5,7 +5,10 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const {spawn}=require('node:child_process');
-const {chromium}=require('playwright');
+const {chromium,firefox,webkit}=require('playwright');
+const browserName=process.env.ALFASTAFL_BROWSER||'chromium';
+const browserEngines={chromium,firefox,webkit};
+if(!browserEngines[browserName])throw Error('Unsupported test browser: '+browserName);
 
 const root=path.resolve(__dirname,'..');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'alfastafl-tutorial-share-'));
@@ -46,8 +49,9 @@ async function serve(){
 }
 async function main(){
  const base=await serve();
- browser=await chromium.launch({headless:true,
-  args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+ browser=await browserEngines[browserName].launch(browserName==='chromium'
+  ?{headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']}
+  :{headless:true});
  const hostContext=await browser.newContext({viewport:{width:1440,height:900}});
  const host=await hostContext.newPage();
  host.setDefaultTimeout(18000);
