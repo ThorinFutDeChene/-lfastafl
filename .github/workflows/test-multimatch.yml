@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: alfastafl-feature-multimatch
+  cancel-in-progress: true
 jobs:
   tournament-tests:
     runs-on: ubuntu-24.04
