@@ -200,7 +200,30 @@ async function main(){
   await page.waitForFunction(position=>Boolean(selected&&selected[0]===position[0]&&
    selected[1]===position[1]),from);
   await square(to).click();
-  await page.waitForFunction(()=>game?.history?.length===1,{timeout:14000});
+  // On loaded CI runners a periodic repaint can clear the selection
+  // between the two clicks. Check the authoritative game history; retry
+  // the same legal interaction once if the first click was not sent.
+  let moved=false;
+  for(let attempt=0;attempt<2;attempt++){
+   try{
+    await page.waitForFunction(()=>game?.history?.length===1,null,{timeout:6500});
+    moved=true;break;
+   }catch(error){
+    const latest=(await api('state?game='+match.game)).game;
+    if(latest.history.length===1){moved=true;break;}
+    if(attempt){
+     const info=await page.evaluate(()=>({busy:gameBusy,selected,
+      myTurn:myTurn(),message:document.getElementById('msg').textContent}));
+     throw Error('Move never reached the server for '+dwarf+': '+JSON.stringify(info));
+    }
+    await page.waitForFunction(()=>myTurn()&&!gameBusy,null,{timeout:8000});
+    await square(from).click();
+    await page.waitForFunction(position=>Boolean(selected&&
+     selected[0]===position[0]&&selected[1]===position[1]),from);
+    await square(to).click();
+   }
+  }
+  assert(moved,'At least one legal move must commit to the server');
   return {from,to,game:match.game};
  }
  const moves=await Promise.all(matches.map(oneMove));
