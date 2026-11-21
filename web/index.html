@@ -25,7 +25,7 @@
     <div id="shell-network-status" aria-live="polite">LAN inactif</div>
   </aside>
   <header>
-    <h1>ᚨ Álfastafl <small>0.7.1 DEV1</small></h1>
+    <h1>ᚨ Álfastafl <small>0.7.1 DEV2</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -106,6 +106,32 @@
     <label>Identifiant de partie <input id="gid" placeholder="Identifiant reçu"></label>
     <button id="request" type="button">Demander l'accès</button>
     <p id="joinmsg"></p>
+  </section>
+  <section id="tournament-connect" class="tournament-connect" hidden aria-label="Connexion au tournoi">
+    <h2>Rejoindre le tournoi</h2>
+    <p>Les rencontres sont attribuées par le tournoi. Vous pouvez commencer
+       votre partie quand votre adversaire est prêt.</p>
+    <label>Nom utilisé lors de l'inscription
+      <input id="tournament-entrant-name" type="text" maxlength="60" autocomplete="nickname"
+             placeholder="Nom inscrit ou nom du spectateur">
+    </label>
+    <button id="tournament-enter" type="button">Rejoindre ma rencontre</button>
+    <p id="tournament-enter-status" role="status" aria-live="polite"></p>
+    <p class="tournament-connect-detail">Après la première autorisation de l'hôte,
+       cet appareil est reconnu pour la suite du tournoi. Effacer les données
+       du navigateur ou changer d'appareil nécessitera une nouvelle autorisation.</p>
+  </section>
+  <section id="broadcast-wall" class="broadcast-wall" hidden aria-label="Diffusion des rencontres du tournoi">
+    <div class="broadcast-heading">
+      <strong id="broadcast-name">Tournoi</strong>
+      <span id="broadcast-round">Ronde</span>
+      <span id="broadcast-pairing">En attente des rencontres</span>
+      <button id="broadcast-next" type="button" hidden>Rencontre suivante</button>
+      <button id="broadcast-stop" type="button" hidden>Revenir au plateau</button>
+    </div>
+    <iframe id="broadcast-main" title="Plateau de la rencontre diffusée en direct"
+            loading="eager" allow="autoplay" referrerpolicy="same-origin"></iframe>
+    <div id="broadcast-scenes" class="broadcast-scenes" aria-live="polite"></div>
   </section>
   <section id="game">
     <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
@@ -373,5 +399,7 @@
 <script src="/tutorial.js"></script>
 <script src="/host-shell.js"></script>
 <script src="/tournament-ui.js"></script>
+<script src="/tournament-client.js"></script>
+<script src="/tournament-broadcast.js"></script>
 </body>
 </html>

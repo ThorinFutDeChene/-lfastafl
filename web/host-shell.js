@@ -61,6 +61,9 @@
   document.title=title;
  }
  function syncInvites(invites,address,id){
+  // While broadcasting, the left-hand QRs belong to the WHOLE tournament,
+  // not whichever match happens to be displayed this second.
+  if(globalThis.AlfastaflBroadcast?.currentTournament())return;
   const visible=Boolean(id&&game&&game.id===id&&game.status==='active'&&
    invites?.player&&invites?.spectator&&address?.lan_enabled);
   el('shell-network-status').textContent=address?.lan_enabled
@@ -92,6 +95,9 @@
    for(const m of Object.values(dialogs))if(m.open)m.close();
    tutorialTrigger.click();return true;
   }
+  if(name==='broadcast-stop'){
+   globalThis.AlfastaflBroadcast?.stop();return true;
+  }
   if(name==='save'){
    if(!game||game.status==='finished'||game.reason==='saved_by_host')return false;
    el('save-leave').click();return true;
@@ -115,6 +121,7 @@
   updateStatus();
  }
  function onSelected(){
+  globalThis.AlfastaflBroadcast?.stop();
   if(dialogs.saves.open)dialogs.saves.close();
   updateStatus();
  }

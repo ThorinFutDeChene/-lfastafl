@@ -763,3 +763,131 @@ body.desktop-shell .tournament-format-explanation p{
 body.desktop-shell .tournament-format-explanation .tournament-format-caveat{
  margin:0;font-size:.88rem;color:#f3c7a2
 }
+
+
+/* DEV2: live tournament television wall, with several *independent* 3D
+   capture panels. Display clients only render boards, never the host
+   desktop or any personal video feed. */
+body.tournament-broadcast #broadcast-wall:not([hidden]){
+ display:block;position:fixed;z-index:46;
+ inset:0;background:#101e17;
+ color:#f7e0ae;overflow:hidden
+}
+body.desktop-shell.tournament-broadcast #broadcast-wall:not([hidden]){
+ left:var(--shell-rail)
+}
+.broadcast-heading{
+ position:absolute;z-index:3;top:0;left:0;right:0;min-height:64px;
+ display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;
+ padding:10px 18px;border-bottom:1px solid #c0a67a;
+ background:linear-gradient(90deg,#102820fa,#273021f2);
+ box-shadow:0 2px 18px #0007;
+}
+.broadcast-heading strong{font-size:1.22rem;color:#f8d9a1}
+.broadcast-heading span{font-size:.91rem;letter-spacing:.018em}
+#broadcast-pairing{flex:1;min-width:200px}
+#broadcast-stop,#broadcast-next{min-height:42px;padding:7px 13px;
+ background:#594331;color:#ffedce;border:1px solid #c9a67b;border-radius:8px}
+#broadcast-main{
+ position:absolute;top:64px;bottom:0;left:0;width:100%;height:calc(100% - 64px);
+ border:0;background:#233d2e
+}
+.broadcast-scenes{
+ position:absolute;z-index:5;right:16px;bottom:16px;
+ display:grid;grid-template-columns:repeat(2,minmax(230px,1fr));
+ width:min(860px,69%);max-height:66%;
+ align-items:end;gap:10px;pointer-events:none;
+}
+.broadcast-scenes:empty{display:none}
+.broadcast-scene{
+ display:flex;flex-direction:column;min-height:150px;
+ background:#13251de9;border:2px solid #dfb476;border-radius:12px;
+ box-shadow:0 8px 32px #000a;overflow:hidden
+}
+.broadcast-scene h3{
+ margin:0;padding:7px 9px;font-size:.80rem;line-height:1.28;
+ text-align:center;color:#ffdf9e;background:#091b14ed;
+ border-bottom:1px solid #a88c60
+}
+.broadcast-scene iframe{
+ display:block;width:100%;height:clamp(136px,23vh,245px);
+ border:0;background:#1d2e22
+}
+/* Broadcast is a fullscreen embed within the host/spectator shell. The
+   embedded page has NO input tools, menus, invitation UI or replay wall. */
+body.broadcast-frame{overflow:hidden;background:#192b20}
+body.broadcast-frame main{
+ position:fixed;inset:0;width:100%;height:100%;padding:0;margin:0;max-width:none
+}
+body.broadcast-frame main > :not(#game){display:none!important}
+body.broadcast-frame #game{
+ position:fixed!important;inset:0!important;
+ width:100%!important;height:100%!important;max-width:none!important;
+ margin:0!important;padding:0!important;overflow:hidden!important;
+ border:0!important;border-radius:0!important;background:#192b20
+}
+body.broadcast-frame #game > :not(#game-board-view){display:none!important}
+body.broadcast-frame #game-board-view{
+ position:absolute;inset:0;width:100%;height:100%;padding:0;margin:0;
+ border:0;border-radius:0
+}
+body.broadcast-frame #game-board-view .board-tools,
+body.broadcast-frame #game-board-view .board-help,
+body.broadcast-frame #game-board-view .board-legend,
+body.broadcast-frame #game-board-view .board-empty,
+body.broadcast-frame #game-board-view .board-status{display:none!important}
+body.broadcast-frame #game-board-view .board-stage{
+ width:100%;height:100%;min-height:100%;padding:0;margin:0;border:0
+}
+body.broadcast-frame #game-board-view #board{margin:auto;max-width:85vh}
+body.broadcast-frame #capture-overlay:not([hidden]){
+ position:absolute;top:12px;right:12px;left:auto;bottom:auto;
+ width:auto;max-width:55%;z-index:5;font-size:.88rem
+}
+body.broadcast-frame #capture-skip{display:none!important}
+body.broadcast-frame .broadcast-wall{display:none!important}
+/* Players enter by the tournament's persistent QR rather than choosing an
+   individual match ID; only the server chooses their assigned match. */
+body:not(.desktop-shell) .tournament-connect:not([hidden]){
+ position:fixed;z-index:100;left:50%;top:50%;
+ transform:translate(-50%,-50%);
+ width:min(510px,calc(100vw - 30px));max-height:90dvh;
+ overflow-y:auto;padding:22px 24px;
+ color:#ffebc6;background:#152820f7;border:1px solid #c8aa75;
+ border-radius:14px;box-shadow:0 12px 56px #000c
+}
+.tournament-connect h2{margin-top:0;font-size:1.5rem;color:#f4d09b}
+.tournament-connect p{line-height:1.48}
+.tournament-connect label{display:flex;flex-direction:column;gap:7px;margin:14px 0}
+.tournament-connect input{height:44px;width:100%;padding:8px;
+ color:#fff4de;background:#15201a;border:1px solid #a28c6a;border-radius:7px}
+.tournament-connect button{padding:10px 18px;min-height:44px}
+.tournament-connect-detail{font-size:.82rem;color:#d5d6bc}
+body.desktop-shell .tournament-broadcast-note{font-size:.82rem;color:#cdd5b6}
+body.desktop-shell .tournament-item .tournament-controls{
+ display:flex;flex-wrap:wrap;gap:9px;margin-top:12px;
+}
+body.desktop-shell .tournament-item .tournament-controls button{
+ padding:8px 11px;min-height:40px
+}
+body.desktop-shell .tournament-device-row{
+ display:flex;align-items:center;flex-wrap:wrap;gap:12px;
+ padding:7px 0;border-top:1px solid #72816755
+}
+body.desktop-shell .tournament-device-row span{flex:1}
+body.desktop-shell .tournament-device-row button{
+ background:#553227;color:#f9d3c8;border:1px solid #a77b65
+}
+@media(max-width:890px){
+ .broadcast-heading{font-size:.88rem;min-height:64px}
+ .broadcast-scenes{width:min(580px,82%);grid-template-columns:repeat(2,minmax(110px,1fr))}
+ .broadcast-scene iframe{height:clamp(110px,19vh,190px)}
+ .broadcast-scene h3{font-size:.7rem}
+}
+@media(max-width:550px){
+ .broadcast-heading{min-height:84px}
+ #broadcast-main{top:84px;height:calc(100% - 84px)}
+ .broadcast-scenes{width:92%;bottom:9px;right:4%;gap:5px}
+ .broadcast-scene{min-height:110px}
+ .broadcast-scene iframe{height:110px}
+}

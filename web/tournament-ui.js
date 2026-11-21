@@ -67,6 +67,7 @@
        const gameButton=Array.from(document.querySelectorAll('#game-list .game-select'))
         .find(x=>x.dataset.game===match.game);
        if(!gameButton)throw Error('La partie du tournoi est introuvable.');
+       globalThis.AlfastaflBroadcast?.stop();
        el('shell-tournament-dialog').close();
        gameButton.click();
       },'tournament-view'));
@@ -74,12 +75,46 @@
      item.append(row);
     }
    }
+   const controls=div('tournament-controls');
+   controls.append(button('Diffuser les rencontres en direct',async()=>{
+    if(!tournament.round_no)
+     throw Error('Commencez par créer la première ronde du tournoi.');
+    globalThis.AlfastaflBroadcast?.start(tournament.id);
+    el('shell-tournament-dialog').close();
+   },'tournament-broadcast-start'));
+   item.append(controls);
+   const records=[
+    ['player',tournament.devices||{},'Joueur'],
+    ['spectator',tournament.spectator_devices||{},'Spectateur'],
+   ];
+   if(records.some(([,people])=>Object.keys(people).length)){
+    text(item,'h4','Appareils reconnus · révocation');
+    for(const [role,people,label] of records){
+     for(const [name,proofs] of Object.entries(people)){
+      if(!proofs.length)continue;
+      const row=div('tournament-device-row');
+      text(row,'span',label+' '+name+' · '+proofs.length+' appareil(s) autorisé(s)');
+      row.append(button('Révoquer',async()=>{
+       if(!confirm('Révoquer les appareils de '+name+' pour ce tournoi ?'))return;
+       await api('tournament/revoke',{tournament:tournament.id,name,role});
+       status('Autorisation révoquée. Une nouvelle validation de l’hôte sera nécessaire.');
+       await refresh();
+      },'tournament-revoke'));
+      item.append(row);
+     }
+    }
+   }
    item.append(button(tournament.round_no?'Valider les résultats et ronde suivante':'Tirer la première ronde',async()=>{
     const res=await api('tournament/round',{
      tournament:tournament.id,mode:el('mode').value,
     });
     if(!res.matches?.length)status('Ce tournoi ne comporte plus de ronde à jouer.');
-    else status(res.matches.length+' rencontre(s) créée(s). Factions attribuées automatiquement.');
+    else {
+     status(res.matches.length+' rencontre(s) créée(s) et indépendantes. Diffusion tournante activée.');
+     // All games of the round can be played at the same time. Displaying
+     // a match never locks another one or its time control.
+     globalThis.AlfastaflBroadcast?.start(tournament.id);
+    }
     await refresh();
    },'tournament-next'));
    list.append(item);

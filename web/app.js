@@ -11,6 +11,7 @@ document.body.classList.toggle('desktop-shell',isDesktopShell);
 document.body.classList.toggle('desktop-host-manager',isDesktopManager);
 document.body.classList.toggle('desktop-board-only',isDesktopBoard);
 document.body.classList.toggle('desktop-tutorial-only',isDesktopTutorial);
+document.body.classList.toggle('broadcast-frame',q.has('broadcast-view'));
 let gameId=isDesktopTutorial?'':q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
 // Retain an approved device session across browser restarts for reconnection.
 function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+id)||'';}catch(_){return '';}}
@@ -428,6 +429,11 @@ async function load(){
   const previous=game&&game.id===requestedGame?game:null;
   const previousHistoryCount=previous?.history?.length||0;
   game=state.game;you=state.you;reviewVotes=state.review_votes||{};hostSeats=state.seats||{};
+  // A tournament spectator follows every match on the authenticated live
+  // tournament wall. Embedded board frames must never start nested walls.
+  if(!isHost&&!q.has('broadcast-view')&&you?.role==='spectator'&&
+      state.tournament?.id)
+   globalThis.AlfastaflBroadcast?.start(state.tournament.id);
   soundscape.setGame(game);
   // Only animate a newly confirmed server move, never a restored snapshot or
   // a backlog of moves received after reconnecting a sleeping phone.
@@ -726,6 +732,14 @@ async function tick(){
    const reply=await api('request?id='+encodeURIComponent(requestId));
    if(reply.status==='approved'){
     session=reply.session;requestId='';invalidateBoardInteraction();sessionStorage.setItem('alfastafl.session',session);
+    if(reply.tournament&&reply.token&&reply.name&&reply.role){
+     // Raw device proof stays in this browser, not the server save. It is
+     // scoped to exactly one tournament identity and role.
+     try{localStorage.setItem('alfastafl.credential.'+reply.tournament+'.'+
+       reply.role+'.'+reply.name,reply.token);
+       localStorage.setItem('alfastafl.last-name.'+reply.tournament,reply.name);
+       localStorage.setItem('alfastafl.tournament.role.'+reply.tournament,reply.role);}catch(_){}
+    }
     rememberDevice(gameId,session);
     sessionStorage.setItem('alfastafl.game',gameId);
     $('joinmsg').textContent='Connexion autorisee';await load();

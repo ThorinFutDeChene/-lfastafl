@@ -126,6 +126,7 @@ def main():
     menu_command(game_menu, 'Historique des coups…', 'history')
     menu_command(game_menu, 'Tutoriel…', 'tutorial')
     menu_command(game_menu, 'Tournois et tirage des factions…', 'tournament')
+    menu_command(game_menu, 'Diffusion des rencontres du tournoi…', 'tournament')
 
     settings_menu = menus.addMenu('Paramètres')
     menu_command(settings_menu, 'Réglages du jeu, affichage et son…', 'settings')
@@ -138,6 +139,7 @@ def main():
     menu_command(view_menu, 'Caméra vue de dessus', 'top')
     menu_command(view_menu, 'Réinitialiser la caméra', 'reset-camera')
     menu_command(view_menu, 'Qualité et caméra…', 'settings')
+    menu_command(view_menu, 'Arrêter la diffusion du tournoi', 'broadcast-stop')
     # An explicit visible command is essential in a full-screen game:
     # users should never need to know the F11 shortcut to restore Ubuntu's
     # window borders and desktop. Both controls execute the SAME transition.

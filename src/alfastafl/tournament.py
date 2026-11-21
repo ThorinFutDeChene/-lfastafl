@@ -75,13 +75,22 @@ def balanced_camps(a, b, history):
 
 class Tournament:
     FORMATS=('knockout','round_robin','swiss')
-    def __init__(self,name,format,players,rounds=3,id=None,history=None,matches=None,round_no=0):
+    def __init__(self,name,format,players,rounds=3,id=None,history=None,matches=None,round_no=0,
+                 devices=None,spectator_devices=None):
         if format not in self.FORMATS:raise ValueError('Invalid tournament format')
         if len(players)<2 or len(set(players))!=len(players):raise ValueError('Need unique players')
         self.id=id or str(uuid.uuid4());self.name=name;self.format=format;self.players=players
         self.rounds=rounds;self.history=history or {p:[] for p in players}
         self.matches=matches or [];self.round_no=round_no
-    def as_dict(self):return dict(id=self.id,name=self.name,format=self.format,players=self.players,rounds=self.rounds,history=self.history,matches=self.matches,round_no=self.round_no)
+        # SHA-256 fingerprints only: raw per-browser credentials are never
+        # serialized or included in tournament API responses.
+        self.devices=devices or {}
+        self.spectator_devices=spectator_devices or {}
+    def as_dict(self):
+        return dict(id=self.id,name=self.name,format=self.format,
+                    players=self.players,rounds=self.rounds,history=self.history,
+                    matches=self.matches,round_no=self.round_no,
+                    devices=self.devices,spectator_devices=self.spectator_devices)
     @classmethod
     def from_dict(cls,d):return cls(**d)
     def standings(self):

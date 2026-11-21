@@ -1,41 +1,38 @@
-# Álfastafl 0.7.1-dev1 — Fenêtre normale et aide tournoi
+# Álfastafl 0.7.1-dev2 — Tournois multirencontres
 
-## Sortie du plein écran sur le PC hôte
+## Plusieurs matchs simultanés
+- Quatre inscrits : **deux parties jouables en parallèle** sur
+  quatre appareils, avec chronomètres et sauvegardes indépendants.
+- Chacun démarre lorsqu'il est disponible et retrouve sa partie
+  si son adversaire n'a pas encore commencé. Nouvelle ronde
+  préparée par l'organisateur après validation des résultats.
 
-- La barre de menus contient maintenant **Affichage → Quitter le
-  plein écran (F11)**.
-- La fenêtre repasse en mode normal Ubuntu et retrouve ses bordures.
-  Le menu propose alors **Passer en plein écran (F11)**.
-- **F11** déclenche la même action à tout moment.
-- Le changement d'affichage est indépendant de la partie en cours,
-  des connexions LAN, des sauvegardes et de la caméra.
+## QR de tournoi et réassociation à un appareil
+- **QR joueur et QR spectateur de tournoi** dans la colonne de gauche,
+  uniquement lorsque le LAN est volontairement ouvert.
+- Première connexion après **accord explicite de l'hôte** ; un
+  jeton cryptographique fort et propre au navigateur est enregistré.
+- Les rencontres suivantes se rejoignent sans réautorisation
+  si ce jeton est reconnu pour le même nom et tournoi.
+- Adresse MAC inaccessible depuis le navigateur ; seules les
+  **empreintes SHA-256 des jetons** sont enregistrées au serveur.
+- Possibilité de **révoquer** les appareils d'un participant.
+  Changer d'appareil ou effacer ses données exige un nouvel accord.
 
-## Bouton « ? » à droite du format de tournoi
+## Diffusion du tournoi
+- Sur le PC hôte et les appareils spectateurs autorisés, rotation
+  automatique des rencontres toutes les **12 secondes**.
+- Noms des deux adversaires, camps et nombre de coups affichés.
+- L'hôte peut afficher la rencontre suivante ou arrêter le défilement.
+- Chaque prise provoque un **encart 3D** légendé avec les noms
+  des joueurs concernés. Plusieurs encarts indépendants sont
+  affichés simultanément (jusqu'à six selon la puissance du matériel).
+- Flux de plateaux 3D en direct : pas de vidéo du bureau de l'hôte.
 
-Dans **Partie → Tournois et tirage des factions**, un bouton
-**?** visible à droite de « Type de tournoi » affiche une
-explication propre à l'option choisie :
+## Compatibilité et recette
+La stable **0.7.0** n'est pas modifiée. Le correctif plein écran F11
+et l'aide des formats de tournoi restent intégrés depuis la DEV1.
+Les tests couvrent la concurrence, les jetons, les accès spectateurs
+et les scènes multiples. Les appareils réels restent à tester.
 
-- **Suisse** : rondes définies à l'avance, participants toujours
-  en lice, classement 3 points par victoire et 1 par nul,
-  appariements par score et évitement des rencontres répétées.
-  Les exemptions à nombre impair ne rapportent actuellement
-  aucun point automatique.
-- **Élimination directe** : le vainqueur avance et le perdant
-  est éliminé. Les tableaux de 2, 4, 8 ou 16 joueurs sont à
-  privilégier. Gestion incomplète des exemptions et matchs nuls.
-- **Toutes rencontres** : confrontation successive des participants,
-  avec la réserve actuelle du calendrier à effectif impair.
-
-L'aide s'ouvre au clic, s'adapte au changement du type choisi et
-se referme au second clic. Marquage accessible `aria-expanded`
-et `aria-controls`, focus clavier et contraste.
-
-## Tests et périmètre
-
-Tests unitaires de la transition Qt plein écran/fenêtré, scénarios
-Chromium sur le placement et les explications du bouton ?, et
-recette complète existante de démarrage Qt, serveur, tutoriel et 3D.
-
-**DEV 0.7.1-dev1 — paquet Debian `0.7.1~dev1`.**
-**Stable 0.7.0 inchangée.** Aucune migration de sauvegardes.
+**Canal DEV — paquet `0.7.1~dev2`.**

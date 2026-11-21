@@ -1,13 +1,56 @@
-# Álfastafl — 0.7.1-dev1 (canal DEV)
+# Álfastafl — 0.7.1-dev2 (canal DEV)
 
-La **0.7.1-dev1** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.1-dev2** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev1` est plus récent que la stable `0.7.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev2` est plus récent que la stable `0.7.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.1-dev2 : tournois multirencontres, reconnaissance et diffusion
+
+**Plusieurs rencontres en parallèle** : un tournoi à quatre participants
+crée deux parties distinctes, chacune avec son propre plateau, son
+chronomètre, ses invitations et ses sauvegardes. Les deux paires peuvent
+jouer en même temps, ou commencer plus tard lorsque leurs deux joueurs
+sont présents. L'organisateur valide les résultats pour créer la ronde
+suivante : une partie ne bloque pas les autres.
+
+**QR commun au tournoi** : une fois la diffusion lancée, la colonne
+gauche contient un QR joueur et un QR spectateur pour tout le tournoi.
+Chaque joueur scanne, saisit son nom d'inscription et retrouve son
+match planifié. La **première connexion** exige l'accord de l'hôte ;
+le navigateur reçoit alors un **jeton aléatoire fort** spécifique
+au joueur, au rôle et au tournoi. Le serveur conserve uniquement son
+empreinte SHA-256. Il n'utilise pas l'adresse MAC : les navigateurs
+n'y ont pas accès. Aux rondes suivantes, scanner le QR permet au même
+appareil de récupérer sa propre faction **sans réautorisation**,
+y compris après redémarrage du PC hôte. Un autre appareil ou un
+navigateur dont les données ont été supprimées doit être approuvé
+de nouveau. **Révocation** des appareils : Partie → Tournois.
+
+**Diffusion en direct** : l'écran hôte et les écrans spectateurs
+autorisés font défiler automatiquement les plateaux 3D des rencontres,
+**une toutes les 12 secondes**, avec noms, factions et état de jeu.
+L'hôte peut passer manuellement à la rencontre suivante ou arrêter
+la diffusion. En cas de prise, une fenêtre cinématique 3D indique
+les adversaires concernés ; plusieurs scènes indépendantes peuvent
+apparaître simultanément (**six maximum**, suivant les capacités
+graphiques). Il s'agit de vues de jeu WebGL en direct, pas de
+captures vidéo du bureau ni de fichiers multimédias enregistrés.
+
+Les appareils spectateurs n'ont aucun droit de déplacement :
+la diffusion leur est accordée par l'hôte pour le tournoi.
+Le LAN doit être activé manuellement à chaque lancement.
+L'ancien menu **Affichage → Quitter le plein écran (F11)** et le
+bouton d'aide **?** sur le format suisse/élimination de la
+DEV1 sont conservés.
+
+**Essais nécessaires avant stable** : quatre appareils connectés,
+plusieurs cinématiques au même instant et charge GPU des téléphones.
+La ronde suivante n'est pas lancée sans validation de l'organisateur.
 
 ## DEV 0.7.1-dev1 : quitter le plein écran et aide aux formats de tournoi
 
