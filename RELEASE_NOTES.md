@@ -1,24 +1,41 @@
-# Álfastafl 0.7.0-dev12 — Correction des flèches de sortie du roi
+# Álfastafl 0.7.1-dev1 — Fenêtre normale et aide tournoi
 
-**Bug corrigé :** sur le plateau WebGL 3D, deux des quatre flèches
-gravées dans les cases d'angle pointaient vers l'intérieur du
-plateau, alors qu'elles doivent toutes indiquer la sortie du roi.
+## Sortie du plein écran sur le PC hôte
 
-**Origine :** l'ancien code attribuait seulement deux rotations
-aux quatre emblèmes de sortie.
+- La barre de menus contient maintenant **Affichage → Quitter le
+  plein écran (F11)**.
+- La fenêtre repasse en mode normal Ubuntu et retrouve ses bordures.
+  Le menu propose alors **Passer en plein écran (F11)**.
+- **F11** déclenche la même action à tout moment.
+- Le changement d'affichage est indépendant de la partie en cours,
+  des connexions LAN, des sauvegardes et de la caméra.
 
-**Correction :** calcul d'une orientation distincte pour chaque
-coin à partir de sa position dans le monde 3D. Les flèches
-indiquent désormais les diagonales extérieures ↖ ↗ ↙ ↘,
-quelle que soit la position de la caméra.
+## Bouton « ? » à droite du format de tournoi
 
-**Contrôle anti-régression :** nouveau scénario Chromium/WebGL
-qui calcule le vecteur réel de chacune des quatre flèches
-après rotation et confirme qu'il pointe hors du plateau,
-sans inclinaison verticale.
+Dans **Partie → Tournois et tirage des factions**, un bouton
+**?** visible à droite de « Type de tournoi » affiche une
+explication propre à l'option choisie :
 
-**Portée :** purement graphique. Aucune modification des règles,
-des captures, des conditions de victoire, des parties enregistrées,
-des animations, du tutoriel ou du protocole multijoueur.
+- **Suisse** : rondes définies à l'avance, participants toujours
+  en lice, classement 3 points par victoire et 1 par nul,
+  appariements par score et évitement des rencontres répétées.
+  Les exemptions à nombre impair ne rapportent actuellement
+  aucun point automatique.
+- **Élimination directe** : le vainqueur avance et le perdant
+  est éliminé. Les tableaux de 2, 4, 8 ou 16 joueurs sont à
+  privilégier. Gestion incomplète des exemptions et matchs nuls.
+- **Toutes rencontres** : confrontation successive des participants,
+  avec la réserve actuelle du calendrier à effectif impair.
 
-**Distribution :** DEV `0.7.0~dev12`. Stable 0.5.0 inchangée.
+L'aide s'ouvre au clic, s'adapte au changement du type choisi et
+se referme au second clic. Marquage accessible `aria-expanded`
+et `aria-controls`, focus clavier et contraste.
+
+## Tests et périmètre
+
+Tests unitaires de la transition Qt plein écran/fenêtré, scénarios
+Chromium sur le placement et les explications du bouton ?, et
+recette complète existante de démarrage Qt, serveur, tutoriel et 3D.
+
+**DEV 0.7.1-dev1 — paquet Debian `0.7.1~dev1`.**
+**Stable 0.7.0 inchangée.** Aucune migration de sauvegardes.

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Álfastafl 0.7.0 (DEV)</title>
+  <title>Álfastafl 0.7.1 (DEV)</title>
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
 </head>
@@ -25,7 +25,7 @@
     <div id="shell-network-status" aria-live="polite">LAN inactif</div>
   </aside>
   <header>
-    <h1>ᚨ Álfastafl <small>0.7.0 DEV12</small></h1>
+    <h1>ᚨ Álfastafl <small>0.7.1 DEV1</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -232,11 +232,53 @@
     <section class="tournament-create">
       <h3>Créer un tournoi</h3>
       <label>Nom <input id="tournament-name" type="text" maxlength="100" placeholder="Tournoi de l’hiver"></label>
-      <label>Format <select id="tournament-format">
-        <option value="round_robin">Toutes rencontres</option>
-        <option value="swiss">Système suisse</option>
-        <option value="knockout">Élimination directe</option>
-      </select></label>
+      <div class="tournament-format-field">
+        <label for="tournament-format">Type de tournoi</label>
+        <div class="tournament-format-input">
+          <select id="tournament-format">
+            <option value="round_robin">Toutes rencontres</option>
+            <option value="swiss">Système suisse</option>
+            <option value="knockout">Élimination directe</option>
+          </select>
+          <button id="tournament-format-help" class="tournament-format-help-button"
+                  type="button" title="Comprendre le type de tournoi"
+                  aria-label="Expliquer le type de tournoi sélectionné"
+                  aria-expanded="false" aria-controls="tournament-format-explanation">?</button>
+        </div>
+      </div>
+      <div id="tournament-format-explanation" class="tournament-format-explanation"
+           role="note" aria-live="polite" hidden>
+        <section data-tournament-format="round_robin">
+          <h4>Toutes rencontres</h4>
+          <p>Chaque participant joue contre les autres au fil des rondes.
+          Le classement donne <strong>3 points par victoire</strong>,
+          <strong>1 point par nul</strong> et <strong>0 en cas de défaite</strong>.</p>
+          <p class="tournament-format-caveat">Dans la version actuelle, privilégiez
+          un nombre pair de participants : avec un nombre impair, certaines
+          confrontations peuvent manquer.</p>
+        </section>
+        <section data-tournament-format="swiss" hidden>
+          <h4>Système suisse</h4>
+          <p>Tout le monde continue à jouer pendant le <strong>nombre de rondes fixé</strong>,
+          même après une défaite. À chaque nouvelle ronde, les participants sont
+          classés par points (victoire : <strong>3</strong>, nul : <strong>1</strong>,
+          défaite : <strong>0</strong>) et rencontrent autant que possible
+          un adversaire de score proche qu'ils n'ont pas déjà affronté.</p>
+          <p class="tournament-format-caveat">Avec un nombre impair de participants,
+          un joueur peut ne pas être apparié pendant une ronde ;
+          le moteur ne lui attribue pas de victoire automatique.</p>
+        </section>
+        <section data-tournament-format="knockout" hidden>
+          <h4>Élimination directe</h4>
+          <p>Le <strong>vainqueur</strong> de chaque rencontre passe au tour suivant ;
+          le <strong>perdant</strong> est éliminé. Les tours se poursuivent jusqu'à
+          ce qu'il ne reste qu'un vainqueur.</p>
+          <p class="tournament-format-caveat">Privilégiez
+          <strong>2, 4, 8 ou 16 joueurs</strong> : la gestion des exemptions
+          et des matchs nuls n'est pas encore complète. Une partie nulle
+          ne qualifie aucun des deux joueurs dans cette version.</p>
+        </section>
+      </div>
       <label>Rondes (suisse) <input id="tournament-rounds" type="number" min="1" max="20" value="3"></label>
       <label>Joueurs, un nom par ligne
         <textarea id="tournament-players" rows="5" placeholder="Alice&#10;Bruno&#10;Chloé&#10;David"></textarea>

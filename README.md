@@ -1,13 +1,50 @@
-# Álfastafl — 0.7.0-dev12 (canal DEV)
+# Álfastafl — 0.7.1-dev1 (canal DEV)
 
-La **0.7.0-dev12** reprend la [stable 0.5.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.5.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
+La **0.7.1-dev1** reprend la [stable 0.7.0](https://github.com/ThorinFutDeChene/-lfastafl/releases/tag/v0.7.0) et ajoute une **interface immersive aux invités autorisés** : après accord de l'hôte, le plateau 3D occupe seul toute la fenêtre du téléphone, de la tablette ou de l'ordinateur. Le menu discret ☰ permet d'accéder aux réglages de vue et, pour les joueurs, aux actions de partie. L'accès LAN reste volontaire à chaque lancement et se désactive à la fermeture normale.
 
 **Validation :** les tests du moteur, des captures, de l'horloge serveur, du tutoriel et de la vue 3D sont exécutés par la chaîne CI avant publication. Le rendu des scènes et la restitution sonore sur Ubuntu MATE et téléphones physiques restent à confirmer. Les cas atypiques du moteur de règles, la finition des animations et la régie restent partiellement ou entièrement à développer.
 
-**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.0~dev12` est plus récent que `0.5.1~dev5` et `0.5.0`.
+**Canaux de mise à jour :** les nouvelles installations de cette préversion choisissent `DEV` par défaut. Le choix de canal enregistré est conservé ; le canal DEV reçoit également les versions stables. Pour recevoir cette préversion, sélectionner **Mises à jour → Développement (DEV)**. Le numéro Debian `0.7.1~dev1` est plus récent que la stable `0.7.0`.
 
 
 Projet GPL-3.0 de jeu de tafl Viking-fantasy, prévu pour Ubuntu avec hôte local et invités via navigateur.
+
+## DEV 0.7.1-dev1 : quitter le plein écran et aide aux formats de tournoi
+
+**Affichage → Quitter le plein écran (F11).** Une commande visible
+dans la barre de menus native Qt permet désormais de restaurer une
+**fenêtre normale Ubuntu**, avec ses bordures et contrôles. La
+commande devient **Passer en plein écran (F11)** dans ce mode.
+La touche F11 exécute exactement la même bascule. Quitter le plein
+écran ne ferme pas le jeu, ne coupe pas les connexions et ne
+modifie ni la partie ni les sauvegardes.
+
+**Partie → Tournois et tirage des factions.** Un bouton rond
+**?**, directement **à droite de la liste Type de tournoi**, ouvre
+une aide contextuelle qui s'adapte immédiatement au format sélectionné :
+
+- **Système suisse :** tous les participants continuent pendant
+  le nombre de rondes paramétré. À chaque ronde, le moteur classe
+  les joueurs par points (3 victoire, 1 nul, 0 défaite) et recherche
+  des adversaires de score proche, en évitant autant que possible
+  les confrontations déjà jouées. Avec un nombre impair de joueurs,
+  le participant non apparié ne reçoit pas de victoire automatique.
+- **Élimination directe :** seuls les vainqueurs poursuivent ; les
+  perdants sont éliminés. Pour éviter les limites actuelles de
+  gestion des exemptions et matchs nuls, privilégier un tableau
+  de **2, 4, 8 ou 16 joueurs**. Une partie nulle ne qualifie
+  aucun des joueurs dans cette version.
+- **Toutes rencontres :** les participants s'affrontent lors
+  de rondes successives, de préférence avec un nombre **pair**
+  de joueurs car le calendrier actuel à effectif impair ne couvre
+  pas nécessairement tous les duels.
+
+L'aide peut être ouverte et fermée au clavier ou à la souris,
+indique l'état **ouvert/fermé** aux outils d'accessibilité et ne
+modifie pas le calcul du tournoi. Le correctif est volontairement
+limité à l'interface, aux indications et à l'affichage de fenêtre.
+La stable **0.7.0 reste inchangée** ; ce correctif appartient au
+prochain cycle **0.7.1**.
 
 ## DEV 0.7.0-dev12 : quatre flèches de sortie correctement orientées
 

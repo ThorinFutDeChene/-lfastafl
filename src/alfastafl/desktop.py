@@ -15,6 +15,25 @@ def show_board_window(window):
     window.showFullScreen()
 
 
+def toggle_main_fullscreen(window, action=None):
+    """Switch between a normal desktop window and the immersive board.
+
+    Returning to windowed mode only changes the Qt window state; the local
+    server, LAN invitations, tournament and saved game stay untouched.
+    The menu label always describes the NEXT available action.
+    """
+    if window.isFullScreen():
+        window.showNormal()
+        fullscreen = False
+    else:
+        show_main_window(window)
+        fullscreen = True
+    if action is not None:
+        action.setText('Quitter le plein écran (F11)' if fullscreen
+                       else 'Passer en plein écran (F11)')
+    return fullscreen
+
+
 def main():
     try:
         from PyQt6.QtWidgets import QApplication, QMainWindow, QToolBar, QMessageBox
@@ -119,10 +138,17 @@ def main():
     menu_command(view_menu, 'Caméra vue de dessus', 'top')
     menu_command(view_menu, 'Réinitialiser la caméra', 'reset-camera')
     menu_command(view_menu, 'Qualité et caméra…', 'settings')
+    # An explicit visible command is essential in a full-screen game:
+    # users should never need to know the F11 shortcut to restore Ubuntu's
+    # window borders and desktop. Both controls execute the SAME transition.
+    fullscreen_action = view_menu.addAction('Quitter le plein écran (F11)')
+    fullscreen_action.triggered.connect(
+        lambda *_: toggle_main_fullscreen(win, fullscreen_action))
     fullscreen_shortcut = QShortcut(QKeySequence('F11'), win)
     fullscreen_shortcut.activated.connect(
-        lambda: win.showNormal() if win.isFullScreen() else show_main_window(win))
-    # Keep this reference: Qt owns the shortcut for the application lifetime.
+        lambda: toggle_main_fullscreen(win, fullscreen_action))
+    # Keep Qt objects alive as long as the main window exists.
+    win.fullscreen_action = fullscreen_action
     win.fullscreen_shortcut = fullscreen_shortcut
 
     # A second listener is bound to the exact private LAN IPv4 address.

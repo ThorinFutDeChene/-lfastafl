@@ -89,6 +89,47 @@ async function main(){
   assert(Math.abs(box.game[3]-box.viewport[1])<=2);
   assert.equal(box.overflow,false);
  });
+ await check('Tournament ? beside format explains Swiss and elimination correctly',async()=>{
+  assert.equal(await open('tournament'),true);
+  await page.locator('#shell-tournament-dialog[open]').waitFor();
+  const format=page.locator('#tournament-format');
+  const help=page.locator('#tournament-format-help');
+  const explanation=page.locator('#tournament-format-explanation');
+  assert.equal(await help.getAttribute('aria-expanded'),'false');
+  assert.equal(await explanation.isVisible(),false);
+  const selectBox=await format.boundingBox();
+  const helpBox=await help.boundingBox();
+  assert(selectBox&&helpBox);
+  assert(helpBox.x>=selectBox.x+selectBox.width-2,
+   'The ? must be immediately to the RIGHT of the tournament format select');
+  assert(Math.abs(helpBox.y-selectBox.y)<17,'The ? must line up with its dropdown');
+  await format.selectOption('swiss');
+  await help.click();
+  assert.equal(await help.getAttribute('aria-expanded'),'true');
+  assert.equal(await explanation.isVisible(),true);
+  const swiss=explanation.locator('[data-tournament-format="swiss"]');
+  assert.equal(await swiss.isVisible(),true);
+  assert.match(await swiss.textContent(),/3/);
+  assert.match(await swiss.textContent(),/1/);
+  assert.match(await swiss.textContent(),/points|score/i);
+  assert.match(await swiss.textContent(),/rondes/i);
+  assert.equal(await page.locator('#tournament-rounds').isEnabled(),true);
+  await format.selectOption('knockout');
+  assert.equal(await swiss.isVisible(),false);
+  const elimination=explanation.locator('[data-tournament-format="knockout"]');
+  assert.equal(await elimination.isVisible(),true);
+  assert.match(await elimination.textContent(),/vainqueur/i);
+  assert.match(await elimination.textContent(),/éliminé/i);
+  assert.match(await elimination.textContent(),/exemptions/i);
+  assert.equal(await page.locator('#tournament-rounds').isEnabled(),false);
+  await format.selectOption('round_robin');
+  assert.equal(await explanation.locator('[data-tournament-format="round_robin"]').isVisible(),true);
+  assert.equal(await elimination.isVisible(),false);
+  await help.click();
+  assert.equal(await explanation.isVisible(),false);
+  assert.equal(await help.getAttribute('aria-expanded'),'false');
+  await page.locator('#shell-tournament-dialog [data-shell-close]').click();
+ });
  await check('Paramètres opens a modal window for game rules, time, 3D, sound, and camera',async()=>{
   assert.equal(await open('settings'),true);
   await page.locator('#shell-settings-dialog[open]').waitFor();

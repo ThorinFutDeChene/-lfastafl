@@ -114,8 +114,23 @@
   catch(error){status(error.message||String(error),true);}
   finally{b.disabled=false;}
  });
+ const helpButton=el('tournament-format-help');
+ const helpPanel=el('tournament-format-explanation');
+ function syncFormatHelp(){
+  // Show only the explanation matching the SELECTED tournament format.
+  // No invented Swiss or knock-out rules: the text documents the current
+  // server implementation, including odd-player and drawn-match limits.
+  for(const section of helpPanel.querySelectorAll('[data-tournament-format]'))
+   section.hidden=section.dataset.tournamentFormat!==formatInput.value;
+  helpButton.setAttribute('aria-expanded',String(!helpPanel.hidden));
+ }
+ helpButton.addEventListener('click',()=>{
+  helpPanel.hidden=!helpPanel.hidden;
+  syncFormatHelp();
+ });
  formatInput.addEventListener('change',()=>{
   roundsInput.disabled=formatInput.value!=='swiss';
+  syncFormatHelp();
  });
  formatInput.dispatchEvent(new Event('change'));
  window.AlfastaflTournaments={refresh};
