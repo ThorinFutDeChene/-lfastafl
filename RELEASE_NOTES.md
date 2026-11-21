@@ -1,43 +1,28 @@
-# Álfastafl 0.7.1-dev6 — Fermeture automatique du LAN inactif
+# Álfastafl 0.7.1-dev7 — Recette renforcée des tournois
 
-## Un accès réseau uniquement pendant son utilisation
+## Tests de finale et captures réellement simultanées
 
-- Après la fermeture de la dernière activité protégée, le contrôleur
-  Qt lance une période de grâce de **60 secondes**.
-- Sans nouvelle activité, le serveur réseau sur l'adresse IP privée
-  s'arrête d'abord, puis le bail UFW temporaire est supprimé.
-- Le serveur local **127.0.0.1** continue de fonctionner et le PC hôte
-  conserve ses sauvegardes, ses tournois et la possibilité de rejouer.
+- Un scénario Python contrôle l'intégralité d'une élimination directe
+  à **quatre joueurs** : deux demi-finales, validation par l'hôte,
+  reconnexion des deux gagnants sur la finale, victoire finale,
+  persistance après redémarrage et absence de ronde supplémentaire.
+- Deux captures sont désormais provoquées par de **vrais coups légaux**
+  envoyés simultanément à deux parties indépendantes via l'API.
+  Les animations issues du moteur sont vérifiées dans la diffusion
+  du tournoi depuis un spectateur autorisé.
+- Les tests de navigateur déjà en place continuent de vérifier
+  les connexions de quatre joueurs, la rotation des plateaux,
+  les QR codes, les permissions et la reconnexion.
+- Une procédure de recette physique avec **14 scénarios** sur
+  Ubuntu MATE, quatre appareils joueurs et un spectateur est
+  fournie dans `RECETTE_TOURNOIS_TERRAIN.md`.
 
-## Aucune fermeture pendant une activité réelle
+## Portée de la préversion
 
-- Partie active, même si le deuxième joueur n'est pas encore connecté.
-- Partie suspendue pour déconnexion, attente de remplaçant ou arbitrage.
-- Tutoriel partagé actif avec actualisations régulières.
-- Spectateurs autorisés suivant un match terminé ou un tournoi en cours.
-- Régie de diffusion et préparation hôte d'une partie ou d'un tournoi.
+Aucun changement de règle, de format de sauvegarde, de protocole
+d'authentification ni de comportement du plateau par rapport
+à 0.7.1-dev6. La branche stable **0.7.0 reste inchangée**.
 
-Les vues hôte utilisent une activité temporaire, limitée et protégée
-par une route HTTP accessible uniquement au navigateur sur la boucle
-locale. Les invités inconnus ne peuvent pas prolonger le bail UFW.
-
-## Réouverture et compatibilité
-
-- Créer ou reprendre une partie, ouvrir un tournoi ou un tutoriel
-  déclenche l'ouverture LAN comme en DEV4.
-- Le bouton **Réactiver le partage** dans le tutoriel redemande
-  automatiquement le LAN si nécessaire.
-- Les historiques, les règles de jeu et les résultats de tournoi
-  ne sont pas modifiés.
-
-## Validation
-
-Nouveaux contrôles des temporisations et de la fermeture dans l'ordre
-serveur → pare-feu, tests sur parties actives, sauvegardes, reconnexion,
-tutoriel et diffusion ; tests Python et Chromium du jeu/tournoi restent
-obligatoires dans les pipelines DEV et stable.
-
-**DEV 0.7.1-dev6 — Debian `0.7.1~dev6`. Stable 0.7.0 inchangée.**
-
-La validation réelle des périphériques, du réseau Wi-Fi et des règles
-UFW sur Ubuntu MATE reste à effectuer avant la prochaine stable.
+La réussite de GitHub Actions ne remplace pas les essais avec
+plusieurs appareils réels et un pare-feu UFW actif. La promotion
+en stable dépend notamment de cette recette terrain.
