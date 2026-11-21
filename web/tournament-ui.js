@@ -105,6 +105,9 @@
     }
    }
    item.append(button(tournament.round_no?'Valider les résultats et ronde suivante':'Tirer la première ronde',async()=>{
+    // A new round creates real matches: its QR must be ready without
+    // asking the host to activate networking separately.
+    ensureLanForSession();
     const res=await api('tournament/round',{
      tournament:tournament.id,mode:el('mode').value,
     });
@@ -134,6 +137,7 @@
   if(!nameInput.value.trim())throw Error('Le tournoi doit avoir un nom.');
   const rounds=Number(roundsInput.value);
   if(!Number.isInteger(rounds)||rounds<1||rounds>20)throw Error('Nombre de rondes invalide.');
+  ensureLanForSession();
   const result=await api('tournament/create',{
    name:nameInput.value.trim(),format:formatInput.value,
    players,rounds,
