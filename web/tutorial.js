@@ -103,7 +103,7 @@
       if (!active || !panel.open) return;
       if (!net.lan_enabled) {
         if (liveToken) stopLive();
-        liveStatus('LAN inactif. Activez le réseau dans le menu Réseau du PC hôte pour afficher le QR code.');
+        liveStatus('Ouverture automatique du LAN en préparation. Le tutoriel reste utilisable localement.');
         return;
       }
       if (liveDisabled) {
@@ -517,6 +517,9 @@
   trigger.hidden = false;
   trigger.addEventListener('click', () => {
     if (active) return;
+    // Opening a tutorial is an explicit teaching activity: activate the LAN
+    // as soon as its window is opened, without any additional menu action.
+    ensureLanForSession();
     returnFocus = document.activeElement;
     mode = document.getElementById('mode').value;
     state = null;
