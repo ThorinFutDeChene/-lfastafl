@@ -38,7 +38,7 @@ class StorageAndAccess(unittest.TestCase):
    a=Store(d);g=a.create();a2=Store(d);self.assertIn(g.id,a2.games);self.assertEqual(a2.games[g.id].status,'paused')
  def test_spectator_cannot_move(self):
   with tempfile.TemporaryDirectory() as d:
-   s=Store(d);g=s.create();req=s.request(g.id,s.invites[g.id]['spectator'],'Observer');sid=s.approve(req)
+   s=Store(d);g=s.create();sid=s.join(g.id,s.invites[g.id]['spectator'],'Observer')['session']
    with self.assertRaises(PermissionError):s.move(g.id,sid,[0,5],[2,5])
  def test_player_can_move(self):
   with tempfile.TemporaryDirectory() as d:
