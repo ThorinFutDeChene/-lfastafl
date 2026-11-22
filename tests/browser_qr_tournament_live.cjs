@@ -119,6 +119,16 @@ async function main(){
    const device=await guest(alias,tid,invites.player);
    contexts.push(device.context);
    device.page.on('pageerror',e=>errors.push(name+': '+e.message));
+   await device.page.waitForTimeout(950);
+   const diagnostics=await device.page.evaluate(()=>({
+    url:location.href,host:isHost,hasModule:typeof window.AlfastaflOpenTournamentClient,
+    panelHidden:document.querySelector('#tournament-connect').hidden,
+    entryStatus:document.querySelector('#tournament-enter-status').textContent,
+    bodyClass:document.body.className,bodyGuest:document.body.dataset.guestRole,
+    waitHidden:document.querySelector('#guest-waiting').hidden,
+    regInput:document.querySelector('#tournament-entrant-name').value,
+   }));
+   console.log('DIAGNOSTICS '+name+' '+JSON.stringify(diagnostics)+' errors='+JSON.stringify(errors));
    await device.page.locator('#tournament-connect').waitFor({state:'visible'});
    assert.equal(await device.page.locator('#join').isVisible(),false);
    await device.page.locator('#tournament-entrant-name').fill(name);
