@@ -62,8 +62,7 @@ sessions = {}
 for camp in ('dwarf', 'elf'):
     request = store.request(game.id, store.invites[game.id]['player'], '3D ' + camp)
     sessions[camp] = store.approve(request, camp)
-request = store.request(game.id, store.invites[game.id]['spectator'], '3D spectator')
-sessions['spectator'] = store.approve(request)
+sessions['spectator'] = store.join(game.id, store.invites[game.id]['spectator'], '3D spectator')['session']
 # Dedicated tiny legal capture, with a timed 8-second cinematic.
 from alfastafl.core import EMPTY
 battle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
@@ -77,8 +76,7 @@ battle_sessions={}
 for camp in ('dwarf', 'elf'):
     request=store.request(battle.id,store.invites[battle.id]['player'],'cinema '+camp)
     battle_sessions[camp]=store.approve(request,camp)
-request=store.request(battle.id,store.invites[battle.id]['spectator'],'cinema viewer')
-battle_sessions['spectator']=store.approve(request)
+battle_sessions['spectator']=store.join(battle.id,store.invites[battle.id]['spectator'],'cinema viewer')['session']
 # Independent elf capture: the arriving archer and the rear sword-bearing
 # ally must bracket a dwarf, which shields the first arrow.
 elfbattle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
@@ -93,8 +91,7 @@ elf_sessions={}
 for camp in ('dwarf','elf'):
     request=store.request(elfbattle.id,store.invites[elfbattle.id]['player'],'elf cinema '+camp)
     elf_sessions[camp]=store.approve(request,camp)
-request=store.request(elfbattle.id,store.invites[elfbattle.id]['spectator'],'elf cinema viewer')
-elf_sessions['spectator']=store.approve(request)
+elf_sessions['spectator']=store.join(elfbattle.id,store.invites[elfbattle.id]['spectator'],'elf cinema viewer')['session']
 # Independent legal king escape by a historical border square (not a corner).
 # The event has NO captures, but still triggers an 8-second victory cinematic.
 royal = store.create('historical', {'time_control':{'mode':'unlimited'},
@@ -109,8 +106,7 @@ royal_sessions={}
 for camp in ('dwarf','elf'):
     request=store.request(royal.id,store.invites[royal.id]['player'],'royal '+camp)
     royal_sessions[camp]=store.approve(request,camp)
-request=store.request(royal.id,store.invites[royal.id]['spectator'],'royal viewer')
-royal_sessions['spectator']=store.approve(request)
+royal_sessions['spectator']=store.join(royal.id,store.invites[royal.id]['spectator'],'royal viewer')['session']
 # King-last-stand fixtures. Both the 2-dwarf historical pair and 4-dwarf
 # Fetlar encirclement are server-confirmed legal winning moves.
 sieges={}
@@ -132,9 +128,8 @@ for name,mode,neighbors in [
         req=store.request(match.id,store.invites[match.id]['player'],
             'siege '+name+' '+camp)
         seats[camp]=store.approve(req,camp)
-    req=store.request(match.id,store.invites[match.id]['spectator'],
-        'siege spectator '+name)
-    seats['spectator']=store.approve(req)
+    seats['spectator']=store.join(match.id,store.invites[match.id]['spectator'],
+        'siege spectator '+name)['session']
     sieges[name]={'game':match.id,'sessions':seats}
 # The empty central throne is a hostile wall for both camps. These two
 # independent legal captures each involve exactly one attacking soldier.
@@ -154,9 +149,8 @@ for camp,attacker,victim in [('dwarf','N','E'),('elf','E','N')]:
         req=store.request(match.id,store.invites[match.id]['player'],
             'throne '+camp+' '+side)
         seats[side]=store.approve(req,side)
-    req=store.request(match.id,store.invites[match.id]['spectator'],
-        'throne spectator '+camp)
-    seats['spectator']=store.approve(req)
+    seats['spectator']=store.join(match.id,store.invites[match.id]['spectator'],
+        'throne spectator '+camp)['session']
     throne_battles[camp]={'game':match.id,'sessions':seats}
 # An ordinary capture: elf vs dwarf, with the KING himself as the far
 # friendly support on the throne. It is neither flank elf-elf nor
@@ -345,7 +339,9 @@ async function expectImmersiveGuest(page, role) {
   assert.equal(await page.locator('main > header').isVisible(), false);
   assert.equal(await page.locator('#moves').isVisible(), false);
   assert.equal(await page.locator('#game-board-view .board-legend').isVisible(), false);
-  assert.equal(await page.locator('#guest-menu-toggle').isVisible(), true);
+  assert.equal(await page.locator('#guest-menu-toggle').isVisible(), false);
+  assert.equal(await page.locator('#guest-view-2d').isVisible(), role === 'player');
+  assert.equal(await page.locator('#guest-view-3d').isVisible(), role === 'player');
   assert.equal(await page.locator('#game-board-view .board-tools').isVisible(), false);
   assert.equal(await page.locator('#player-controls').isVisible(), false);
   const geometry = await page.evaluate(() => {
@@ -603,11 +599,9 @@ async function main() {
         {waitUntil: 'domcontentloaded'});
       await ready3D(player, 'game', 37);
       await expectImmersiveGuest(player, 'player');
-      await player.locator('#guest-menu-toggle').click();
-      assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), true);
-      assert.equal(await player.locator('#player-controls').isVisible(), true);
-      await player.locator('#game-camera-top').click();
-      await player.locator('#guest-menu-toggle').click();
+      assert.equal(await player.locator('#guest-view-2d').isVisible(), true);
+      assert.equal(await player.locator('#guest-view-3d').isVisible(), true);
+      assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), false);
       await nextPaint(player);
       const [from, to] = expected.fetlar.first_move;
       const answer = await clickMove(player, 'game', from, to);
