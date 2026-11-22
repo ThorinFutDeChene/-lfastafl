@@ -353,5 +353,8 @@
   refresh,active:()=>activeId,syncRail,activate,
  };
  if(activeId)refresh();
- setInterval(()=>{if(activeId)syncRail().catch(()=>{});},1800);
+ setInterval(()=>{
+  const onAir=globalThis.AlfastaflBroadcast?.currentTournament();
+  if(activeId&&(!onAir||onAir===activeId))syncRail().catch(()=>{});
+ },1800);
 })();
