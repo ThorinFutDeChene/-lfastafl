@@ -1,4 +1,168 @@
-# Álfastafl — 0.7.1 (stable)
+# Álfastafl — 0.7.2 (stable)
+
+La **0.7.2 stable** reprend les modifications et correctifs validés
+jusqu'à **0.7.2-dev6**. Elle succède à la **0.7.1**.
+
+**Nouveautés principales :** inscriptions aux tournois par QR code,
+validations dans la marge de l'hôte, rondes et factions automatiques,
+plateau 2D/3D plein écran sur les téléphones, spectateurs sans autorisation,
+cinématiques de combat de 8 secondes en tournoi, podium animé,
+historique consultable des résultats et suppression sécurisée des
+anciens tournois. Les parties terminées n'occupent plus d'emplacement
+de sauvegarde, contrairement aux parties interrompues.
+
+La gestion des mises à jour distingue le canal **stable** du canal **DEV**.
+Le paquet stable porte la version Debian `0.7.2`
+(tag GitHub `v0.7.2`).
+
+## Détails des préversions intégrées dans cette stable
+
+## DEV 0.7.2-dev6 — Cinématiques de capture et de combat dans les tournois
+
+**Correctif :** jusqu'à DEV5, les parties automatiquement créées par les
+tournois étaient initialisées sans leurs paramètres de cinématique. Le
+serveur interprétait alors une capture ou une fuite du roi comme une
+action instantanée, même si les scènes fonctionnaient en partie classique.
+
+Tous les formats (suisse, élimination directe, toutes rencontres),
+la première ronde, les rondes suivantes, les revanches, la finale
+et la petite finale utilisent désormais les scènes standard de
+**8 secondes**. Les événements sont transmis aux plateaux des joueurs
+et aux encarts de diffusion des spectateurs. Le serveur suspend les
+chronomètres pendant les scènes et refuse les coups suivants
+jusqu'à leur fin.
+
+Les rencontres de tournoi non terminées, enregistrées dans
+les versions précédentes avec une durée à 0, sont corrigées
+automatiquement lors du prochain démarrage de l'hôte. Les
+**parties classiques** conservent leur propre configuration
+(4, 8, 12 secondes ou désactivées). La 2D conserve son plateau,
+les scènes 3D nécessitant le mode 3D/WebGL.
+
+**Version Debian :** `0.7.2~dev6`. La stable reste inchangée.
+
+## Historique des DEV
+
+## DEV 0.7.2-dev5 — Historique et suppression des anciens tournois
+
+Depuis **Partie → Tournois**, les tournois sont regroupés entre
+**Tournois à reprendre ou en préparation** et
+**Historique des tournois terminés**. Le bouton
+**Consulter les résultats** affiche les rondes, les factions,
+les vainqueurs, les scores et, lorsqu'il est enregistré, le
+classement final et le podium. Les anciens tournois antérieurs à
+l'inscription par QR restent consultables sans leur plateau sauvegardé.
+
+Chaque tournoi comporte un bouton **Supprimer** avec confirmation
+explicite. La suppression efface durablement sa fiche, ses résultats,
+autorisations et éventuelles sauvegardes de rencontres interrompues.
+Le serveur bloque la suppression si une rencontre est encore active.
+Les parties individuelles et les autres tournois sont préservés.
+
+Les sauvegardes de tournoi sont synchronisées de manière atomique
+avec une protection en cas d'arrêt brutal pendant la suppression.
+
+**Paquet Debian :** `0.7.2~dev5`. La version stable reste inchangée.
+
+## Historique des DEV
+
+## DEV 0.7.2-dev4 — Tournois avec inscription par QR code
+
+**Depuis le PC hôte :** créez un tournoi sans inscrire de joueurs.
+La fenêtre se ferme et les QR **joueur** et **spectateur** apparaissent
+dans la marge gauche. Chaque demande d'inscription arrive directement
+sous le QR joueur, avec **Valider** / **Refuser** ; elle disparaît
+après traitement. Lorsque deux joueurs ou plus sont validés,
+**Tirer les rondes** démarre le tournoi. Le PC hôte est toujours
+organisateur/spectateur et ne participe pas comme joueur.
+
+**Depuis les appareils joueurs :** un seul pseudo à saisir, attente
+de validation, plateau **2D/3D** plein écran avec message d'attente,
+puis scène 3D attribuant Elfes ou Nains et affichage de l'adversaire.
+Les prochaines rencontres démarrent automatiquement une fois la ronde
+terminée. Les spectateurs utilisent leur QR sans validation
+(management de quota inchangé : 10 spectateurs par défaut).
+
+**Fin de tournoi :** une cinématique montre la **coupe d'or** du
+vainqueur, la médaille d'argent « 2ème » et celle de bronze « 3ème » ;
+les autres joueurs voient leur classement en plein écran. Les
+données de tournoi sont conservées même si les fichiers des parties
+terminées sont supprimés.
+
+**Version Debian :** `0.7.2~dev4`. La stable 0.7.1 reste inchangée.
+
+## Historique de la 0.7.2
+
+
+## DEV 0.7.2-dev3 — Sauvegardes limitées aux parties non terminées
+
+Une partie en cours ou mise en pause reste enregistrée normalement
+dans un fichier `.alfastafl`. Dès qu'elle est terminée (victoire,
+abandon, match nul, temps écoulé, forfait), **sa sauvegarde est effacée
+automatiquement** et disparaît de **Fichier → Sauvegardes…**.
+
+La partie reste affichée jusqu'à la fermeture de l'hôte pour permettre
+de voir le résultat final et les cinématiques. Les anciennes sauvegardes
+de parties déjà terminées sont purgées au démarrage.
+
+Pour les **tournois**, le résultat et l'historique des factions sont
+enregistrés dans `.tournaments.json` avant la suppression du fichier
+de partie. Les manches suivantes restent jouables après un redémarrage.
+
+**Version Debian :** `0.7.2~dev3`. La stable 0.7.1 est inchangée.
+
+## Historique de la 0.7.2
+
+
+## DEV 0.7.2-dev2 — QR mobiles simplifiés
+
+Les **joueurs** scannent le QR, saisissent uniquement leur pseudo et
+demandent l'accès. Après validation du PC hôte, l'écran devient un
+plateau plein écran avec deux boutons, **2D** et **3D**.
+
+Les **spectateurs** scannent leur QR et accèdent **immédiatement** au
+plateau, sans pseudo ni autorisation ; la vue est strictement en lecture
+seule, y compris pendant les tournois.
+
+Le menu **Réseau → Connexions et autorisations** permet de régler de
+**0 à 100 spectateurs**, **10 par défaut**. Le compteur **exclut le
+PC hôte et tous les appareils joueurs**, ainsi que les vues internes
+d'un tournoi. Une session spectateur inactive libère sa place après
+45 secondes. Le choix de plafond est persistant.
+
+**Version Debian :** `0.7.2~dev2`. La stable 0.7.1 reste inchangée.
+
+## Historique de la 0.7.2
+
+
+Cette préversion reprend la **stable 0.7.1** avec une simplification
+des menus natifs de l'hôte Ubuntu MATE, **sans modifier les règles du jeu,
+les sauvegardes, la gestion des tournois ou le protocole LAN**.
+
+## DEV 0.7.2-dev1 — Simplification des menus
+
+- **Fichier** : retrait de « Nouvelle partie… » ; les commandes de
+  sauvegarde, consultation des sauvegardes et fermeture restent disponibles.
+- **Partie** : nouvelle commande « **2 joueurs** », qui ouvre la même
+  création de partie qu'auparavant et déclenche automatiquement l'accès LAN.
+- **Partie** : retrait de « Jouer / Spectateur / Arbitrage… »,
+  « Historique des coups… » et
+  « Diffusion des rencontres du tournoi… ».
+- **Partie** : maintien du tutoriel et des tournois.
+- Les fonctionnalités du jeu sous-jacentes ne sont **pas supprimées** :
+  seuls ces points d'entrée redondants dans le menu natif disparaissent.
+
+Les tests automatisés vérifient la composition des deux menus,
+la commande de création de partie et les scénarios de partie,
+de tutoriel et de tournoi. La stable 0.7.1 reste disponible.
+
+**Version Debian** : `0.7.2~dev1` (postérieure à 0.7.1).
+Pour recevoir cette préversion, sélectionner le canal
+**Mises à jour → Développement (DEV)**.
+
+## Historique des versions stables
+
+## Álfastafl 0.7.1 (stable — référence)
 
 **Álfastafl 0.7.1 stable** reprend les développements et corrections validés en
 **0.7.1-dev9**. Cette version remplace la stable 0.7.0 et conserve le

@@ -59,6 +59,10 @@ class ConcurrentTournamentTests(unittest.TestCase):
 
     def authorize(self,tid,name,role='player'):
         pending=self.register(tid,name,role)
+        if role=='spectator':
+            self.assertEqual(pending['status'],'approved',pending)
+            self.assertFalse(any(x.get('role')=='spectator' for x in self.store.pending.values()))
+            return pending,{'session':pending['session']},pending['session']
         self.assertEqual(pending['status'],'pending',pending)
         code,accepted=self.http('approve',{'request':pending['request']})
         self.assertEqual(code,200,accepted)
@@ -208,8 +212,11 @@ class ConcurrentTournamentTests(unittest.TestCase):
         reloaded = Store(self.tmp.name)
         self.assertEqual(reloaded.tournaments[tid], tournament,
                          'The final result and standings must survive host restart')
-        self.assertEqual(reloaded.games[final['game']].status, 'finished')
-        self.assertEqual(reloaded.games[final['game']].winner, final['camp_a'])
+        self.assertNotIn(final['game'],reloaded.games,
+                         'A completed final must never be restored as a saved game')
+        self.assertFalse((reloaded.path/(final['game']+'.alfastafl')).exists())
+        self.assertEqual(next(m for m in reloaded.tournaments[tid]['matches']
+                         if m['id']==final['id'])['winner'],final['a'])
 
     def test_two_real_capture_moves_generate_independent_broadcast_scenes(self):
         """Two authorized players capture on independent boards using /api/move."""
@@ -294,7 +301,7 @@ class ConcurrentTournamentTests(unittest.TestCase):
         again=self.store.broadcast(tid,sid,admin=False)
         self.assertEqual([m['session'] for m in data['matches']],
                          [m['session'] for m in again['matches']])
-        # The spectator's own approval is a tournament-scoped device proof.
+        # A direct spectator session is reused while this browser remains online.
         second=self.register(tid,'Public',role='spectator',credential=secret)
         self.assertEqual(second['status'],'approved')
 

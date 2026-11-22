@@ -62,8 +62,7 @@ sessions = {}
 for camp in ('dwarf', 'elf'):
     request = store.request(game.id, store.invites[game.id]['player'], '3D ' + camp)
     sessions[camp] = store.approve(request, camp)
-request = store.request(game.id, store.invites[game.id]['spectator'], '3D spectator')
-sessions['spectator'] = store.approve(request)
+sessions['spectator'] = store.join(game.id, store.invites[game.id]['spectator'], '3D spectator')['session']
 # Dedicated tiny legal capture, with a timed 8-second cinematic.
 from alfastafl.core import EMPTY
 battle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
@@ -77,8 +76,7 @@ battle_sessions={}
 for camp in ('dwarf', 'elf'):
     request=store.request(battle.id,store.invites[battle.id]['player'],'cinema '+camp)
     battle_sessions[camp]=store.approve(request,camp)
-request=store.request(battle.id,store.invites[battle.id]['spectator'],'cinema viewer')
-battle_sessions['spectator']=store.approve(request)
+battle_sessions['spectator']=store.join(battle.id,store.invites[battle.id]['spectator'],'cinema viewer')['session']
 # Independent elf capture: the arriving archer and the rear sword-bearing
 # ally must bracket a dwarf, which shields the first arrow.
 elfbattle = store.create('fetlar', {'time_control': {'mode':'move', 'seconds':40},
@@ -93,8 +91,7 @@ elf_sessions={}
 for camp in ('dwarf','elf'):
     request=store.request(elfbattle.id,store.invites[elfbattle.id]['player'],'elf cinema '+camp)
     elf_sessions[camp]=store.approve(request,camp)
-request=store.request(elfbattle.id,store.invites[elfbattle.id]['spectator'],'elf cinema viewer')
-elf_sessions['spectator']=store.approve(request)
+elf_sessions['spectator']=store.join(elfbattle.id,store.invites[elfbattle.id]['spectator'],'elf cinema viewer')['session']
 # Independent legal king escape by a historical border square (not a corner).
 # The event has NO captures, but still triggers an 8-second victory cinematic.
 royal = store.create('historical', {'time_control':{'mode':'unlimited'},
@@ -109,8 +106,7 @@ royal_sessions={}
 for camp in ('dwarf','elf'):
     request=store.request(royal.id,store.invites[royal.id]['player'],'royal '+camp)
     royal_sessions[camp]=store.approve(request,camp)
-request=store.request(royal.id,store.invites[royal.id]['spectator'],'royal viewer')
-royal_sessions['spectator']=store.approve(request)
+royal_sessions['spectator']=store.join(royal.id,store.invites[royal.id]['spectator'],'royal viewer')['session']
 # King-last-stand fixtures. Both the 2-dwarf historical pair and 4-dwarf
 # Fetlar encirclement are server-confirmed legal winning moves.
 sieges={}
@@ -132,9 +128,8 @@ for name,mode,neighbors in [
         req=store.request(match.id,store.invites[match.id]['player'],
             'siege '+name+' '+camp)
         seats[camp]=store.approve(req,camp)
-    req=store.request(match.id,store.invites[match.id]['spectator'],
-        'siege spectator '+name)
-    seats['spectator']=store.approve(req)
+    seats['spectator']=store.join(match.id,store.invites[match.id]['spectator'],
+        'siege spectator '+name)['session']
     sieges[name]={'game':match.id,'sessions':seats}
 # The empty central throne is a hostile wall for both camps. These two
 # independent legal captures each involve exactly one attacking soldier.
@@ -154,9 +149,8 @@ for camp,attacker,victim in [('dwarf','N','E'),('elf','E','N')]:
         req=store.request(match.id,store.invites[match.id]['player'],
             'throne '+camp+' '+side)
         seats[side]=store.approve(req,side)
-    req=store.request(match.id,store.invites[match.id]['spectator'],
-        'throne spectator '+camp)
-    seats['spectator']=store.approve(req)
+    seats['spectator']=store.join(match.id,store.invites[match.id]['spectator'],
+        'throne spectator '+camp)['session']
     throne_battles[camp]={'game':match.id,'sessions':seats}
 # An ordinary capture: elf vs dwarf, with the KING himself as the far
 # friendly support on the throne. It is neither flank elf-elf nor
@@ -345,7 +339,9 @@ async function expectImmersiveGuest(page, role) {
   assert.equal(await page.locator('main > header').isVisible(), false);
   assert.equal(await page.locator('#moves').isVisible(), false);
   assert.equal(await page.locator('#game-board-view .board-legend').isVisible(), false);
-  assert.equal(await page.locator('#guest-menu-toggle').isVisible(), true);
+  assert.equal(await page.locator('#guest-menu-toggle').isVisible(), false);
+  assert.equal(await page.locator('#guest-view-2d').isVisible(), role === 'player');
+  assert.equal(await page.locator('#guest-view-3d').isVisible(), role === 'player');
   assert.equal(await page.locator('#game-board-view .board-tools').isVisible(), false);
   assert.equal(await page.locator('#player-controls').isVisible(), false);
   const geometry = await page.evaluate(() => {
@@ -603,11 +599,9 @@ async function main() {
         {waitUntil: 'domcontentloaded'});
       await ready3D(player, 'game', 37);
       await expectImmersiveGuest(player, 'player');
-      await player.locator('#guest-menu-toggle').click();
-      assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), true);
-      assert.equal(await player.locator('#player-controls').isVisible(), true);
-      await player.locator('#game-camera-top').click();
-      await player.locator('#guest-menu-toggle').click();
+      assert.equal(await player.locator('#guest-view-2d').isVisible(), true);
+      assert.equal(await player.locator('#guest-view-3d').isVisible(), true);
+      assert.equal(await player.locator('#game-board-view .board-tools').isVisible(), false);
       await nextPaint(player);
       const [from, to] = expected.fetlar.first_move;
       const answer = await clickMove(player, 'game', from, to);
@@ -941,12 +935,13 @@ async function main() {
         {waitUntil: 'domcontentloaded'});
       await ready3D(guest, 'game', 37);
       await expectImmersiveGuest(guest, 'spectator');
-      assert.equal(await guest.locator('#tutorial-open').count(), 0);
-      assert.equal(await guest.locator('#tutorial-panel').count(), 0);
-      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#tutorial-open').isVisible(), false);
+      assert.equal(await guest.locator('#tutorial-panel').isVisible(), false);
+      assert.equal(await guest.locator('#guest-view-2d').isVisible(), false);
       assert.equal(await guest.locator('#player-controls').isVisible(), false);
-      await guest.locator('#game-camera-top').click();
-      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#game-camera-top').isVisible(), false);
+      assert.equal(await guest.locator('#game-board-3d').evaluate(
+        node=>getComputedStyle(node).pointerEvents), 'none');
       const from = await squarePoint(guest, 'game', [5, 4], 0.7);
       const to = await squarePoint(guest, 'game', [4, 4]);
       await guest.mouse.click(from.x, from.y);
@@ -966,7 +961,7 @@ async function main() {
     } finally { await guestContext.close(); failurePage = page; }
   });
 
-  await scenario('Approval changes a mobile or tablet guest to full-board mode, and revoked access restores joining', async () => {
+  await scenario('Spectator QR enters the phone board without authorization and loses access on host pause', async () => {
     const created = await context.request.post(base + '/api/create', {data: {
       mode: 'fetlar', settings: {time_control: {mode: 'move', seconds: 60}},
     }});
@@ -979,49 +974,37 @@ async function main() {
       failurePage = guest;
       await guest.goto('http://guest.test/?game=' + encodeURIComponent(guestGame) +
         '&invite=' + encodeURIComponent(invites.spectator), {waitUntil: 'domcontentloaded'});
-      await guest.waitForFunction(() => document.getElementById('gid').value !== '');
-      assert.equal(await guest.locator('#join').isVisible(), true);
-      assert.equal(await guest.locator('main > header').isVisible(), true);
-      assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
-      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false);
-      await guest.locator('#name').fill('Spectateur mobile');
-      const joining = responseFor(guest, 'join', 'POST');
-      await guest.locator('#request').click();
-      assert.equal((await joining).status(), 200);
+      await ready3D(guest, 'game', 37);
+      await expectImmersiveGuest(guest, 'spectator');
       const pending = await context.request.get(base + '/api/pending');
       assert.equal(pending.status(), 200);
-      const request = (await pending.json()).pending.find(x => x.game === guestGame && x.role === 'spectator');
-      assert(request, 'Host must see the spectator waiting for approval');
-      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false,
-        'Sending a request must not enter game-only mode');
-      const approved = await context.request.post(base + '/api/approve',
-        {data: {request: request.id, camp: null}});
-      assert.equal(approved.status(), 200);
-      await ready3D(guest, 'game', 37);
-      await expectImmersiveGuest(guest, 'spectator');
-      assert.equal(await guest.locator('#clocks').isVisible(), true,
-        'Timed games must keep the clocks overlaid on the board');
+      assert.equal((await pending.json()).pending.filter(x => x.game === guestGame).length, 0);
+      assert.equal(await guest.locator('#clocks').isVisible(), true);
+      assert.equal(await guest.locator('#guest-view-2d').isVisible(), false);
       await capture(guest, 'guest-approved-mobile.png');
-      await guest.locator('#guest-menu-toggle').click();
-      await guest.selectOption('#game-board-mode', '2d');
-      assert.equal(await guest.locator('#board').isVisible(), true);
-      await guest.locator('#guest-menu-toggle').click();
-      assert.equal(await guest.locator('#game-board-view .board-tools').isVisible(), false);
-      const flat = await guest.locator('#board').boundingBox();
-      assert(flat && flat.x >= -1 && flat.y >= -1 &&
-        flat.x + flat.width <= 391 && flat.y + flat.height <= 845,
-        'Accessible 2D board must fit the phone display');
-      await capture(guest, 'guest-approved-mobile-2d.png');
       await guest.reload({waitUntil: 'domcontentloaded'});
       await ready3D(guest, 'game', 37);
       await expectImmersiveGuest(guest, 'spectator');
-      // Actual server-side revocation: host saves and closes this invitation.
       const revoked = await context.request.post(base + '/api/pause', {data: {game: guestGame}});
       assert.equal(revoked.status(), 200);
+      // A deliberately revoked spectator QR must return HTTP 403. Chromium
+      // logs that failed resource even though app.js handles it correctly.
+      // Scope the exception to this revocation test; other errors still fail.
+      const previousConsoleErrors = report.console_errors.length;
+      const forbiddenRole = guest.waitForResponse(response =>
+        new URL(response.url()).pathname === '/api/invite/role' &&
+        response.status() === 403);
       await guest.reload({waitUntil: 'domcontentloaded'});
+      await forbiddenRole;
       await guest.waitForFunction(() => document.getElementById('join').hidden === false &&
         !document.body.classList.contains('guest-board-only') &&
         !localStorage.getItem('alfastafl.device.' + new URLSearchParams(location.search).get('game')));
+      await guest.waitForTimeout(100);
+      const expectedRevocationErrors=report.console_errors.splice(previousConsoleErrors);
+      assert(expectedRevocationErrors.every(message =>
+        /^Failed to load resource: the server responded with a status of 403 \(Forbidden\)$/.test(message)),
+        'Only the deliberately revoked spectator QR may produce HTTP 403: '+
+          JSON.stringify(expectedRevocationErrors));
       assert.equal(await guest.locator('#join').isVisible(), true);
       assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
       assert.equal(await guest.locator('#player-controls').isVisible(), false);
@@ -1122,15 +1105,14 @@ async function main() {
     assert.equal(created.status(),200);
     const data=await created.json();
     assert(data.host_session);
-    const request=await context.request.post(base+'/api/join',{data:{
+    const joined=await context.request.post(base+'/api/join',{data:{
       game:data.game,invite:data.invites.spectator,name:'Public 3D',
     }});
-    assert.equal(request.status(),200);
-    const approved=await context.request.post(base+'/api/approve',{data:{
-      request:(await request.json()).request,camp:null,
-    }});
-    assert.equal(approved.status(),200);
-    const spectatorSession=(await approved.json()).session;
+    assert.equal(joined.status(),200);
+    const spectatorAdmission=await joined.json();
+    assert.equal(spectatorAdmission.status,'approved');
+    assert.equal(spectatorAdmission.role,'spectator');
+    const spectatorSession=spectatorAdmission.session;
     const watcherContext=await makeContext({}, {guest:true});
     const host=await context.newPage();
     const spectator=await watcherContext.newPage();

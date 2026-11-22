@@ -1,0 +1,51 @@
+name: Validate QR mobile and spectator quota
+on:
+  push:
+    branches: [feature/qr-mobile-spectateur-072]
+  workflow_dispatch:
+concurrency:
+  group: alfastafl-mobile-qr
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  mobile-qr-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Python and QR dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-qrcode python3-pil python3-pyqt6 python3-pyqt6.qtwebengine xvfb xauth x11-utils
+      - name: Compile Python and run full unit suite
+        run: |
+          python3 -m compileall -q src tests
+          PYTHONPATH=src python3 -m unittest discover -s tests -v
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          for file in web/*.js tests/*.cjs; do node --check "$file"; done
+      - name: Install Chromium and WebKit
+        run: |
+          npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium webkit
+      - name: Mobile QR join and viewer quota
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_mobile_qr.cjs
+      - name: Host and spectator permissions
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_desktop.cjs
+      - name: Four player tournament and automatic spectator wall
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_four_clients.cjs
+      - name: Safari engine smoke for tournament
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+          ALFASTAFL_BROWSER: webkit
+        run: node tests/browser_tournament_four_clients.cjs

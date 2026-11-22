@@ -1,59 +1,54 @@
-# Álfastafl 0.7.1 — Version stable
+# Álfastafl 0.7.2 — Version stable
 
-La **0.7.1** reprend les fonctionnalités et les corrections de
-**0.7.1-dev9**. Elle succède à la stable 0.7.0, sans migration
-des sauvegardes `.alfastafl` ni remise à zéro des paramètres.
+La **0.7.2 stable** reprend la **0.7.2-dev6** validée et succède à la **0.7.1**.
+Elle conserve les parties en cours et les résultats de tournoi enregistrés.
 
-## Tournois et multijoueur
+## Tournois organisés depuis le PC hôte
 
-- Plusieurs rencontres peuvent se jouer en parallèle dans un tournoi,
-  notamment deux demi-finales à quatre joueurs, avec une finale
-  créée à partir des résultats des parties effectivement terminées.
-- Tournois suisses et à élimination directe : affichage des règles
-  via le bouton « ? », gestion des effectifs impairs, exemptions,
-  classement et replays en cas de match nul en élimination.
-- Reconnexion via le QR du tournoi : les appareils déjà approuvés
-  sont reconnus par un secret enregistré dans leur navigateur ;
-  une nouvelle approbation est exigée pour un appareil inconnu.
-- Spectateurs en lecture seule : rotation des plateaux,
-  noms des joueurs, scènes de capture et plusieurs encarts
-  simultanés quand plusieurs rencontres sont actives.
+- Création sans saisie préalable des participants : inscriptions par QR code
+  joueur avec pseudo, validation/refus directement dans la marge du PC hôte.
+- Le PC hôte est organisateur et spectateur ; il ne joue pas dans le tournoi.
+  Le premier tirage est lancé depuis la marge, puis les rencontres, factions
+  équilibrées, rondes, revanches et petites finales avancent automatiquement.
+- Plateau plein écran sur téléphone (2D/3D), écran d'attente entre les
+  rondes, révélation des factions et indication de l'adversaire.
+- Attribution des récompenses en fin de tournoi : coupe d'or, médaille
+  d'argent, médaille de bronze et classement affiché sur les appareils.
 
-## Tutoriel, réseau et interface
+## Cinématiques et spectateurs
 
-- Tutoriel présenté exclusivement depuis le PC hôte, avec QR code
-  pour partager les coups légaux, sélections, déplacements et
-  explications sur les appareils des invités.
-- Activation automatique de l'accès LAN lors de la création,
-  de la reprise d'une partie ou de l'ouverture d'un tutoriel.
-  Extinction du partage après 60 secondes sans activité protégée ;
-  les rencontres actives ne sont pas coupées et la boucle locale
-  reste accessible.
-- Quitter ou rétablir le plein écran avec F11 ; améliorations
-  du plateau 3D et de l'interface des joueurs.
+- Les tournois utilisent les mêmes cinématiques de captures, combats,
+  prises du roi et fuite du roi que les parties classiques (8 secondes).
+  Les chronomètres sont suspendus pendant les scènes.
+- Correction des rencontres de tournoi encore en cours provenant des
+  préversions qui désactivaient les cinématiques.
+- QR code spectateur donnant accès directement au plateau, sans demande
+  d'autorisation, en lecture seule.
+- Limite de **10 appareils spectateurs** par défaut (réglable de 0 à 100),
+  hors PC hôte et appareils joueurs. Diffusion tournante des rencontres
+  simultanées avec encarts pour les captures.
 
-## Validation
+## Sauvegardes et historique
 
-- Recette automatisée du moteur de règles et des sauvegardes.
-- Simulation de quatre joueurs, deux parties simultanées,
-  un spectateur et une finale jouée jusqu'au résultat.
-- Vérifications du tutoriel partagé et du tournoi sur
-  **Chromium, Firefox et WebKit** ; contrôles QtWebEngine,
-  animations 3D, construction et intégrité du paquet Debian.
-- Correction des scripts de test Playwright, sans altération
-  du fonctionnement du jeu.
+- Ouverture du réseau local automatiquement lorsqu'une partie démarre
+  ou reprend ; interfaces mobiles simplifiées.
+- Les **parties terminées ne conservent plus de fichier de sauvegarde** ;
+  les parties interrompues restent sauvegardées et reprenables.
+- Les **résultats et classements des tournois terminés** restent
+  consultables dans un historique distinct.
+- Suppression d'anciens tournois après confirmation ; une rencontre
+  encore active ne peut pas être supprimée. Les autres tournois et
+  parties individuelles sont préservés.
+- Reprise des inscriptions et données de tournoi après redémarrage
+  de l'hôte.
 
-**Limites de validation :** la recette sur plusieurs téléphones,
-tablettes et ordinateurs physiques n'a pas encore été clôturée.
-Le comportement sur Wi-Fi réel, l'ouverture et la fermeture UFW
-sur Ubuntu MATE ainsi que Safari natif sur iPhone, iPad ou Mac
-restent à vérifier. Le passage des tests WebKit sur Linux
-ne garantit pas à lui seul Safari sur les appareils Apple.
-Ces validations sont suivies dans
-[le ticket n°7](https://github.com/ThorinFutDeChene/-lfastafl/issues/7).
+## Compatibilité et validation
 
-## Installation
+La version 0.7.2 stable porte le **paquet Debian `0.7.2`**
+et le tag **`v0.7.2`** (sans suffixe DEV).
+Les règles historiques, le réseau local et les sauvegardes de parties
+non terminées restent compatibles.
 
-Paquet Debian : `alfastafl_0.7.1_all.deb`.
-Le canal stable n'installe pas les préversions DEV.
-Le choix de canal des installations existantes est conservé.
+Recette automatisée sur Ubuntu et navigateurs Chromium, Firefox et
+WebKit (moteur Safari) ; tests des tournois simultanés, des cinématiques,
+de la connexion des joueurs et de la consultation/suppression des archives.

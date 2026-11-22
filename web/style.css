@@ -966,3 +966,282 @@ body.tutorial-remote .tutorial-remote-main{
  .tutorial-remote-header{flex-wrap:wrap}
  #tutorial-remote-connection{text-align:left;max-width:none}
 }
+
+/* QR mobile: one deliberate player action, then an isolated waiting state. */
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) main {
+ min-height:100dvh;max-width:520px;display:grid;place-content:center;
+}
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) main > header,
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) main > footer,
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) #game,
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) #guest-waiting {
+ display:none!important;
+}
+body.guest-qr-entry #join {width:min(100%,440px);margin:0 auto;padding:24px}
+body.guest-qr-entry #join label[for="name"] {display:block;margin:12px 0 8px}
+body.guest-qr-entry #name {display:block;width:100%;min-height:52px}
+body.guest-qr-entry #request {display:block;width:100%;min-height:52px;margin-top:20px}
+body.guest-qr-entry .invite-technical {display:none!important}
+body.guest-awaiting-approval {overflow:hidden}
+body.guest-awaiting-approval main {min-height:100dvh;display:grid;place-items:center}
+body.guest-awaiting-approval main > :not(#guest-waiting) {display:none!important}
+body.guest-awaiting-approval #guest-waiting:not([hidden]){
+ display:block;width:min(92vw,440px);text-align:center;padding:32px 22px;
+ border:1px solid #b99d68;border-radius:15px;background:#1f2d26;
+}
+body.guest-awaiting-approval #guest-waiting h2 {color:#ebcf99}
+body.guest-board-only #guest-waiting {display:none!important}
+body.guest-board-only #guest-view-buttons:not([hidden]){
+ display:flex;gap:7px;position:fixed;top:calc(12px + env(safe-area-inset-top,0px));
+ right:calc(12px + env(safe-area-inset-right,0px));z-index:65;
+ background:#111c17dc;border:1px solid #a38b61;border-radius:10px;padding:5px;
+}
+body.guest-board-only #guest-view-buttons button{
+ min-width:54px;min-height:43px;padding:6px 10px;background:#23382c;
+ color:#f4d69d;border:1px solid #718164;
+}
+body.guest-board-only #guest-view-buttons button[aria-pressed="true"] {
+ background:#ddba7b;color:#152119;
+}
+body.guest-board-only #guest-menu-toggle,
+body.guest-board-only #game .board-tools,
+body.guest-board-only #game > .row,
+body.guest-board-only #game > #msg:empty {display:none!important}
+body.guest-board-only.guest-broadcast-frame #guest-view-buttons,
+body.guest-board-only.guest-broadcast-frame #game > #player-controls,
+body.guest-board-only.guest-broadcast-frame #game > #draw-response,
+body.guest-board-only.guest-broadcast-frame #game > #repetition-review,
+body.guest-board-only.guest-broadcast-frame #capture-overlay button {
+ display:none!important;
+}
+body.guest-board-only[data-guest-role="spectator"] #game > #player-controls,
+body.guest-board-only[data-guest-role="spectator"] #game > #draw-response,
+body.guest-board-only[data-guest-role="spectator"] #game > #repetition-review,
+body.guest-board-only[data-guest-role="spectator"] #capture-overlay button {display:none!important}
+body.guest-board-only[data-guest-role="spectator"] .board-stage canvas {
+ touch-action:none;
+}
+.spectator-configuration{
+ display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+ padding:12px;border:1px solid #718164;border-radius:9px;margin-bottom:14px;
+}
+.spectator-configuration label{flex:1 1 250px}
+.spectator-configuration input{width:80px;min-width:80px}
+.spectator-configuration p{width:100%;margin:0;font-weight:bold;color:#eacb94}
+
+/* A tournament invitation uses its tournament-specific form, not the game form. */
+body.guest-qr-entry:has(#tournament-connect:not([hidden])) #join,
+body.guest-tournament-spectator #join,
+body.guest-tournament-spectator #tournament-connect {display:none!important}
+body.guest-qr-entry.guest-tournament-spectator:not(.guest-board-only):not(.guest-awaiting-approval) #game {display:none!important}
+/* A viewer can only watch, never rotate the camera, select, zoom or skip cutscenes. */
+body.guest-board-only[data-guest-role="spectator"] #game-board-3d,
+body.guest-board-only[data-guest-role="spectator"] #board,
+body.guest-board-only[data-guest-role="spectator"] .board-stage canvas {
+ pointer-events:none!important;
+}
+
+/* QR-only tournament hosting: an always-visible approval queue in the left rail. */
+body.desktop-shell #shell-qr-column:has(.shell-tournament-rail:not([hidden])){
+ justify-content:flex-start;gap:10px;
+}
+body.desktop-shell .shell-tournament-rail:not([hidden]){
+ display:flex;flex-direction:column;align-items:stretch;gap:6px;
+ flex:1 1 auto;min-height:120px;width:100%;overflow-y:auto;
+ scrollbar-width:thin;padding:8px 5px;
+ background:linear-gradient(#192a22,#0e2119);
+ border:1px solid #8c7652;border-radius:9px;
+}
+body.desktop-shell #rail-tournament-name{
+ color:#f1cc91;font-size:.83rem;line-height:1.25;overflow-wrap:anywhere;
+}
+body.desktop-shell #rail-tournament-count{font-size:.7rem;margin:0;color:#d9dbc3}
+body.desktop-shell #rail-tournament-requests{display:grid;gap:6px}
+body.desktop-shell .rail-request{
+ display:grid;gap:3px;padding:7px 4px;
+ border:1px solid #7d8d71;border-radius:7px;background:#23372b;
+}
+body.desktop-shell .rail-request strong{
+ color:#fff2ca;font-size:.83rem;overflow-wrap:anywhere;
+}
+body.desktop-shell .rail-request small{color:#ced2b8;font-size:.67rem}
+body.desktop-shell .rail-request-actions{display:flex;gap:3px;flex-wrap:wrap}
+body.desktop-shell .rail-request-actions button{
+ flex:1 1 58px;min-height:33px;padding:4px 5px;
+ border:1px solid #af9b71;border-radius:5px;font-size:.67rem;font-weight:700;
+}
+body.desktop-shell .rail-request-actions .rail-approve{
+ background:#e0bf7f;color:#1c271d;
+}
+body.desktop-shell .rail-request-actions .rail-reject{
+ background:#482a27;border-color:#b9877f;color:#ffdbd1;
+}
+body.desktop-shell .rail-draw-button{
+ width:100%;padding:9px 5px;min-height:48px;
+ font-size:.78rem;font-weight:800;border:1px solid #e6c588;
+ color:#1b251b;background:#e8c68a;border-radius:7px;
+}
+body.desktop-shell .rail-draw-button:disabled{opacity:.48;cursor:not-allowed}
+body.desktop-shell #rail-tournament-message{
+ margin:0;font-size:.69rem;color:#e9cb9c;line-height:1.3;
+}
+body.desktop-shell .rail-tournament-roster{
+ display:flex;flex-direction:column;gap:4px;
+ border-top:1px solid #747c66;padding-top:6px;
+}
+body.desktop-shell .rail-tournament-roster span{
+ color:#e4e8db;font-size:.74rem;overflow-wrap:anywhere;
+}
+body.desktop-shell .shell-rail-middle:has(+ .shell-qr-card){
+ flex:0 0 auto;min-height:16px;
+}
+body.desktop-shell .tournament-item.tournament-selected{
+ border-color:#e6c88d;box-shadow:inset 3px 0 #d8b574;
+}
+body.desktop-shell .tournament-select{margin:8px 0;background:#d7b781;color:#15221a}
+body.desktop-shell .tournament-podium-results{
+ margin:10px 0;padding:10px;border-radius:8px;background:#20372a;
+}
+body.desktop-shell .tournament-podium-results p{font-size:.89rem;margin:6px 0}
+
+/* Registered phones: a genuine non-interactive 2D/3D board remains present
+   throughout the waiting stage, with no menu or tournament form. */
+body.tournament-open-entry #join,
+body.guest-qr-entry:has(#tournament-connect:not([hidden])) #join {display:none!important}
+body.tournament-open-entry:not(.guest-board-only) #game{display:none!important}
+body.tournament-open-lobby #tournament-connect,
+body.tournament-open-lobby #join{display:none!important}
+body.guest-board-only #tournament-stage-message:not([hidden]){
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ position:fixed;z-index:67;left:50%;top:50%;transform:translate(-50%,-50%);
+ min-height:105px;width:min(80vw,600px);
+ background:linear-gradient(145deg,#11251fef,#233c30e8);
+ border:1px solid #d3b579;border-radius:16px;
+ padding:22px;text-align:center;color:#f7dfae;
+ font-size:clamp(1.2rem,3.8vw,2.1rem);font-weight:800;
+ line-height:1.34;box-shadow:0 20px 50px #0008;
+ pointer-events:none;
+}
+body.guest-board-only #tournament-opponent-label:not([hidden]){
+ display:block;position:fixed;z-index:62;left:50%;
+ top:calc(14px + env(safe-area-inset-top,0px));
+ transform:translateX(-50%);max-width:calc(100vw - 185px);
+ text-align:center;padding:10px 15px;
+ color:#f8e1ab;background:#162820dc;
+ border:1px solid #9e936e;border-radius:10px;
+ font-size:clamp(.82rem,2.6vw,1.25rem);font-weight:700;
+}
+body.tournament-open-lobby #clocks,
+body.tournament-open-lobby #capture-overlay,
+body.tournament-open-lobby #player-controls,
+body.tournament-open-lobby #draw-response,
+body.tournament-open-lobby #repetition-review,
+body.tournament-open-lobby #connection-state {display:none!important}
+body.tournament-open-lobby #game-board-view{pointer-events:none}
+body.tournament-open-lobby #guest-view-buttons{pointer-events:auto}
+body.tournament-open-lobby #board .square:disabled{opacity:1;cursor:default}
+
+/* 3D close-up ceremonial scenes with readable high-contrast fallback. */
+.tournament-ceremony{
+ position:fixed;inset:0;z-index:800;overflow:hidden;
+ display:grid;place-items:center;
+ background:radial-gradient(ellipse at 50% 38%,#2f4b37 0%,#081510 72%,#040d09);
+ color:#f4d9a6;
+ animation:tournament-ceremony-in .65s ease-out both;
+}
+.tournament-ceremony.award{
+ background:radial-gradient(ellipse at 50% 40%,#4b3924 0%,#101913 75%);
+}
+.tournament-ceremony-canvas{
+ position:absolute;inset:0;display:grid;place-items:center;
+}
+.tournament-ceremony-canvas canvas{
+ display:block;width:100%;height:100%;object-fit:contain;
+}
+.tournament-ceremony-copy{
+ position:absolute;inset:auto 10px 7vh;z-index:3;text-align:center;
+ text-shadow:0 4px 16px #000c;pointer-events:none;
+}
+.tournament-ceremony-kicker{
+ color:#f3c788;font-size:clamp(.78rem,2.3vw,1.2rem);
+ letter-spacing:.21em;font-weight:800;
+}
+.tournament-ceremony-title{
+ margin:5px 0 8px;color:#ffe3a9;
+ font-size:clamp(2.15rem,9vw,6rem);font-weight:950;letter-spacing:.075em;
+ text-shadow:0 0 45px #eebf5b70,0 5px 20px #000;
+ animation:tournament-ceremony-title 1.1s ease-out both;
+}
+.tournament-ceremony-subtitle{
+ margin:3px 0;font-size:clamp(1.05rem,3.6vw,1.7rem);
+ font-weight:700;
+}
+.tournament-ceremony.award .tournament-ceremony-title{
+ color:#f5d07b;
+}
+.tournament-ceremony-fallback .tournament-ceremony-copy{
+ top:35%;bottom:auto;
+}
+@keyframes tournament-ceremony-in{
+ from{opacity:0;filter:blur(10px)}to{opacity:1;filter:blur(0)}
+}
+@keyframes tournament-ceremony-title{
+ from{transform:translateY(42px) scale(.85);opacity:0}
+ to{transform:translateY(0) scale(1);opacity:1}
+}
+@media (max-width:580px){
+ .tournament-ceremony-copy{bottom:11vh}
+ body.guest-board-only #tournament-opponent-label:not([hidden]){
+  left:9px;transform:none;max-width:calc(100vw - 155px);top:12px;
+  font-size:.79rem;padding:7px 8px;
+ }
+ body.guest-board-only #tournament-stage-message:not([hidden]){
+  width:86vw;padding:15px;font-size:1.28rem;
+ }
+ body.desktop-shell .shell-tournament-rail:not([hidden]){padding:5px 3px}
+}
+
+
+/* DEV5 — historical tournament results, grouped separately from open events. */
+body.desktop-shell #tournament-list>h3{
+ margin:24px 0 7px;color:#efd59f;font-size:1.15rem;
+ border-bottom:1px solid #bda06b78;padding-bottom:8px;
+}
+body.desktop-shell #tournament-list>p{font-size:.84rem;color:#d3d8be;line-height:1.45}
+body.desktop-shell .tournament-group{display:grid;gap:10px}
+body.desktop-shell .tournament-group .tournament-item{margin:0}
+body.desktop-shell .tournament-item[data-archived="true"]{
+ background:linear-gradient(140deg,#192a21,#102019);
+ border-color:#9f966f;
+}
+body.desktop-shell .tournament-actions{
+ display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0 0;
+}
+body.desktop-shell .tournament-actions .tournament-results-toggle{
+ background:#d7b982;color:#19251a;font-weight:800;
+ padding:9px 13px;min-height:42px;border:1px solid #f6d6a4;
+}
+body.desktop-shell .tournament-actions .tournament-delete{
+ margin-left:auto;background:#49291f;color:#ffe0d3;
+ border:1px solid #c18a77;font-weight:750;
+ padding:9px 13px;min-height:42px;
+}
+body.desktop-shell .tournament-actions .tournament-delete:hover,
+body.desktop-shell .tournament-actions .tournament-delete:focus-visible{
+ background:#7a322a;border-color:#f1aa8e;
+}
+body.desktop-shell .tournament-detail[hidden]{display:none!important}
+body.desktop-shell .tournament-detail:not([hidden]){
+ margin:14px 0 3px;padding:12px 13px;
+ background:#0e2019;border:1px solid #6575598c;border-radius:9px;
+}
+body.desktop-shell .tournament-detail>h4:first-child{margin-top:3px}
+body.desktop-shell .tournament-detail .tournament-standings{
+ display:grid;gap:4px;margin:10px 0 14px;
+}
+body.desktop-shell .tournament-detail .tournament-standings span{
+ display:block;padding:5px 10px;background:#1a3025;border-radius:5px;
+}
+body.desktop-shell .tournament-detail .tournament-podium-results p{
+ margin:7px 0;color:#f0d6a6;font-weight:700;
+}

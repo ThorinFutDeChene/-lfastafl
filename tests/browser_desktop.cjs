@@ -179,23 +179,30 @@ async function main(){
   assert.equal(await page.locator('#shell-player-image').getAttribute('src'),first);
   assert.equal(await page.locator('#shell-spectator-image').getAttribute('src'),second);
  });
- await check('Both QRs request APPROVAL; network never bypasses host authorization',async()=>{
+ await check('Player requires approval; spectator QR joins directly without a player seat',async()=>{
   const invites=(await state(id)).invites;
-  for(const role of ['player','spectator']){
-   const request=await context.request.post(base+'/api/join',{data:{
-    game:id,invite:invites[role],name:'Demande '+role}});
-   assert.equal(request.status(),200);
-   const req=(await request.json()).request;
-   const pending=(await(await context.request.get(base+'/api/pending')).json()).pending;
-   assert(pending.some(x=>x.id===req&&x.role===role));
-  }
+  const player=await context.request.post(base+'/api/join',{data:{
+   game:id,invite:invites.player,name:'Demande player'}});
+  assert.equal(player.status(),200);
+  const requested=(await player.json()).request;
+  const spectator=await context.request.post(base+'/api/join',{data:{
+   game:id,invite:invites.spectator}});
+  assert.equal(spectator.status(),200);
+  const viewer=(await spectator.json());
+  assert.equal(viewer.status,'approved');
+  assert.equal(viewer.role,'spectator');
+  const pending=(await(await context.request.get(base+'/api/pending')).json()).pending;
+  assert(pending.some(x=>x.id===requested&&x.role==='player'));
+  assert(!pending.some(x=>x.role==='spectator'));
+  const denied=await context.request.post(base+'/api/move',{data:{
+   game:id,session:viewer.session,from:[0,3],to:[1,3]}});
+  assert.equal(denied.status(),403);
   await open('connections');
   await eventual(()=>document.querySelectorAll('#shell-connections-dialog #pending button').length>=3);
   const firstPending=page.locator('#shell-connections-dialog #pending>div').first();
   assert.match(await firstPending.textContent(),/Joueur/);
   const firstChoices=firstPending.locator('button.pending-approve');
-  assert.equal(await firstChoices.count(),2,
-   'When host is observing, the first remote player chooses one of two free camps');
+  assert.equal(await firstChoices.count(),2);
   assert.deepEqual(await firstChoices.evaluateAll(buttons=>
    buttons.map(button=>button.dataset.camp)),['elf','dwarf']);
   await page.locator('#shell-connections-dialog [data-shell-close]').click();
@@ -308,35 +315,47 @@ async function main(){
   assert.equal(pages,1);
   await page.locator('#shell-connections-dialog [data-shell-close]').click();
  });
- await check('Tournoi menu creates a scheduled game with automatic, visible faction assignments',async()=>{
+ await check('QR tournament registration runs in the permanent host rail',async()=>{
   assert.equal(await open('tournament'),true);
   await page.locator('#shell-tournament-dialog[open]').waitFor();
+  assert.equal(await page.locator('#tournament-players').count(),0,
+   'Manual player enrollment must be absent');
   await page.locator('#tournament-name').fill('Coupe test');
-  await page.locator('#tournament-players').fill('Alice\nBruno');
   await page.locator('#tournament-format').selectOption('swiss');
   await page.locator('#tournament-rounds').fill('2');
   await page.locator('#tournament-create').click();
-  await page.waitForFunction(()=>document.querySelectorAll(
-   '#tournament-list .tournament-item').length===1);
-  assert.match(await page.locator('#tournament-list .tournament-title').textContent(),/Coupe test/);
-  await page.locator('#tournament-list .tournament-next').click();
-  await page.waitForFunction(()=>document.querySelectorAll(
-   '#tournament-list .tournament-match').length===1);
-  const line=await page.locator('#tournament-list .tournament-match').first().textContent();
-  assert.match(line,/Alice/);assert.match(line,/Bruno/);
-  assert.match(line,/Elfes/);assert.match(line,/Nains/);
+  await page.waitForFunction(()=>document.getElementById('shell-tournament-dialog').open===false);
+  await page.locator('#shell-tournament-rail').waitFor({state:'visible'});
   const tournaments=(await (await context.request.get(base+'/api/tournaments')).json()).tournaments;
   assert.equal(tournaments.length,1);
-  const match=tournaments[0].matches[0];
-  assert.notEqual(match.camp_a,match.camp_b);
+  const t=tournaments[0];
+  assert.deepEqual(t.players,[]);
+  assert.equal(t.registration_open,true);
+  const token=(await (await context.request.get(
+   base+'/api/tournament/invites?tournament='+t.id)).json()).invites.player;
+  await page.waitForFunction(()=>['shell-player-image','shell-spectator-image'].every(id=>
+   document.getElementById(id).src.includes('tournament=')));
+  for(const name of ['Alice','Bruno']){
+   const answer=await context.request.post(base+'/api/tournament/register',{data:{
+    tournament:t.id,invite:token,name}});
+   assert.equal(answer.status(),200);
+   const req=(await answer.json()).request;
+   const row=page.locator('#rail-tournament-requests .rail-request')
+    .filter({hasText:name});
+   await row.waitFor();
+   await row.locator('.rail-approve').click();
+   await page.waitForFunction(request=>!document.querySelector(
+    '#rail-tournament-requests [data-request="'+request+'"]'),req);
+  }
+  await page.waitForFunction(()=>!document.getElementById('rail-tournament-draw').disabled);
+  await page.locator('#rail-tournament-draw').click();
+  await page.waitForFunction(()=>document.getElementById('rail-tournament-draw').hidden);
+  const match=(await (await context.request.get(base+'/api/tournaments')).json())
+   .tournaments.find(x=>x.id===t.id).matches[0];
   assert.equal(match.round,1);
-  const show=page.locator('#tournament-list .tournament-view').first();
-  await show.click();
-  await page.waitForFunction(expected=>gameId===expected,match.game);
-  assert.equal(await page.locator('#shell-tournament-dialog').evaluate(x=>x.open),false);
-  const selected=(await state(match.game)).game;
-  assert.equal(selected.id,match.game);
-  assert.equal(pages,1,'Tournament match shares the existing fullscreen board');
+  assert.deepEqual(new Set([match.a,match.b]),new Set(['Alice','Bruno']));
+  assert.notEqual(match.camp_a,match.camp_b);
+  assert.equal(pages,1,'The organizer stays in its one native fullscreen window');
  });
  await check('Four-person tournament schedules two live games and the host wall rotates both',async()=>{
   const created=await context.request.post(base+'/api/tournament/create',{data:{

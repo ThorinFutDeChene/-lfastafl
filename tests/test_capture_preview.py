@@ -91,7 +91,10 @@ class CapturePreviewHTTPTests(unittest.TestCase):
 
     def player(self, game, camp=None):
         role = 'player' if camp else 'spectator'
-        request = self.store.request(game.id, self.store.invites[game.id][role], role)
+        invite = self.store.invites[game.id][role]
+        if role == 'spectator':
+            return self.store.join(game.id, invite, 'Observer')['session']
+        request = self.store.request(game.id, invite, role)
         return self.store.approve(request, camp)
 
     def test_game_legal_response_is_authorized_and_read_only(self):

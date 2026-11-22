@@ -41,8 +41,11 @@ class TimedStoreTest(unittest.TestCase):
         })
 
     def join(self, game, camp='dwarf', role='player', name=None):
-        req=self.store.request(game.id, self.store.invites[game.id][role], name or camp)
-        return self.store.approve(req, camp if role=='player' else None)
+        invite=self.store.invites[game.id][role]
+        if role=='spectator':
+            return self.store.join(game.id, invite, 'Observer')['session']
+        req=self.store.request(game.id, invite, name or camp)
+        return self.store.approve(req, camp)
 
     def connect(self, game):
         dwarf=self.join(game,'dwarf')

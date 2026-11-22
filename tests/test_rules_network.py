@@ -67,8 +67,10 @@ class RulesNetworkTests(unittest.TestCase):
     def test_spectator_cannot_vote_or_propose_draw(self):
         game = self.store.create()
         invite = self.store.invites[game.id]['spectator']
-        _, request = self.api('join', {'game': game.id, 'invite': invite, 'name': 'Observer'})
-        _, approved = self.api('approve', {'request': request['request']})
+        status, approved = self.api('join', {'game': game.id, 'invite': invite})
+        self.assertEqual(status, 200)
+        self.assertEqual(approved['role'], 'spectator')
+        self.assertFalse(self.store.pending)
         sid = approved['session']
         for route, request in (
             ('draw/offer', {'game': game.id, 'session': sid}),
@@ -98,14 +100,15 @@ class RulesNetworkTests(unittest.TestCase):
         self.assertEqual(game.reason, 'draw_agreed')
         self.assertIsNone(game.winner)
 
-    def test_resignation_is_authorized_and_saved(self):
+    def test_resignation_is_authorized_and_not_saved(self):
         game = self.store.create()
         dwarf = self.joined(game, 'dwarf')
         status, _ = self.api('resign', {'game': game.id, 'session': dwarf})
         self.assertEqual(status, 200)
         self.assertEqual(game.winner, 'elf')
-        clone = Store(self.folder.name).games[game.id]
-        self.assertEqual(clone.reason, 'resignation')
+        self.assertEqual(game.reason, 'resignation')
+        self.assertFalse((self.store.path/(game.id+'.alfastafl')).exists())
+        self.assertNotIn(game.id, Store(self.folder.name).games)
 
     def test_historical_review_requires_both_votes(self):
         game = self.store.create('historical')

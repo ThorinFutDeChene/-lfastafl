@@ -6,6 +6,20 @@ from .server import run, Store, PORT
 from .relauncher import schedule_restart
 
 
+# Native host menu definitions. Keep the 2-player entry on the existing
+# new-game command so automatic LAN activation and the setup dialog remain.
+FILE_MENU_COMMANDS = (
+    ('Sauvegarder la partie', 'save'),
+    ('Sauvegardes…', 'saves'),
+)
+PARTY_MENU_COMMANDS = (
+    ('2 joueurs', 'new'),
+    ('Tutoriel…', 'tutorial'),
+    ('Tournois et tirage des factions…', 'tournament'),
+)
+LAN_ACTIVATING_COMMANDS = frozenset(('new', 'tutorial', 'tournament'))
+
+
 def show_main_window(window):
     """Álfastafl's single native fullscreen game window (menus remain usable)."""
     window.showFullScreen()
@@ -57,7 +71,7 @@ def main():
     thread[0].start()
 
     win = QMainWindow()
-    win.setWindowTitle('Álfastafl — Plateau et menus')
+    win.setWindowTitle('Álfastafl — Plateau et menus (DEV)')
     win.resize(1280, 850)
 
     # JavaScript window.open is handled by Qt, NOT an embedded browser tab:
@@ -107,7 +121,7 @@ def main():
     def menu_command(menu, label, command):
         action = menu.addAction(label)
         def dispatch(*_):
-            if command in ('new', 'tutorial', 'tournament'):
+            if command in LAN_ACTIVATING_COMMANDS:
                 # Start immediately on the real native-menu action. The
                 # asynchronous firewall helper never blocks the Qt UI.
                 controller.start()
@@ -118,19 +132,15 @@ def main():
 
     menus = win.menuBar()
     file_menu = menus.addMenu('Fichier')
-    menu_command(file_menu, 'Nouvelle partie…', 'new')
-    menu_command(file_menu, 'Sauvegarder la partie', 'save')
-    menu_command(file_menu, 'Sauvegardes…', 'saves')
+    for label, command in FILE_MENU_COMMANDS:
+        menu_command(file_menu, label, command)
     file_menu.addSeparator()
     quit_action = file_menu.addAction('Quitter')
     quit_action.triggered.connect(win.close)
 
     game_menu = menus.addMenu('Partie')
-    menu_command(game_menu, 'Jouer / Spectateur / Arbitrage…', 'game')
-    menu_command(game_menu, 'Historique des coups…', 'history')
-    menu_command(game_menu, 'Tutoriel…', 'tutorial')
-    menu_command(game_menu, 'Tournois et tirage des factions…', 'tournament')
-    menu_command(game_menu, 'Diffusion des rencontres du tournoi…', 'tournament')
+    for label, command in PARTY_MENU_COMMANDS:
+        menu_command(game_menu, label, command)
 
     settings_menu = menus.addMenu('Paramètres')
     menu_command(settings_menu, 'Réglages du jeu, affichage et son…', 'settings')

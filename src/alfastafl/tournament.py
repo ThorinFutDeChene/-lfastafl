@@ -76,9 +76,11 @@ def balanced_camps(a, b, history):
 class Tournament:
     FORMATS=('knockout','round_robin','swiss')
     def __init__(self,name,format,players,rounds=3,id=None,history=None,matches=None,round_no=0,
-                 devices=None,spectator_devices=None):
+                 devices=None,spectator_devices=None,registration_open=False,
+                 completed=False,final_round=False,rankings=None):
         if format not in self.FORMATS:raise ValueError('Invalid tournament format')
-        if len(players)<2 or len(set(players))!=len(players):raise ValueError('Need unique players')
+        if (len(players)<2 and not registration_open) or len(set(players))!=len(players):
+            raise ValueError('Need unique players')
         self.id=id or str(uuid.uuid4());self.name=name;self.format=format;self.players=players
         self.rounds=rounds;self.history=history or {p:[] for p in players}
         self.matches=matches or [];self.round_no=round_no
@@ -86,12 +88,18 @@ class Tournament:
         # serialized or included in tournament API responses.
         self.devices=devices or {}
         self.spectator_devices=spectator_devices or {}
+        self.registration_open=bool(registration_open)
+        self.completed=bool(completed)
+        self.final_round=bool(final_round)
+        self.rankings=list(rankings or [])
 
     def as_dict(self):
         return dict(id=self.id,name=self.name,format=self.format,
                     players=self.players,rounds=self.rounds,history=self.history,
                     matches=self.matches,round_no=self.round_no,
-                    devices=self.devices,spectator_devices=self.spectator_devices)
+                    devices=self.devices,spectator_devices=self.spectator_devices,
+                    registration_open=self.registration_open,completed=self.completed,
+                    final_round=self.final_round,rankings=self.rankings)
 
     @classmethod
     def from_dict(cls,d):return cls(**d)
@@ -119,21 +127,89 @@ class Tournament:
         self.history.setdefault(m['a'], []).append({'camp':m['camp_a'], 'round':m['round']})
         self.history.setdefault(m['b'], []).append({'camp':m['camp_b'], 'round':m['round']})
 
+    def known_place(self, player):
+        """A first/second/third medal can be awarded before other games end."""
+        if self.rankings and player in self.rankings:
+            return self.rankings.index(player)+1
+        if not self.registration_open or self.format != 'knockout':
+            return None
+        finals=[m for m in self.matches if m.get('placement')=='final'
+                and m.get('winner') not in (None,'draw')]
+        if finals:
+            m=finals[-1]
+            if player==m['winner']:return 1
+            if player==m['a'] or player==m['b']:return 2
+        bronzes=[m for m in self.matches if m.get('placement')=='bronze'
+                 and m.get('winner') not in (None,'draw')]
+        if bronzes and player==bronzes[-1]['winner']:return 3
+        return None
+
+    def final_ranking(self):
+        """Stable, one-based placement across all tournament formats.
+
+        Points, wins and strength of opponents decide scored formats.
+        Remaining exact ties are drawn once using a fair shuffle; the
+        complete ordering is persisted and cannot change on refresh.
+        """
+        people=list(self.players)
+        secrets.SystemRandom().shuffle(people)
+        if self.format!='knockout':
+            points=self.standings()
+            wins={p:0 for p in people}
+            opponents={p:[] for p in people}
+            for m in self.matches:
+                if m.get('bye'):continue
+                if m.get('winner') in wins:wins[m['winner']]+=1
+                if m['a'] in opponents:opponents[m['a']].append(m['b'])
+                if m['b'] in opponents:opponents[m['b']].append(m['a'])
+            resistance={p:sum(points.get(o,0) for o in opponents[p]) for p in people}
+            people.sort(key=lambda p:(-points[p],-wins[p],-resistance[p]))
+            return people
+        final=[m for m in self.matches if m.get('placement')=='final'
+               and m.get('winner') not in (None,'draw')]
+        if not final:
+            played=[m for m in self.matches if m.get('winner') not in (None,'draw')
+                    and not m.get('bye') and m.get('placement')!='bronze']
+            final=sorted(played,key=lambda m:m['round'])[-1:]
+        ranked=[]
+        if final:
+            m=final[-1]
+            ranked.extend([m['winner'],m['b'] if m['winner']==m['a'] else m['a']])
+        bronze=[m for m in self.matches if m.get('placement')=='bronze'
+                and m.get('winner') not in (None,'draw')]
+        if bronze:
+            m=bronze[-1]
+            ranked.extend([m['winner'],m['b'] if m['winner']==m['a'] else m['a']])
+        # Earlier eliminations follow the round in which the player lost.
+        # A tie within the same elimination round is resolved by fair draw.
+        defeated={p:-1 for p in people}
+        for m in self.matches:
+            if m.get('winner') in (None,'draw') or m.get('bye') or m.get('placement')=='bronze':
+                continue
+            loser=m['b'] if m['winner']==m['a'] else m['a']
+            defeated[loser]=max(defeated[loser],m['round'])
+        others=[p for p in people if p not in ranked]
+        others.sort(key=lambda p:-defeated[p])
+        return ranked+others
+
     def _bye(self,player):
         """Record an exemption, not a fictitious game or camp assignment."""
         m={'id':str(uuid.uuid4()),'round':self.round_no,'a':player,'b':None,
            'camp_a':None,'camp_b':None,'winner':player,'bye':True,'game':None}
         self.matches.append(m)
 
-    def _match(self,a,b,replay_of=None):
+    def _match(self,a,b,replay_of=None,placement=None):
         ca,cb=balanced_camps(a,b,self.history)
         m={'id':str(uuid.uuid4()),'round':self.round_no,'a':a,'b':b,
            'camp_a':ca,'camp_b':cb,'winner':None}
         if replay_of is not None:m['replay_of']=replay_of
+        if placement:m['placement']=placement
         self.matches.append(m)
         return m
 
     def next_round(self):
+        if len(self.players)<2:raise ValueError('Au moins deux inscrits sont nécessaires.')
+        if self.completed:return []
         if any(m.get('winner') is None for m in self.matches):
             raise ValueError('Finish current round')
         if self.format=='swiss' and self.round_no>=self.rounds:return []
@@ -153,7 +229,8 @@ class Tournament:
             drawn=[m for m in previous if m.get('winner')=='draw' and
                    m['id'] not in replaced]
             if drawn:
-                return [self._match(m['a'],m['b'],replay_of=m['id']) for m in drawn]
+                return [self._match(m['a'],m['b'],replay_of=m['id'],
+                                    placement=m.get('placement')) for m in drawn]
             decisive=[m for m in previous if m['id'] not in replaced]
             pool=[m['winner'] for m in decisive if m.get('winner') not in (None,'draw')]
             if len(pool)<2:return []
