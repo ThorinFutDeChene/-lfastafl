@@ -159,7 +159,7 @@ function syncGuestLayout() {
  document.body.dataset.guestTimed = String(authorized && game.clock && game.clock.mode !== 'unlimited');
  $('join').hidden = authorized;
  $('guest-menu-toggle').hidden = !isDesktopBoard;
- $('guest-view-buttons').hidden = !authorized || q.has('broadcast-view');
+ $('guest-view-buttons').hidden = !authorized || you?.role!=='player' || q.has('broadcast-view');
  if(authorized)for(const mode of ['2d','3d'])
   $('guest-view-'+mode).setAttribute('aria-pressed',String(gameBoardView.mode===mode));
  if (!authorized&&!isDesktopBoard) setGuestMenu(false);
