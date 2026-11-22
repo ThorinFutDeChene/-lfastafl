@@ -1,4 +1,30 @@
-# Álfastafl — 0.7.2-dev5 (canal DEV)
+# Álfastafl — 0.7.2-dev6 (canal DEV)
+
+## DEV 0.7.2-dev6 — Cinématiques de capture et de combat dans les tournois
+
+**Correctif :** jusqu'à DEV5, les parties automatiquement créées par les
+tournois étaient initialisées sans leurs paramètres de cinématique. Le
+serveur interprétait alors une capture ou une fuite du roi comme une
+action instantanée, même si les scènes fonctionnaient en partie classique.
+
+Tous les formats (suisse, élimination directe, toutes rencontres),
+la première ronde, les rondes suivantes, les revanches, la finale
+et la petite finale utilisent désormais les scènes standard de
+**8 secondes**. Les événements sont transmis aux plateaux des joueurs
+et aux encarts de diffusion des spectateurs. Le serveur suspend les
+chronomètres pendant les scènes et refuse les coups suivants
+jusqu'à leur fin.
+
+Les rencontres de tournoi non terminées, enregistrées dans
+les versions précédentes avec une durée à 0, sont corrigées
+automatiquement lors du prochain démarrage de l'hôte. Les
+**parties classiques** conservent leur propre configuration
+(4, 8, 12 secondes ou désactivées). La 2D conserve son plateau,
+les scènes 3D nécessitant le mode 3D/WebGL.
+
+**Version Debian :** `0.7.2~dev6`. La stable reste inchangée.
+
+## Historique des DEV
 
 ## DEV 0.7.2-dev5 — Historique et suppression des anciens tournois
 
