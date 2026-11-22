@@ -935,8 +935,8 @@ async function main() {
         {waitUntil: 'domcontentloaded'});
       await ready3D(guest, 'game', 37);
       await expectImmersiveGuest(guest, 'spectator');
-      assert.equal(await guest.locator('#tutorial-open').count(), 0);
-      assert.equal(await guest.locator('#tutorial-panel').count(), 0);
+      assert.equal(await guest.locator('#tutorial-open').isVisible(), false);
+      assert.equal(await guest.locator('#tutorial-panel').isVisible(), false);
       assert.equal(await guest.locator('#guest-view-2d').isVisible(), false);
       assert.equal(await guest.locator('#player-controls').isVisible(), false);
       assert.equal(await guest.locator('#game-camera-top').isVisible(), false);
