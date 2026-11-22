@@ -37,32 +37,98 @@
   node.append(elem);return elem;
  };
  const formatName={round_robin:'Toutes rencontres',swiss:'Suisse',knockout:'Élimination directe'};
+ function isArchived(t){
+  if(t.completed)return true;
+  if(!t.round_no||!t.matches?.length||t.matches.some(m=>m.winner==null))return false;
+  if(t.format==='swiss')return t.round_no>=t.rounds;
+  if(t.format==='round_robin'){
+   const target=t.players.length%2?t.players.length:t.players.length-1;
+   return t.round_no>=target;
+  }
+  if(t.format==='knockout'){
+   const current=t.matches.filter(m=>m.round===t.round_no&&!m.placement);
+   const superseded=new Set(current.filter(m=>m.replay_of).map(m=>m.replay_of));
+   const real=current.filter(m=>!superseded.has(m.id));
+   if(real.some(m=>m.winner==='draw'))return false;
+   return new Set(real.filter(m=>m.winner!=null).map(m=>m.winner)).size===1;
+  }
+  return false;
+ }
+ async function removeTournament(t){
+  const br=String.fromCharCode(10);
+  if(!confirm('Supprimer définitivement le tournoi « '+t.name+' » ?'+br+br+
+   'Résultats, classement et inscriptions seront perdus.'+br+
+   'Les sauvegardes des rencontres interrompues seront également effacées.'+br+
+   'Un tournoi avec une partie active ne peut pas être supprimé.'+br+br+
+   'Cette opération est irréversible.'))return;
+  const response=await api('tournament/delete',{tournament:t.id});
+  if(response.deleted!==t.id)throw Error('Suppression du tournoi non confirmée.');
+  if(globalThis.AlfastaflBroadcast?.currentTournament()===t.id)
+   globalThis.AlfastaflBroadcast.stop();
+  if(activeId===t.id){
+   activeId='';
+   sessionStorage.removeItem('alfastafl.active-tournament');
+   rail.hidden=true;
+   for(const role of ['player','spectator']){
+    const image=el('shell-'+role+'-image');
+    image.hidden=true;image.removeAttribute('src');
+    delete el('shell-'+role+'-code').dataset.signature;
+   }
+   globalThis.AlfastaflShell?.syncInvites(null,null,null);
+  }
+  status('Tournoi « '+t.name+' » définitivement supprimé.');
+  await refresh();
+ }
+
  function render(tournaments){
   list.replaceChildren();
   if(!tournaments.length){
-   text(list,'p','Aucun tournoi. Créez-en un ci-dessus.');return;
+   text(list,'p','Aucun tournoi enregistré.');return;
   }
-  for(const tournament of tournaments){
+  const current=div('tournament-group tournament-current');
+  const archive=div('tournament-group tournament-archive');
+  for(const tournament of [...tournaments].reverse()){
+   const archived=isArchived(tournament);
    const item=div('tournament-item');
+   item.dataset.tournament=tournament.id;
+   item.dataset.archived=String(archived);
+   const detail=div('tournament-detail');
+   detail.id='tournament-detail-'+tournament.id;
+   detail.hidden=archived;
    const title=text(item,'h3',tournament.name+' — '+(formatName[tournament.format]||tournament.format));
    title.className='tournament-title';
-   if(tournament.registration_open){
+   if(tournament.registration_open&&!archived){
     item.classList.toggle('tournament-selected',activeId===tournament.id);
     item.append(button(activeId===tournament.id?'Tournoi affiché dans la marge':
       'Afficher ce tournoi dans la marge',async()=>activate(tournament.id),'tournament-select'));
-    if(tournament.completed&&tournament.rankings?.length){
-     const board=div('tournament-podium-results');
-     text(board,'h4','Podium définitif');
-     for(const [index,player] of tournament.rankings.entries()){
-      text(board,'p',String(index+1)+'ᵉ · '+player);
-     }
-     item.append(board);
+   }
+   if(tournament.completed&&tournament.rankings?.length){
+    const board=div('tournament-podium-results');
+    text(board,'h4','Classement définitif');
+    for(const [index,player] of tournament.rankings.entries()){
+     const medal=index===0?' · Coupe d’or':index===1?' · Argent':index===2?' · Bronze':'';
+     text(board,'p',String(index+1)+'ᵉ · '+player+medal);
     }
+    detail.append(board);
    }
    const decided=tournament.matches.filter(m=>m.winner!=null&&!m.bye).length;
    const byes=tournament.matches.filter(m=>m.bye).length;
    text(item,'p',tournament.players.length+' participants · Ronde '+tournament.round_no+
-    ' · '+decided+' résultat(s) · '+byes+' exemption(s)');
+    ' · '+decided+' résultat(s) · '+byes+' exemption(s) · '+
+    (archived?'Terminé':tournament.round_no?'En cours':'En préparation'));
+   const actions=div('tournament-actions');
+   const toggle=button(archived?'Consulter les résultats':'Masquer les résultats',async()=>{
+    detail.hidden=!detail.hidden;
+    toggle.textContent=detail.hidden?'Consulter les résultats':'Masquer les résultats';
+    toggle.setAttribute('aria-expanded',String(!detail.hidden));
+   },'tournament-results-toggle');
+   toggle.setAttribute('aria-controls',detail.id);
+   toggle.setAttribute('aria-expanded',String(!detail.hidden));
+   actions.append(toggle);
+   actions.append(button('Supprimer',async()=>removeTournament(tournament),'tournament-delete'));
+   item.append(actions);
+   if(!tournament.matches.length)text(detail,'p','Aucune rencontre enregistrée pour ce tournoi.');
+   else text(detail,'h4','Rencontres et résultats enregistrés');
    const replaced=new Set(tournament.matches.filter(m=>m.replay_of)
       .map(m=>m.replay_of));
    const grouped=new Map();
@@ -71,7 +137,7 @@
     round.push(match);grouped.set(match.round,round);
    }
    for(const [round,entries] of grouped){
-    text(item,'h4','Ronde '+round);
+    text(detail,'h4','Ronde '+round);
     for(const match of entries){
      const row=div('tournament-match');
      if(match.bye){
@@ -108,7 +174,7 @@
        gameButton.click();
       },'tournament-view'));
      }
-     item.append(row);
+     detail.append(row);
     }
    }
    if(tournament.format==='swiss'||tournament.format==='round_robin'){
@@ -122,33 +188,33 @@
     }
     const ranked=[...tournament.players].sort((a,b)=>score[b]-score[a]||
       a.localeCompare(b,'fr'));
-    text(item,'h4','Classement par points');
+    text(detail,'h4','Classement par points');
     const standing=div('tournament-standings');
     for(const player of ranked)
      text(standing,'span',player+' : '+score[player]+' point(s)');
-    item.append(standing);
+    detail.append(standing);
    }else if(tournament.round_no){
     const last=tournament.matches.filter(m=>m.round===tournament.round_no);
     const replacedHere=new Set(last.filter(m=>m.replay_of).map(m=>m.replay_of));
     const live=last.filter(m=>!replacedHere.has(m.id));
     if(live.length===1&&live[0].winner!=null&&!live[0].bye&&
        live[0].winner!=='draw')
-      text(item,'h4','Tournoi terminé · vainqueur : '+live[0].winner);
+      text(detail,'h4','Tournoi terminé · vainqueur : '+live[0].winner);
    }
    const controls=div('tournament-controls');
-   if(!tournament.registration_open)controls.append(button('Diffuser les rencontres en direct',async()=>{
+   if(!tournament.registration_open&&!archived)controls.append(button('Diffuser les rencontres en direct',async()=>{
     if(!tournament.round_no)
      throw Error('Commencez par créer la première ronde du tournoi.');
     globalThis.AlfastaflBroadcast?.start(tournament.id);
     el('shell-tournament-dialog').close();
    },'tournament-broadcast-start'));
-   item.append(controls);
+   detail.append(controls);
    const records=[
     ['player',tournament.devices||{},'Joueur'],
     ['spectator',tournament.spectator_devices||{},'Spectateur'],
    ];
-   if(records.some(([,people])=>Object.keys(people).length)){
-    text(item,'h4','Appareils reconnus · révocation');
+   if(!archived&&records.some(([,people])=>Object.keys(people).length)){
+    text(detail,'h4','Appareils reconnus · révocation');
     for(const [role,people,label] of records){
      for(const [name,proofs] of Object.entries(people)){
       if(!proofs.length)continue;
@@ -160,7 +226,7 @@
        status('Autorisation révoquée. Une nouvelle validation de l’hôte sera nécessaire.');
        await refresh();
       },'tournament-revoke'));
-      item.append(row);
+      detail.append(row);
      }
     }
    }
@@ -170,7 +236,7 @@
     tournament.format==='knockout'&&currentDraws.length
      ?'Valider les résultats et créer les revanches':
       'Valider les résultats et ronde suivante';
-   if(!tournament.registration_open)item.append(button(nextLabel,async()=>{
+   if(!tournament.registration_open&&!archived)detail.append(button(nextLabel,async()=>{
     // A new round creates real matches: its QR must be ready without
     // asking the host to activate networking separately.
     ensureLanForSession();
@@ -188,18 +254,34 @@
     }
     await refresh();
    },'tournament-next'));
-   list.append(item);
+   item.append(detail);
+   (archived?archive:current).append(item);
+  }
+  if(current.childElementCount){
+   text(list,'h3','Tournois à reprendre ou en préparation');
+   list.append(current);
+  }
+  if(archive.childElementCount){
+   text(list,'h3','Historique des tournois terminés');
+   text(list,'p','Les résultats et classements restent consultables après la suppression des sauvegardes de plateau.');
+   list.append(archive);
   }
  }
  async function refresh(){
   try{
    const data=await api('tournaments');
    tournamentsCache=data.tournaments||[];
-   if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open))activeId='';
+   if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open&&!isArchived(t))){
+    if(globalThis.AlfastaflBroadcast?.currentTournament()===activeId)
+     globalThis.AlfastaflBroadcast.stop();
+    activeId='';
+    sessionStorage.removeItem('alfastafl.active-tournament');
+    rail.hidden=true;
+   }
    if(!activeId){
     // Native host restarts clear sessionStorage. Restore the most recent
     // unfinished QR tournament so its rail and authorization QR return.
-    const resumable=tournamentsCache.filter(t=>t.registration_open&&!t.completed);
+    const resumable=tournamentsCache.filter(t=>t.registration_open&&!isArchived(t));
     if(resumable.length){
      activeId=resumable[resumable.length-1].id;
      sessionStorage.setItem('alfastafl.active-tournament',activeId);
@@ -208,7 +290,15 @@
     }
    }
    render(tournamentsCache);
-   await syncRail();
+   if(activeId)await syncRail();
+   else{
+    rail.hidden=true;
+    for(const role of ['player','spectator']){
+     const img=el('shell-'+role+'-image');
+     img.hidden=true;img.removeAttribute('src');
+     delete el('shell-'+role+'-code').dataset.signature;
+    }
+   }
   }catch(error){status('Lecture des tournois impossible : '+error.message,true);}
  }
  async function create(){

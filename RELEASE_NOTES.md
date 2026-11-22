@@ -1,3 +1,24 @@
+# Álfastafl 0.7.2-dev5 — Consulter et supprimer les anciens tournois
+
+- **Historique des tournois terminés** distinct des événements à reprendre
+  ou à organiser (y compris les tournois préexistants à la refonte QR).
+- **Consulter les résultats** : affiche les rondes, participants,
+  factions, exemptions, gagnants et classements disponibles.
+  Le classement définitif des tournois QR (podium compris)
+  reste visible sans restaurer les parties terminées.
+- **Supprimer** chaque ancien tournoi avec confirmation explicite ;
+  les tournois dont une partie reste active sont protégés.
+- La suppression est définitive : fiche du tournoi, résultats,
+  QR et appareils autorisés, ainsi que les sauvegardes de rencontres
+  interrompues associées. Aucun autre tournoi ni partie indépendante
+  n'est affecté.
+- Nettoyage durable sur disque et récupération après interruption,
+  sans laisser réapparaître des tournois supprimés.
+- Le PC hôte retrouve une marge QR cohérente lorsque le tournoi
+  affiché a été supprimé ou archivé.
+
+---
+
 # Álfastafl 0.7.2-dev4 — Tournois sur QR, rondes automatiques et podium 3D
 
 ## Création et inscriptions (PC hôte)
