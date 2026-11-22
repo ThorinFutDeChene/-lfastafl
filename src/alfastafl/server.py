@@ -826,12 +826,12 @@ class Store:
             if previous:
                 existing=self.sessions.get(previous)
                 if (existing and existing.get('active') and existing.get('role')=='spectator'
-                    and existing.get('game')==gid and
-                    existing.get('broadcast_tournament')==tid and
+                    and existing.get('broadcast_tournament')==tid and
                     not existing.get('broadcast_parent')):
                     if (self.monotonic()-existing.get('last_seen',0)>self.spectator_idle_seconds
                         and len(self._spectator_sessions())>=self.spectator_limit):
                         raise PermissionError('Nombre maximal de spectateurs atteint.')
+                    existing['game']=gid
                     existing['last_seen']=self.monotonic()
                     return previous
             if len(self._spectator_sessions())>=self.spectator_limit:
