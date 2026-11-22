@@ -99,13 +99,31 @@
     </div>
     <div id="pending"></div>
   </section>
-  <section id="join">
-    <h2>Rejoindre</h2>
-    <label>Nom <input id="name" maxlength="60" value="Invité"></label>
-    <label>Code d'invitation <input id="invite" placeholder="Code reçu de l'hôte"></label>
-    <label>Identifiant de partie <input id="gid" placeholder="Identifiant reçu"></label>
+  <section id="join" aria-labelledby="join-title">
+    <h2 id="join-title">Rejoindre la partie</h2>
+    <p class="join-intro">Choisissez le pseudo qui sera visible pendant la partie.</p>
+    <label class="join-name">Pseudo
+      <input id="name" type="text" maxlength="60" autocomplete="nickname"
+             enterkeyhint="go" placeholder="Votre pseudo">
+    </label>
+    <details id="join-manual" class="join-manual" hidden>
+      <summary>Saisir une invitation manuellement</summary>
+      <label>Code d'invitation
+        <input id="invite" type="text" autocomplete="off" placeholder="Code reçu du PC hôte">
+      </label>
+      <label>Identifiant de partie
+        <input id="gid" type="text" autocomplete="off" placeholder="Identifiant reçu du PC hôte">
+      </label>
+    </details>
     <button id="request" type="button">Demander l'accès</button>
-    <p id="joinmsg"></p>
+    <p id="joinmsg" role="status" aria-live="polite"></p>
+  </section>
+  <section id="join-waiting" class="join-waiting" hidden
+           aria-labelledby="join-waiting-title" aria-live="polite">
+    <div class="join-waiting-pulse" aria-hidden="true"></div>
+    <h2 id="join-waiting-title">En attente de validation</h2>
+    <p id="join-waiting-message">Votre demande a été transmise au PC hôte.</p>
+    <p id="join-waiting-name"></p>
   </section>
   <section id="tournament-connect" class="tournament-connect" hidden aria-label="Connexion au tournoi">
     <h2>Rejoindre le tournoi</h2>
@@ -134,6 +152,11 @@
     <div id="broadcast-scenes" class="broadcast-scenes" aria-live="polite"></div>
   </section>
   <section id="game">
+    <div id="guest-view-switch" class="guest-view-switch" role="group"
+         aria-label="Choisir la vue du plateau" hidden>
+      <button id="guest-view-2d" type="button" aria-pressed="false">2D</button>
+      <button id="guest-view-3d" type="button" aria-pressed="true">3D</button>
+    </div>
     <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
     <button id="host-close-board" class="host-window-close" type="button" aria-label="Fermer cette fenêtre du plateau" title="Retour à la gestion">✕ Fermer</button>
     <button id="host-fullscreen" class="host-fullscreen" type="button" aria-label="Basculer le plein écran" title="Plein écran (F11)">⛶</button>
