@@ -56,6 +56,11 @@ class SpectatorQuotaTests(unittest.TestCase):
             self.watch()
         self.assertEqual(self.store.touch(self.game.id,second)['role'],'spectator')
 
+    def test_host_setting_survives_restart(self):
+        self.store.set_spectator_limit(14)
+        reloaded=Store(self.temp.name,clock_source=lambda:self.now)
+        self.assertEqual(reloaded.spectator_stats(),{'connected':0,'limit':14})
+
     def test_invalid_settings(self):
         for value in (-1,101,True,'10',None,1.5):
             with self.subTest(value=value):
