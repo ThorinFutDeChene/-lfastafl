@@ -63,7 +63,9 @@
  function syncInvites(invites,address,id){
   // Registration starts before the first match: show tournament QR codes
   // immediately, even when the host has no selected game.
-  if(globalThis.AlfastaflTournaments?.active()){
+  const onAir=globalThis.AlfastaflBroadcast?.currentTournament();
+  const activeTournament=globalThis.AlfastaflTournaments?.active();
+  if(activeTournament&&(!onAir||onAir===activeTournament)){
    globalThis.AlfastaflTournaments.syncRail(address).catch(()=>{});
    return;
   }
