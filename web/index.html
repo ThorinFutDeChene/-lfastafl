@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Álfastafl 0.7.2 (DEV3)</title>
+  <title>Álfastafl 0.7.2 (DEV4)</title>
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
 </head>
@@ -16,6 +16,14 @@
       <img id="shell-player-image" alt="QR pour demander à jouer" width="140" height="140" hidden>
       <p id="shell-player-note">Créez ou reprenez une partie pour ouvrir le réseau automatiquement.</p>
     </figure>
+    <section id="shell-tournament-rail" class="shell-tournament-rail" hidden aria-label="Inscriptions au tournoi">
+      <strong id="rail-tournament-name">Tournoi</strong>
+      <p id="rail-tournament-count" aria-live="polite">0 joueur inscrit</p>
+      <div id="rail-tournament-requests" aria-live="polite"></div>
+      <button id="rail-tournament-draw" class="rail-draw-button" type="button" disabled>Tirer les rondes</button>
+      <p id="rail-tournament-message" role="status" aria-live="polite">En attente des inscriptions</p>
+      <div id="rail-tournament-roster" class="rail-tournament-roster"></div>
+    </section>
     <div class="shell-rail-middle"><span>ᚠ</span><small>RÉSEAU LOCAL</small><span>ᚦ</span></div>
     <figure id="shell-spectator-code" class="shell-qr-card" data-role="spectator">
       <figcaption>SPECTATEURS</figcaption>
@@ -25,7 +33,7 @@
     <div id="shell-network-status" aria-live="polite">LAN inactif</div>
   </aside>
   <header>
-    <h1>ᚨ Álfastafl <small>0.7.2 DEV3</small></h1>
+    <h1>ᚨ Álfastafl <small>0.7.2 DEV4</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -113,17 +121,15 @@
   <section id="guest-waiting" hidden aria-live="polite"><h2>En attente de validation</h2><p>Votre demande a été transmise au PC hôte.</p><p id="guest-waiting-message">L'organisateur doit autoriser votre connexion.</p></section>
   <section id="tournament-connect" class="tournament-connect" hidden aria-label="Connexion au tournoi">
     <h2>Rejoindre le tournoi</h2>
-    <p>Les rencontres sont attribuées par le tournoi. Vous pouvez commencer
-       votre partie quand votre adversaire est prêt.</p>
-    <label>Nom utilisé lors de l'inscription
+    <p>Inscrivez votre pseudo. L'organisateur validera votre participation avant le tirage.</p>
+    <label>Votre pseudo
       <input id="tournament-entrant-name" type="text" maxlength="60" autocomplete="nickname"
-             placeholder="Nom inscrit ou nom du spectateur">
+             placeholder="Votre pseudo">
     </label>
-    <button id="tournament-enter" type="button">Rejoindre ma rencontre</button>
+    <button id="tournament-enter" type="button">Demander l'accès</button>
     <p id="tournament-enter-status" role="status" aria-live="polite"></p>
-    <p class="tournament-connect-detail">Après la première autorisation de l'hôte,
-       cet appareil est reconnu pour la suite du tournoi. Effacer les données
-       du navigateur ou changer d'appareil nécessitera une nouvelle autorisation.</p>
+    <p class="tournament-connect-detail">Les inscriptions passent exclusivement par le QR joueur.
+       Une fois autorisé, cet appareil retrouvera automatiquement ses prochaines rencontres.</p>
   </section>
   <section id="broadcast-wall" class="broadcast-wall" hidden aria-label="Diffusion des rencontres du tournoi">
     <div class="broadcast-heading">
@@ -138,6 +144,8 @@
     <div id="broadcast-scenes" class="broadcast-scenes" aria-live="polite"></div>
   </section>
   <section id="game">
+    <div id="tournament-opponent-label" aria-live="polite" hidden></div>
+    <div id="tournament-stage-message" aria-live="polite" hidden>En attente du partenaire de ronde</div>
     <div id="guest-view-buttons" role="group" aria-label="Vue du plateau" hidden><button id="guest-view-2d" type="button">2D</button><button id="guest-view-3d" type="button">3D</button></div>
     <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
     <button id="host-close-board" class="host-window-close" type="button" aria-label="Fermer cette fenêtre du plateau" title="Retour à la gestion">✕ Fermer</button>
@@ -315,11 +323,8 @@
         </section>
       </div>
       <label>Rondes (suisse) <input id="tournament-rounds" type="number" min="1" max="20" value="3"></label>
-      <label>Joueurs, un nom par ligne
-        <textarea id="tournament-players" rows="5" placeholder="Alice&#10;Bruno&#10;Chloé&#10;David"></textarea>
-      </label>
       <button id="tournament-create" type="button">Créer ce tournoi</button>
-      <p>Le joueur doit demander l’accès avec <strong>exactement le nom enregistré ici</strong>. Sa faction est attribuée automatiquement.</p>
+      <p>Inscription exclusivement par QR joueur. L'hôte valide les demandes depuis la marge, puis lance le premier tirage.</p>
     </section>
     <p id="tournament-message" role="status" aria-live="polite"></p>
     <div id="tournament-list" aria-live="polite"></div>
@@ -417,7 +422,9 @@
 <script src="/tutorial.js"></script>
 <script src="/host-shell.js"></script>
 <script src="/tournament-ui.js"></script>
+<script src="/tournament-open-client.js"></script>
 <script src="/tournament-client.js"></script>
+<script src="/tournament-ceremony.js"></script>
 <script src="/tournament-broadcast.js"></script>
 </body>
 </html>

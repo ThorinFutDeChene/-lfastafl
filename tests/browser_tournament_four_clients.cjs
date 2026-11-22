@@ -88,13 +88,17 @@ async function main(){
  await host.goto(base+'/?desktop=shell',{waitUntil:'domcontentloaded'});
  await host.waitForFunction(()=>Boolean(window.AlfastaflShell));
  await host.evaluate(()=>window.AlfastaflShell.open('tournament'));
- await host.locator('#tournament-name').fill(tournamentName);
- await host.locator('#tournament-format').selectOption('knockout');
- await host.locator('#tournament-players').fill('Alice\nBruno\nChloé\nDavid');
- await host.locator('#tournament-create').click();
- await host.waitForFunction(()=>document.querySelectorAll('#tournament-list .tournament-item').length===1);
- await host.locator('#tournament-list .tournament-next').click();
- await host.waitForFunction(()=>document.querySelectorAll('#tournament-list .tournament-match').length===2);
+ // Historic pre-registered tournament devices are kept as a regression:
+ // only the new host creation UI removes manual roster entry.
+ const seeded=await api('tournament/create',{
+  name:tournamentName,format:'knockout',
+  players:['Alice','Bruno','Chloé','David'],
+ });
+ await api('tournament/round',{tournament:seeded.tournament.id});
+ await host.evaluate(()=>window.AlfastaflTournaments.refresh());
+ await host.waitForFunction(()=>document.querySelectorAll(
+  '#tournament-list .tournament-match').length===2);
+ await host.evaluate(tid=>window.AlfastaflBroadcast.start(tid),seeded.tournament.id);
  const tournaments=await api('tournaments');
  const tournament=tournaments.tournaments.find(t=>t.name===tournamentName);
  assert(tournament);

@@ -61,6 +61,14 @@
   document.title=title;
  }
  function syncInvites(invites,address,id){
+  // Registration starts before the first match: show tournament QR codes
+  // immediately, even when the host has no selected game.
+  const onAir=globalThis.AlfastaflBroadcast?.currentTournament();
+  const activeTournament=globalThis.AlfastaflTournaments?.active();
+  if(activeTournament&&(!onAir||onAir===activeTournament)){
+   globalThis.AlfastaflTournaments.syncRail(address).catch(()=>{});
+   return;
+  }
   // While broadcasting, the left-hand QRs belong to the WHOLE tournament,
   // not whichever match happens to be displayed this second.
   if(globalThis.AlfastaflBroadcast?.currentTournament())return;
@@ -141,6 +149,7 @@
  // Closing those views stops heartbeats; the native idle grace closes UFW.
  setInterval(()=>{
   if(!(dialogs.new.open||dialogs.tournament.open||
+       globalThis.AlfastaflTournaments?.active()||
        globalThis.AlfastaflBroadcast?.currentTournament()))return;
   fetch('/api/lan/activity',{method:'POST',
    headers:{'X-Alfastafl-Host-Action':'lan-activity'}}).catch(()=>{});
