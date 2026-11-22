@@ -67,13 +67,13 @@
   const visible=Boolean(id&&game&&game.id===id&&game.status==='active'&&
    invites?.player&&invites?.spectator&&address?.lan_enabled);
   el('shell-network-status').textContent=address?.lan_enabled
-   ? visible?'LAN actif · Accès sur validation':'LAN actif · Ouvrez une partie'
+   ? visible?'LAN actif · Joueurs sur validation, spectateurs directs':'LAN actif · Ouvrez une partie'
    :'LAN inactif';
   for(const x of qrRoles){
    x.img.hidden=!visible;
    x.figure.classList.toggle('shell-qr-offline',!visible);
    x.note.textContent=visible ? (x.role==='player'
-    ?'Scanner pour demander à jouer':'Scanner pour demander à regarder')
+    ?'Scanner pour demander à jouer':'Scanner pour regarder directement')
     :address?.lan_enabled?'Créez ou reprenez une partie.':
      'Le LAN s’active automatiquement à la création ou reprise d’une partie.';
    if(visible){
