@@ -3,6 +3,9 @@ on:
   push:
     branches: [feature/qr-mobile-spectateur-072]
   workflow_dispatch:
+concurrency:
+  group: alfastafl-mobile-qr
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
