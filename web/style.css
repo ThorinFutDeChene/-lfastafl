@@ -1200,3 +1200,48 @@ body.tournament-open-lobby #board .square:disabled{opacity:1;cursor:default}
  }
  body.desktop-shell .shell-tournament-rail:not([hidden]){padding:5px 3px}
 }
+
+
+/* DEV5 — historical tournament results, grouped separately from open events. */
+body.desktop-shell #tournament-list>h3{
+ margin:24px 0 7px;color:#efd59f;font-size:1.15rem;
+ border-bottom:1px solid #bda06b78;padding-bottom:8px;
+}
+body.desktop-shell #tournament-list>p{font-size:.84rem;color:#d3d8be;line-height:1.45}
+body.desktop-shell .tournament-group{display:grid;gap:10px}
+body.desktop-shell .tournament-group .tournament-item{margin:0}
+body.desktop-shell .tournament-item[data-archived="true"]{
+ background:linear-gradient(140deg,#192a21,#102019);
+ border-color:#9f966f;
+}
+body.desktop-shell .tournament-actions{
+ display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0 0;
+}
+body.desktop-shell .tournament-actions .tournament-results-toggle{
+ background:#d7b982;color:#19251a;font-weight:800;
+ padding:9px 13px;min-height:42px;border:1px solid #f6d6a4;
+}
+body.desktop-shell .tournament-actions .tournament-delete{
+ margin-left:auto;background:#49291f;color:#ffe0d3;
+ border:1px solid #c18a77;font-weight:750;
+ padding:9px 13px;min-height:42px;
+}
+body.desktop-shell .tournament-actions .tournament-delete:hover,
+body.desktop-shell .tournament-actions .tournament-delete:focus-visible{
+ background:#7a322a;border-color:#f1aa8e;
+}
+body.desktop-shell .tournament-detail[hidden]{display:none!important}
+body.desktop-shell .tournament-detail:not([hidden]){
+ margin:14px 0 3px;padding:12px 13px;
+ background:#0e2019;border:1px solid #6575598c;border-radius:9px;
+}
+body.desktop-shell .tournament-detail>h4:first-child{margin-top:3px}
+body.desktop-shell .tournament-detail .tournament-standings{
+ display:grid;gap:4px;margin:10px 0 14px;
+}
+body.desktop-shell .tournament-detail .tournament-standings span{
+ display:block;padding:5px 10px;background:#1a3025;border-radius:5px;
+}
+body.desktop-shell .tournament-detail .tournament-podium-results p{
+ margin:7px 0;color:#f0d6a6;font-weight:700;
+}
