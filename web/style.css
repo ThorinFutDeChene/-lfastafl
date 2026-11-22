@@ -1028,3 +1028,15 @@ body.guest-board-only[data-guest-role="spectator"] .board-stage canvas {
 .spectator-configuration label{flex:1 1 250px}
 .spectator-configuration input{width:80px;min-width:80px}
 .spectator-configuration p{width:100%;margin:0;font-weight:bold;color:#eacb94}
+
+/* A tournament invitation uses its tournament-specific form, not the game form. */
+body.guest-qr-entry:has(#tournament-connect:not([hidden])) #join,
+body.guest-tournament-spectator #join,
+body.guest-tournament-spectator #tournament-connect {display:none!important}
+body.guest-qr-entry.guest-tournament-spectator:not(.guest-board-only):not(.guest-awaiting-approval) #game {display:none!important}
+/* A viewer can only watch, never rotate the camera, select, zoom or skip cutscenes. */
+body.guest-board-only[data-guest-role="spectator"] #game-board-3d,
+body.guest-board-only[data-guest-role="spectator"] #board,
+body.guest-board-only[data-guest-role="spectator"] .board-stage canvas {
+ pointer-events:none!important;
+}
