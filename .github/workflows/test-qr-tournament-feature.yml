@@ -38,6 +38,18 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_qr_tournament_live.cjs
+      - name: Regression native host shell and sidebar approvals
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_desktop.cjs
+      - name: Regression historic tournament formats and replays
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_edge_formats.cjs
+      - name: Regression four legacy participants and rotating spectators
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_four_clients.cjs
       - name: Exercise live QR registration on Safari WebKit
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
