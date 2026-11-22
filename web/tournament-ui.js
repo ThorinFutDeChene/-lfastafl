@@ -37,6 +37,49 @@
   node.append(elem);return elem;
  };
  const formatName={round_robin:'Toutes rencontres',swiss:'Suisse',knockout:'Élimination directe'};
+ function isArchived(t){
+  if(t.completed)return true;
+  if(!t.round_no||!t.matches?.length||t.matches.some(m=>m.winner==null))return false;
+  if(t.format==='swiss')return t.round_no>=t.rounds;
+  if(t.format==='round_robin'){
+   const target=t.players.length%2?t.players.length:t.players.length-1;
+   return t.round_no>=target;
+  }
+  if(t.format==='knockout'){
+   const current=t.matches.filter(m=>m.round===t.round_no&&!m.placement);
+   const superseded=new Set(current.filter(m=>m.replay_of).map(m=>m.replay_of));
+   const real=current.filter(m=>!superseded.has(m.id));
+   if(real.some(m=>m.winner==='draw'))return false;
+   return new Set(real.filter(m=>m.winner!=null).map(m=>m.winner)).size===1;
+  }
+  return false;
+ }
+ async function removeTournament(t){
+  const br=String.fromCharCode(10);
+  if(!confirm('Supprimer définitivement le tournoi « '+t.name+' » ?'+br+br+
+   'Résultats, classement et inscriptions seront perdus.'+br+
+   'Les sauvegardes des rencontres interrompues seront également effacées.'+br+
+   'Un tournoi avec une partie active ne peut pas être supprimé.'+br+br+
+   'Cette opération est irréversible.'))return;
+  const response=await api('tournament/delete',{tournament:t.id});
+  if(response.deleted!==t.id)throw Error('Suppression du tournoi non confirmée.');
+  if(globalThis.AlfastaflBroadcast?.currentTournament()===t.id)
+   globalThis.AlfastaflBroadcast.stop();
+  if(activeId===t.id){
+   activeId='';
+   sessionStorage.removeItem('alfastafl.active-tournament');
+   rail.hidden=true;
+   for(const role of ['player','spectator']){
+    const image=el('shell-'+role+'-image');
+    image.hidden=true;image.removeAttribute('src');
+    delete el('shell-'+role+'-code').dataset.signature;
+   }
+   globalThis.AlfastaflShell?.syncInvites(null,null,null);
+  }
+  status('Tournoi « '+t.name+' » définitivement supprimé.');
+  await refresh();
+ }
+
  function render(tournaments){
   list.replaceChildren();
   if(!tournaments.length){
