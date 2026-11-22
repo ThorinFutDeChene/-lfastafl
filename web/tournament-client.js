@@ -1,10 +1,24 @@
 /* One tournament QR covers the next eligible match for each registered
  * player. Browser storage holds a scoped secret; no browser can read a MAC.
  * Already approved devices resume across rounds without another approval. */
-(()=>{
+(async()=>{
  'use strict';
  if(isHost||!q.get('tournament')||!q.get('invite')||q.has('broadcast-view'))return;
  const tid=q.get('tournament'),invite=q.get('invite');
+ // A new QR-only tournament has a lobby before the first game exists.
+ // Legacy tournaments retain their original recognized-device workflow.
+ try{
+  const info=await api('tournament/invite/role?tournament='+encodeURIComponent(tid)+
+   '&invite='+encodeURIComponent(invite));
+  if(info.registration_open && info.role==='player'){
+   await globalThis.AlfastaflOpenTournamentClient.start({tid,invite});
+   return;
+  }
+ }catch(error){
+  const result=document.getElementById('tournament-enter-status');
+  if(result)result.textContent=error.message||String(error);
+  return;
+ }
  const element=id=>document.getElementById(id);
  const panel=element('tournament-connect');
  const input=element('tournament-entrant-name');
@@ -52,6 +66,7 @@
     panel.hidden=true;
     message.textContent='Appareil reconnu. Accès rétabli sans nouvelle autorisation.';
     await load();
+    if(spectatorQR){syncGuestLayout();globalThis.AlfastaflBroadcast?.start(tid);}
    }else if(response.status==='pending'){
     pending=true;gameId=response.game;requestId=response.request;
     session='';invalidateBoardInteraction();syncGuestLayout();
