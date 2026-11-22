@@ -29,6 +29,10 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/alfastafl-ui" --no-package-lock --ignore-scripts playwright@1.62.1
           "$RUNNER_TEMP/alfastafl-ui/node_modules/.bin/playwright" install --with-deps chromium webkit
+      - name: Mobile QR join and viewer quota
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_mobile_qr.cjs
       - name: Host and spectator permissions
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
