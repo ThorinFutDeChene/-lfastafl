@@ -6,7 +6,10 @@
  if(!isHost||!isDesktopShell)return;
  const el=id=>document.getElementById(id);
  const list=el('tournament-list'),notice=el('tournament-message');
- const nameInput=el('tournament-name'),playersInput=el('tournament-players');
+ const nameInput=el('tournament-name');
+ const rail=el('shell-tournament-rail');
+ let tournamentsCache=[],activeId=sessionStorage.getItem('alfastafl.active-tournament')||'';
+ let railBusy=false,drawBusy=false;
  const formatInput=el('tournament-format'),roundsInput=el('tournament-rounds');
  const campName=c=>c==='elf'?'Elfes':'Nains';
  const status=(message,error=false)=>{
@@ -43,6 +46,19 @@
    const item=div('tournament-item');
    const title=text(item,'h3',tournament.name+' — '+(formatName[tournament.format]||tournament.format));
    title.className='tournament-title';
+   if(tournament.registration_open){
+    item.classList.toggle('tournament-selected',activeId===tournament.id);
+    item.append(button(activeId===tournament.id?'Tournoi affiché dans la marge':
+      'Afficher ce tournoi dans la marge',async()=>activate(tournament.id),'tournament-select'));
+    if(tournament.completed&&tournament.rankings?.length){
+     const board=div('tournament-podium-results');
+     text(board,'h4','Podium définitif');
+     for(const [index,player] of tournament.rankings.entries()){
+      text(board,'p',String(index+1)+'ᵉ · '+player);
+     }
+     item.append(board);
+    }
+   }
    const decided=tournament.matches.filter(m=>m.winner!=null&&!m.bye).length;
    const byes=tournament.matches.filter(m=>m.bye).length;
    text(item,'p',tournament.players.length+' participants · Ronde '+tournament.round_no+
@@ -81,7 +97,7 @@
        text(row,'em',match.replay_of
         ?'Revanche à jouer ou à valider':'Partie à jouer ou à valider');
      }
-     if(match.game){
+     if(match.game && match.winner==null){
       row.append(button('Afficher le plateau',async()=>{
        await listGames(true);
        const gameButton=Array.from(document.querySelectorAll('#game-list .game-select'))
@@ -120,7 +136,7 @@
       text(item,'h4','Tournoi terminé · vainqueur : '+live[0].winner);
    }
    const controls=div('tournament-controls');
-   controls.append(button('Diffuser les rencontres en direct',async()=>{
+   if(!tournament.registration_open)controls.append(button('Diffuser les rencontres en direct',async()=>{
     if(!tournament.round_no)
      throw Error('Commencez par créer la première ronde du tournoi.');
     globalThis.AlfastaflBroadcast?.start(tournament.id);
@@ -154,7 +170,7 @@
     tournament.format==='knockout'&&currentDraws.length
      ?'Valider les résultats et créer les revanches':
       'Valider les résultats et ronde suivante';
-   item.append(button(nextLabel,async()=>{
+   if(!tournament.registration_open)item.append(button(nextLabel,async()=>{
     // A new round creates real matches: its QR must be ready without
     // asking the host to activate networking separately.
     ensureLanForSession();
@@ -178,7 +194,10 @@
  async function refresh(){
   try{
    const data=await api('tournaments');
-   render(data.tournaments||[]);
+   tournamentsCache=data.tournaments||[];
+   if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open))activeId='';
+   render(tournamentsCache);
+   await syncRail();
   }catch(error){status('Lecture des tournois impossible : '+error.message,true);}
  }
  async function create(){
