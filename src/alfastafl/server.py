@@ -370,6 +370,12 @@ class Store:
                                   owner['role'] == 'spectator' and
                                   owner.get('broadcast_tournament') == tid):
                 raise PermissionError('Diffusion du tournoi non autorisée.')
+            if not admin:
+                now=self.monotonic()
+                if now-owner.get('last_seen',0)>self.spectator_idle_seconds:
+                    if len(self._spectator_sessions())>=self.spectator_limit:
+                        raise PermissionError('Nombre maximal de spectateurs atteint.')
+                owner['last_seen']=now
             # Only successful, authorized live-view polling extends the LAN
             # lease. This protects spectators between tournament rounds.
             self.keep_lan_active()
@@ -630,6 +636,10 @@ class Store:
                 else:
                     self._start_if_ready(g,now)
             if s['role']=='spectator':
+                if not s.get('broadcast_parent') and (
+                    now-s.get('last_seen',0)>self.spectator_idle_seconds):
+                    if len(self._spectator_sessions())>=self.spectator_limit:
+                        return None
                 s['last_seen']=now
             return s
 
@@ -819,6 +829,9 @@ class Store:
                     and existing.get('game')==gid and
                     existing.get('broadcast_tournament')==tid and
                     not existing.get('broadcast_parent')):
+                    if (self.monotonic()-existing.get('last_seen',0)>self.spectator_idle_seconds
+                        and len(self._spectator_sessions())>=self.spectator_limit):
+                        raise PermissionError('Nombre maximal de spectateurs atteint.')
                     existing['last_seen']=self.monotonic()
                     return previous
             if len(self._spectator_sessions())>=self.spectator_limit:
