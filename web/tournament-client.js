@@ -10,7 +10,7 @@
  const input=element('tournament-entrant-name');
  const message=element('tournament-enter-status');
  const action=element('tournament-enter');
- let busy=false,pending=false,approved=false;
+ let busy=false,pending=false,approved=false,spectatorQR=false;
  const stored=key=>{try{return localStorage.getItem(key)||'';}catch(_){return '';}};
  const remember=(key,value)=>{try{localStorage.setItem(key,value);}catch(_){}};
  const nameKey='alfastafl.last-name.'+tid;
@@ -27,15 +27,15 @@
  }
  async function enter(){
   if(busy||approved||pending)return;
-  const name=input.value.trim();
+  const name=spectatorQR?'Spectateur':input.value.trim();
   if(!name){message.textContent='Indiquez votre nom d’inscription.';return;}
   busy=true;action.disabled=true;
-  remember(nameKey,name);
+  if(!spectatorQR)remember(nameKey,name);
   try{
    const response=await api('tournament/enter',{tournament:tid,invite,
-     name,device_token:proof(name)});
+     name,device_token:spectatorQR?session:proof(name)});
    if(response.status==='waiting_match'){
-    message.textContent='Aucune rencontre à jouer actuellement. La recherche se poursuit automatiquement.';
+    message.textContent=spectatorQR?'En attente du lancement des rencontres.':'Aucune rencontre à jouer actuellement. La recherche se poursuit automatiquement.';
    }else if(response.status==='awaiting_host'){
     message.textContent=response.message;
    }else if(response.status==='approved'){
@@ -52,7 +52,7 @@
     await load();
    }else if(response.status==='pending'){
     pending=true;gameId=response.game;requestId=response.request;
-    session='';invalidateBoardInteraction();
+    session='';invalidateBoardInteraction();syncGuestLayout();
     message.textContent='Demande transmise à l’hôte. Cette première autorisation enregistrera l’appareil.';
    }else{
     throw Error('Réponse de connexion non reconnue.');
@@ -79,12 +79,23 @@
  },600);
  // Prior device credentials are tried immediately on a newly scanned QR;
  // requests with no credential always require a deliberate button press.
- if(input.value&&proof(input.value))enter();
- else if(input.value)message.textContent='Vérifiez votre nom puis rejoignez la rencontre.';
+ (async()=>{
+  try{
+   const role=await api('tournament/invite/role?tournament='+encodeURIComponent(tid)+
+    '&invite='+encodeURIComponent(invite));
+   if(role.role==='spectator'){
+    spectatorQR=true;
+    panel.hidden=true;
+    document.body.classList.add('guest-tournament-spectator');
+    await enter();
+   }else if(input.value&&proof(input.value))enter();
+   else if(input.value)message.textContent='Vérifiez votre nom puis rejoignez la rencontre.';
+  }catch(error){message.textContent=error.message;panel.hidden=false;}
+ })();
  // A recognized player who has a bye or whose next round is not yet created
  // can leave the screen open and join when the server schedules the match.
  setInterval(()=>{
-  if(!busy&&!pending&&!approved&&proof(input.value.trim())&&
-     message.textContent.includes('Aucune rencontre'))enter();
+  if(!busy&&!pending&&!approved&&((spectatorQR&&message.textContent.includes('En attente'))||
+     (proof(input.value.trim())&&message.textContent.includes('Aucune rencontre'))))enter();
  },8000);
 })();
