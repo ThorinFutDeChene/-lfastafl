@@ -92,6 +92,12 @@ class Store:
                     continue
                 self.games[g.id]=g
             except (ValueError,TypeError,KeyError):continue
+        # A power loss between persisting the last result and scheduling
+        # the next round must not strand the tournament after reboot.
+        for tid,t in list(self.tournaments.items()):
+            if (t.get('registration_open') and t.get('round_no',0)>0
+                and not t.get('completed')):
+                self._auto_advance_open_tournament(tid)
     def _sync_game_directory(self):
         """Durably record checkpoint creation or deletion."""
         try:
