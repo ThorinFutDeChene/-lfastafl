@@ -937,10 +937,11 @@ async function main() {
       await expectImmersiveGuest(guest, 'spectator');
       assert.equal(await guest.locator('#tutorial-open').count(), 0);
       assert.equal(await guest.locator('#tutorial-panel').count(), 0);
-      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#guest-view-2d').isVisible(), false);
       assert.equal(await guest.locator('#player-controls').isVisible(), false);
-      await guest.locator('#game-camera-top').click();
-      await guest.locator('#guest-menu-toggle').click();
+      assert.equal(await guest.locator('#game-camera-top').isVisible(), false);
+      assert.equal(await guest.locator('#game-board-3d').evaluate(
+        node=>getComputedStyle(node).pointerEvents), 'none');
       const from = await squarePoint(guest, 'game', [5, 4], 0.7);
       const to = await squarePoint(guest, 'game', [4, 4]);
       await guest.mouse.click(from.x, from.y);
@@ -960,7 +961,7 @@ async function main() {
     } finally { await guestContext.close(); failurePage = page; }
   });
 
-  await scenario('Approval changes a mobile or tablet guest to full-board mode, and revoked access restores joining', async () => {
+  await scenario('Spectator QR enters the phone board without authorization and loses access on host pause', async () => {
     const created = await context.request.post(base + '/api/create', {data: {
       mode: 'fetlar', settings: {time_control: {mode: 'move', seconds: 60}},
     }});
@@ -973,43 +974,17 @@ async function main() {
       failurePage = guest;
       await guest.goto('http://guest.test/?game=' + encodeURIComponent(guestGame) +
         '&invite=' + encodeURIComponent(invites.spectator), {waitUntil: 'domcontentloaded'});
-      await guest.waitForFunction(() => document.getElementById('gid').value !== '');
-      assert.equal(await guest.locator('#join').isVisible(), true);
-      assert.equal(await guest.locator('main > header').isVisible(), true);
-      assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
-      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false);
-      await guest.locator('#name').fill('Spectateur mobile');
-      const joining = responseFor(guest, 'join', 'POST');
-      await guest.locator('#request').click();
-      assert.equal((await joining).status(), 200);
-      const pending = await context.request.get(base + '/api/pending');
-      assert.equal(pending.status(), 200);
-      const request = (await pending.json()).pending.find(x => x.game === guestGame && x.role === 'spectator');
-      assert(request, 'Host must see the spectator waiting for approval');
-      assert.equal(await guest.evaluate(() => document.body.classList.contains('guest-board-only')), false,
-        'Sending a request must not enter game-only mode');
-      const approved = await context.request.post(base + '/api/approve',
-        {data: {request: request.id, camp: null}});
-      assert.equal(approved.status(), 200);
       await ready3D(guest, 'game', 37);
       await expectImmersiveGuest(guest, 'spectator');
-      assert.equal(await guest.locator('#clocks').isVisible(), true,
-        'Timed games must keep the clocks overlaid on the board');
+      const pending = await context.request.get(base + '/api/pending');
+      assert.equal(pending.status(), 200);
+      assert.equal((await pending.json()).pending.filter(x => x.game === guestGame).length, 0);
+      assert.equal(await guest.locator('#clocks').isVisible(), true);
+      assert.equal(await guest.locator('#guest-view-2d').isVisible(), false);
       await capture(guest, 'guest-approved-mobile.png');
-      await guest.locator('#guest-menu-toggle').click();
-      await guest.selectOption('#game-board-mode', '2d');
-      assert.equal(await guest.locator('#board').isVisible(), true);
-      await guest.locator('#guest-menu-toggle').click();
-      assert.equal(await guest.locator('#game-board-view .board-tools').isVisible(), false);
-      const flat = await guest.locator('#board').boundingBox();
-      assert(flat && flat.x >= -1 && flat.y >= -1 &&
-        flat.x + flat.width <= 391 && flat.y + flat.height <= 845,
-        'Accessible 2D board must fit the phone display');
-      await capture(guest, 'guest-approved-mobile-2d.png');
       await guest.reload({waitUntil: 'domcontentloaded'});
       await ready3D(guest, 'game', 37);
       await expectImmersiveGuest(guest, 'spectator');
-      // Actual server-side revocation: host saves and closes this invitation.
       const revoked = await context.request.post(base + '/api/pause', {data: {game: guestGame}});
       assert.equal(revoked.status(), 200);
       await guest.reload({waitUntil: 'domcontentloaded'});
