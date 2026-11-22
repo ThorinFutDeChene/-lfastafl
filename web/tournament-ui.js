@@ -270,11 +270,17 @@
   try{
    const data=await api('tournaments');
    tournamentsCache=data.tournaments||[];
-   if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open))activeId='';
+   if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open&&!isArchived(t))){
+    if(globalThis.AlfastaflBroadcast?.currentTournament()===activeId)
+     globalThis.AlfastaflBroadcast.stop();
+    activeId='';
+    sessionStorage.removeItem('alfastafl.active-tournament');
+    rail.hidden=true;
+   }
    if(!activeId){
     // Native host restarts clear sessionStorage. Restore the most recent
     // unfinished QR tournament so its rail and authorization QR return.
-    const resumable=tournamentsCache.filter(t=>t.registration_open&&!t.completed);
+    const resumable=tournamentsCache.filter(t=>t.registration_open&&!isArchived(t));
     if(resumable.length){
      activeId=resumable[resumable.length-1].id;
      sessionStorage.setItem('alfastafl.active-tournament',activeId);
@@ -283,7 +289,15 @@
     }
    }
    render(tournamentsCache);
-   await syncRail();
+   if(activeId)await syncRail();
+   else{
+    rail.hidden=true;
+    for(const role of ['player','spectator']){
+     const img=el('shell-'+role+'-image');
+     img.hidden=true;img.removeAttribute('src');
+     delete el('shell-'+role+'-code').dataset.signature;
+    }
+   }
   }catch(error){status('Lecture des tournois impossible : '+error.message,true);}
  }
  async function create(){
