@@ -393,7 +393,8 @@ class Store:
             self.save_tournaments()
             return []
         next_matches=t.next_round()
-        if t.format=='knockout' and not t.final_round and len(next_matches)==1:
+        if (t.format=='knockout' and not t.final_round and len(next_matches)==1
+                and not draws and not next_matches[0].get('replay_of')):
             # The new single survivor match is the final championship.
             t.final_round=True
             next_matches[0]['placement']='final'
@@ -637,7 +638,8 @@ class Store:
             # remains live even when its game has just finished.
             current = [m for m in tournament['matches']
                        if m.get('game') in self.games and
-                       m['round'] == tournament['round_no']]
+                       (m['round'] == tournament['round_no'] or
+                        self.cinematic_state(m['game']))]
             superseded = {m['replay_of'] for m in current
                           if m.get('replay_of')}
             current = [m for m in current if m['id'] not in superseded]
