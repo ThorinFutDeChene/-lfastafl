@@ -987,10 +987,24 @@ async function main() {
       await expectImmersiveGuest(guest, 'spectator');
       const revoked = await context.request.post(base + '/api/pause', {data: {game: guestGame}});
       assert.equal(revoked.status(), 200);
+      // A deliberately revoked spectator QR must return HTTP 403. Chromium
+      // logs that failed resource even though app.js handles it correctly.
+      // Scope the exception to this revocation test; other errors still fail.
+      const previousConsoleErrors = report.console_errors.length;
+      const forbiddenRole = guest.waitForResponse(response =>
+        new URL(response.url()).pathname === '/api/invite/role' &&
+        response.status() === 403);
       await guest.reload({waitUntil: 'domcontentloaded'});
+      await forbiddenRole;
       await guest.waitForFunction(() => document.getElementById('join').hidden === false &&
         !document.body.classList.contains('guest-board-only') &&
         !localStorage.getItem('alfastafl.device.' + new URLSearchParams(location.search).get('game')));
+      await guest.waitForTimeout(100);
+      const expectedRevocationErrors=report.console_errors.splice(previousConsoleErrors);
+      assert(expectedRevocationErrors.every(message =>
+        /^Failed to load resource: the server responded with a status of 403 \(Forbidden\)$/.test(message)),
+        'Only the deliberately revoked spectator QR may produce HTTP 403: '+
+          JSON.stringify(expectedRevocationErrors));
       assert.equal(await guest.locator('#join').isVisible(), true);
       assert.equal(await guest.locator('#guest-menu-toggle').isVisible(), false);
       assert.equal(await guest.locator('#player-controls').isVisible(), false);
