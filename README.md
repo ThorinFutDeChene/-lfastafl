@@ -1,4 +1,32 @@
-# Álfastafl — 0.7.2-dev3 (canal DEV)
+# Álfastafl — 0.7.2-dev4 (canal DEV)
+
+## DEV 0.7.2-dev4 — Tournois avec inscription par QR code
+
+**Depuis le PC hôte :** créez un tournoi sans inscrire de joueurs.
+La fenêtre se ferme et les QR **joueur** et **spectateur** apparaissent
+dans la marge gauche. Chaque demande d'inscription arrive directement
+sous le QR joueur, avec **Valider** / **Refuser** ; elle disparaît
+après traitement. Lorsque deux joueurs ou plus sont validés,
+**Tirer les rondes** démarre le tournoi. Le PC hôte est toujours
+organisateur/spectateur et ne participe pas comme joueur.
+
+**Depuis les appareils joueurs :** un seul pseudo à saisir, attente
+de validation, plateau **2D/3D** plein écran avec message d'attente,
+puis scène 3D attribuant Elfes ou Nains et affichage de l'adversaire.
+Les prochaines rencontres démarrent automatiquement une fois la ronde
+terminée. Les spectateurs utilisent leur QR sans validation
+(management de quota inchangé : 10 spectateurs par défaut).
+
+**Fin de tournoi :** une cinématique montre la **coupe d'or** du
+vainqueur, la médaille d'argent « 2ème » et celle de bronze « 3ème » ;
+les autres joueurs voient leur classement en plein écran. Les
+données de tournoi sont conservées même si les fichiers des parties
+terminées sont supprimés.
+
+**Version Debian :** `0.7.2~dev4`. La stable 0.7.1 reste inchangée.
+
+## Historique de la 0.7.2
+
 
 ## DEV 0.7.2-dev3 — Sauvegardes limitées aux parties non terminées
 
