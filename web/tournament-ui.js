@@ -101,14 +101,15 @@
     item.classList.toggle('tournament-selected',activeId===tournament.id);
     item.append(button(activeId===tournament.id?'Tournoi affiché dans la marge':
       'Afficher ce tournoi dans la marge',async()=>activate(tournament.id),'tournament-select'));
-    if(tournament.completed&&tournament.rankings?.length){
-     const board=div('tournament-podium-results');
-     text(board,'h4','Podium définitif');
-     for(const [index,player] of tournament.rankings.entries()){
-      text(board,'p',String(index+1)+'ᵉ · '+player);
-     }
-     detail.append(board);
+   }
+   if(tournament.completed&&tournament.rankings?.length){
+    const board=div('tournament-podium-results');
+    text(board,'h4','Classement définitif');
+    for(const [index,player] of tournament.rankings.entries()){
+     const medal=index===0?' · Coupe d’or':index===1?' · Argent':index===2?' · Bronze':'';
+     text(board,'p',String(index+1)+'ᵉ · '+player+medal);
     }
+    detail.append(board);
    }
    const decided=tournament.matches.filter(m=>m.winner!=null&&!m.bye).length;
    const byes=tournament.matches.filter(m=>m.bye).length;
@@ -136,7 +137,7 @@
     round.push(match);grouped.set(match.round,round);
    }
    for(const [round,entries] of grouped){
-    text(item,'h4','Ronde '+round);
+    text(detail,'h4','Ronde '+round);
     for(const match of entries){
      const row=div('tournament-match');
      if(match.bye){
