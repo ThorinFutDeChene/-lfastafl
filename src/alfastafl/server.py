@@ -30,6 +30,7 @@ class Store:
         self._tournament_invites={}
         self._pending_secrets={}
         self._broadcast_sessions={}
+        self._registration_requests={}
         self.spectator_limit=10
         self.spectator_idle_seconds=45
         self._connection_settings=self.path/'.connection-settings.json'
@@ -136,6 +137,9 @@ class Store:
             saved_file=self.path/(g.id+'.alfastafl')
             if g.status=='finished':
                 self._record_finished_tournament(g)
+                tid,_=self.tournament_for_game(g.id)
+                if tid and self.tournaments[tid].get('registration_open'):
+                    self._auto_advance_open_tournament(tid)
                 try:
                     saved_file.unlink()
                 except FileNotFoundError:
@@ -359,6 +363,189 @@ class Store:
             self.save(g)
         return sid
 
+    def _auto_advance_open_tournament(self, tid):
+        """After EVERY match in the round is scored, schedule the next round.
+
+        The host starts the FIRST round manually. Once it starts, rounds,
+        faction draws, knockout replays and final podium advance without
+        requiring another host button. All decisions persist atomically.
+        """
+        from .tournament import Tournament
+        current=self.tournaments[tid]
+        if not current.get('registration_open') or current.get('completed'):
+            return []
+        if not current.get('round_no'):
+            return []
+        ongoing=[m for m in current['matches'] if
+                 m.get('round')==current['round_no'] and m.get('winner') is None]
+        if ongoing:return []
+        t=Tournament.from_dict(copy.deepcopy(current))
+        # A best-of-one knockout requires an explicit bronze encounter when
+        # two semifinal losers compete for the third-place medal.
+        previous_round=[m for m in t.matches if m.get('round')==t.round_no]
+        draws=[m for m in previous_round if m.get('winner')=='draw']
+        superseded={m.get('replay_of') for m in previous_round if m.get('replay_of')}
+        draws=[m for m in draws if m['id'] not in superseded]
+        if t.final_round and not draws:
+            t.completed=True
+            t.rankings=t.final_ranking()
+            self.tournaments[tid]=t.as_dict()
+            self.save_tournaments()
+            return []
+        next_matches=t.next_round()
+        if t.format=='knockout' and not t.final_round and len(next_matches)==1:
+            # The new single survivor match is the final championship.
+            t.final_round=True
+            next_matches[0]['placement']='final'
+            candidates=[m for m in previous_round
+                        if m.get('winner') not in (None,'draw') and not m.get('bye')
+                        and not m.get('placement')]
+            knocked=[m['b'] if m['winner']==m['a'] else m['a']
+                     for m in candidates]
+            if len(knocked)==2:
+                next_matches.append(t._match(knocked[0],knocked[1],placement='bronze'))
+        if not next_matches:
+            t.completed=True
+            t.rankings=t.final_ranking()
+            self.tournaments[tid]=t.as_dict()
+            self.save_tournaments()
+            return []
+        # Persist scheduled rounds before invitations can be used; a completed
+        # match's own .alfastafl file is never recreated.
+        for match in next_matches:
+            g=self.create()
+            match['game']=g.id
+        self.tournaments[tid]=t.as_dict()
+        self.save_tournaments()
+        return next_matches
+
+    def register_tournament_player(self,tid,invite,name,device_token=None):
+        """Enqueue a brand-new tournament player before any pairing exists."""
+        with self.lock:
+            t=self.tournaments.get(tid)
+            if t is None or not t.get('registration_open'):
+                raise ValueError('Inscriptions QR indisponibles pour ce tournoi.')
+            token=self.tournament_invitations(tid)['player']
+            if not isinstance(invite,str) or not hmac.compare_digest(invite,token):
+                raise PermissionError('QR joueur invalide.')
+            name=name.strip() if isinstance(name,str) else ''
+            if not name or len(name)>60:
+                raise ValueError('Saisissez un pseudo de 1 à 60 caractères.')
+            existing=next((p for p in t['players'] if p.casefold()==name.casefold()),None)
+            if existing is not None and existing!=name:
+                raise ValueError('Pseudo déjà inscrit (respectez les majuscules).')
+            if existing and self._trusted_device(tid,'player',name,device_token):
+                return {'status':'approved','name':name}
+            if not existing and t['round_no']:
+                raise PermissionError('Inscriptions closes : le tournoi a commencé.')
+            if not existing and len(t['players'])>=64:
+                raise ValueError('Tournoi limité à 64 joueurs.')
+            if any(item['tournament']==tid and
+                   item['name'].casefold()==name.casefold() and
+                   item['status']=='waiting' for item in self._registration_requests.values()):
+                raise ValueError('Une demande pour ce pseudo est déjà en attente.')
+            if sum(1 for item in self._registration_requests.values()
+                   if item['tournament']==tid and item['status']=='waiting')>=64:
+                raise ValueError('La file des inscriptions est pleine.')
+            request=secrets.token_urlsafe(27)
+            self._registration_requests[request]={
+                'tournament':tid,'name':name,'status':'waiting','token':None}
+            return {'status':'pending','request':request}
+
+    def registration_requests(self,tid):
+        with self.lock:
+            t=self.tournaments.get(tid)
+            if t is None:raise ValueError('Tournoi inconnu.')
+            return {'tournament':tid,'name':t['name'],'players':list(t['players']),
+                    'round':t['round_no'],'completed':t.get('completed',False),
+                    'pending':[{'id':ident,'name':item['name'],
+                                'new':item['name'] not in t['players']}
+                              for ident,item in self._registration_requests.items()
+                              if item['tournament']==tid and item['status']=='waiting']}
+
+    def registration_status(self,request):
+        with self.lock:
+            item=self._registration_requests.get(request)
+            if item is None:raise ValueError('Demande expirée : renouvelez votre inscription.')
+            return {k:item[k] for k in ('status','name','token','tournament')}
+
+    def decide_registration(self,request,approve):
+        with self.lock:
+            item=self._registration_requests.get(request)
+            if item is None or item['status']!='waiting':
+                raise ValueError('Demande déjà traitée ou inconnue.')
+            if type(approve) is not bool:raise ValueError('Décision invalide.')
+            t=self.tournaments[item['tournament']]
+            name=item['name']
+            if not approve:
+                item['status']='rejected'
+                return {'status':'rejected','name':name}
+            if name not in t['players']:
+                if t['round_no']:raise ValueError('Inscriptions closes.')
+                if len(t['players'])>=64:raise ValueError('Tournoi complet.')
+            secret=secrets.token_urlsafe(48)
+            fingerprint=hashlib.sha256(secret.encode('utf-8')).hexdigest()
+            before=copy.deepcopy(t)
+            try:
+                if name not in t['players']:t['players'].append(name)
+                t.setdefault('devices',{}).setdefault(name,[]).append(fingerprint)
+                self.save_tournaments()
+            except Exception:
+                self.tournaments[item['tournament']]=before
+                raise
+            item['status']='approved'
+            item['token']=secret
+            return {'status':'approved','name':name}
+
+    def open_tournament_player_state(self,tid,name,secret):
+        """Return only the authenticated person's match, placement and round."""
+        with self.lock:
+            t=self.tournaments.get(tid)
+            if not t or not t.get('registration_open'):
+                raise ValueError('Tournoi QR inconnu.')
+            if name not in t['players'] or not self._trusted_device(tid,'player',name,secret):
+                raise PermissionError('Appareil non autorisé pour ce joueur.')
+            from .tournament import Tournament
+            tournament=Tournament.from_dict(t)
+            rank=tournament.known_place(name)
+            base={'tournament':tid,'name':name,'round':t['round_no'],
+                  'rank':rank,'players':len(t['players']),
+                  'finished':t.get('completed',False)}
+            if rank is not None:
+                return {**base,'status':'placed','rank':rank}
+            match=self._scheduled_match(tid,name)
+            if match:
+                fp=self._trusted_device(tid,'player',name,secret)
+                sid=self._trusted_tournament_session(tid,match['game'],name,'player',fp)
+                camp=match['camp_a'] if name==match['a'] else match['camp_b']
+                opponent=match['b'] if name==match['a'] else match['a']
+                return {**base,'status':'match','game':match['game'],
+                        'session':sid,'match':match['id'],
+                        'camp':camp,'opponent':opponent}
+            from .core import initial_board
+            return {**base,'status':'waiting','board':initial_board('fetlar'),
+                    'message':'En attente du partenaire de ronde'}
+
+    def admit_tournament_lobby_spectator(self,tid,previous=None):
+        """A tournament spectator can scan a QR even before round one."""
+        with self.lock:
+            if tid not in self.tournaments:raise ValueError('Tournoi inconnu.')
+            if previous and (s:=self.sessions.get(previous)) and s['active'] and (
+                  s['role']=='spectator' and s.get('broadcast_tournament')==tid
+                  and not s.get('broadcast_parent')):
+                if self.monotonic()-s.get('last_seen',0)>self.spectator_idle_seconds and (
+                   len(self._spectator_sessions())>=self.spectator_limit):
+                    raise PermissionError('Nombre maximal de spectateurs atteint.')
+                s['last_seen']=self.monotonic()
+                return previous
+            if len(self._spectator_sessions())>=self.spectator_limit:
+                raise PermissionError('Nombre maximal de spectateurs atteint.')
+            sid=secrets.token_urlsafe(30)
+            self.sessions[sid]={'game':'','role':'spectator','camp':None,'name':'Spectateur',
+                                'active':True,'connected':True,'seen':False,
+                                'broadcast_tournament':tid,'last_seen':self.monotonic()}
+            return sid
+
     def enter_tournament(self, tid, invite, name, device_token=None):
         """Enter the participant's next outstanding match with ONE tournament QR.
 
@@ -378,6 +565,10 @@ class Store:
             name = name.strip() if isinstance(name, str) else ''
             if not 1 <= len(name) <= 60:
                 raise ValueError('Nom invalide.')
+            if role == 'spectator' and t.get('registration_open'):
+                sid=self.admit_tournament_lobby_spectator(tid,device_token)
+                return {'status':'approved','game':'','session':sid,'role':'spectator',
+                        'camp':None,'tournament':tid,'name':'Spectateur'}
             if role == 'spectator':
                 match = self._scheduled_match(tid, None, role)
                 if match is None:
@@ -540,6 +731,9 @@ class Store:
                 raise ValueError('Partie inconnue.')
             if camp not in (None,'elf','dwarf'):
                 raise ValueError('Choisissez Elfes, Nains ou Hôte spectateur.')
+            if camp is not None and self.tournament_for_game(gid)[0] is not None and (
+                    self.tournaments[self.tournament_for_game(gid)[0]].get('registration_open')):
+                raise PermissionError('Le PC hôte est uniquement spectateur du tournoi.')
             if game.status!='active':
                 raise ValueError('Reprenez la partie avant de choisir un camp.')
             previous=[(sid,s) for sid,s in self.sessions.items()
