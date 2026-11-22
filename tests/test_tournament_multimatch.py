@@ -59,6 +59,10 @@ class ConcurrentTournamentTests(unittest.TestCase):
 
     def authorize(self,tid,name,role='player'):
         pending=self.register(tid,name,role)
+        if role=='spectator':
+            self.assertEqual(pending['status'],'approved',pending)
+            self.assertFalse(any(x.get('role')=='spectator' for x in self.store.pending.values()))
+            return pending,{'session':pending['session']},pending['session']
         self.assertEqual(pending['status'],'pending',pending)
         code,accepted=self.http('approve',{'request':pending['request']})
         self.assertEqual(code,200,accepted)
@@ -294,7 +298,7 @@ class ConcurrentTournamentTests(unittest.TestCase):
         again=self.store.broadcast(tid,sid,admin=False)
         self.assertEqual([m['session'] for m in data['matches']],
                          [m['session'] for m in again['matches']])
-        # The spectator's own approval is a tournament-scoped device proof.
+        # A direct spectator session is reused while this browser remains online.
         second=self.register(tid,'Public',role='spectator',credential=secret)
         self.assertEqual(second['status'],'approved')
 
