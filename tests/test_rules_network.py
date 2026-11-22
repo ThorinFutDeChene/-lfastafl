@@ -100,14 +100,15 @@ class RulesNetworkTests(unittest.TestCase):
         self.assertEqual(game.reason, 'draw_agreed')
         self.assertIsNone(game.winner)
 
-    def test_resignation_is_authorized_and_saved(self):
+    def test_resignation_is_authorized_and_not_saved(self):
         game = self.store.create()
         dwarf = self.joined(game, 'dwarf')
         status, _ = self.api('resign', {'game': game.id, 'session': dwarf})
         self.assertEqual(status, 200)
         self.assertEqual(game.winner, 'elf')
-        clone = Store(self.folder.name).games[game.id]
-        self.assertEqual(clone.reason, 'resignation')
+        self.assertEqual(game.reason, 'resignation')
+        self.assertFalse((self.store.path/(game.id+'.alfastafl')).exists())
+        self.assertNotIn(game.id, Store(self.folder.name).games)
 
     def test_historical_review_requires_both_votes(self):
         game = self.store.create('historical')
