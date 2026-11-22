@@ -1,4 +1,24 @@
-# Álfastafl — 0.7.2-dev2 (canal DEV)
+# Álfastafl — 0.7.2-dev3 (canal DEV)
+
+## DEV 0.7.2-dev3 — Sauvegardes limitées aux parties non terminées
+
+Une partie en cours ou mise en pause reste enregistrée normalement
+dans un fichier `.alfastafl`. Dès qu'elle est terminée (victoire,
+abandon, match nul, temps écoulé, forfait), **sa sauvegarde est effacée
+automatiquement** et disparaît de **Fichier → Sauvegardes…**.
+
+La partie reste affichée jusqu'à la fermeture de l'hôte pour permettre
+de voir le résultat final et les cinématiques. Les anciennes sauvegardes
+de parties déjà terminées sont purgées au démarrage.
+
+Pour les **tournois**, le résultat et l'historique des factions sont
+enregistrés dans `.tournaments.json` avant la suppression du fichier
+de partie. Les manches suivantes restent jouables après un redémarrage.
+
+**Version Debian :** `0.7.2~dev3`. La stable 0.7.1 est inchangée.
+
+## Historique de la 0.7.2
+
 
 ## DEV 0.7.2-dev2 — QR mobiles simplifiés
 

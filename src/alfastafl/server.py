@@ -1,5 +1,5 @@
 """Local-network web service. All game mutations are server-authoritative."""
-import json, threading, secrets, os, tempfile, pathlib, time, socket, io, uuid, hashlib, hmac
+import json, threading, secrets, os, tempfile, pathlib, time, socket, io, uuid, hashlib, hmac, copy
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from .core import Game, team, other
@@ -82,24 +82,75 @@ class Store:
                     g.reason='host_restarted'
                     g.clock['started']=False
                 g.disconnect=None
+                if g.status=='finished':
+                    # Legacy checkpoints: keep no completed game on disk.
+                    # Archive any tournament result before removing the file.
+                    self.save(g)
+                    if f != self.path/(g.id+'.alfastafl'):
+                        f.unlink()
+                    continue
                 self.games[g.id]=g
             except (ValueError,TypeError,KeyError):continue
-    def save(self,g):
-        self.path.mkdir(parents=True,exist_ok=True)
-        payload=json.dumps(g.as_dict(),ensure_ascii=False,indent=2)
-        fd,tmp=tempfile.mkstemp(prefix='.alfastafl-',dir=self.path)
+    def _sync_game_directory(self):
+        """Durably record checkpoint creation or deletion."""
         try:
-            with os.fdopen(fd,'w',encoding='utf-8') as f:
-                f.write(payload);f.flush();os.fsync(f.fileno())
-            os.replace(tmp,self.path/(g.id+'.alfastafl'))
-            # Make the directory entry durable as well as the serialized content.
+            directory_fd=os.open(self.path,os.O_DIRECTORY|os.O_RDONLY)
+            try:os.fsync(directory_fd)
+            finally:os.close(directory_fd)
+        except (OSError,AttributeError):pass
+
+    def _record_finished_tournament(self,g):
+        """Checkpoint a tournament result *before* discarding its board.
+
+        Results and faction history live in .tournaments.json, not in
+        finished-game saves. A crash between match completion and the
+        host's Next Round command must not lose the result.
+        """
+        tid, match=self.tournament_for_game(g.id)
+        if tid is None or match is None or match.get('winner') is not None:
+            return
+        from .tournament import Tournament
+        original=self.tournaments[tid]
+        tournament=Tournament.from_dict(copy.deepcopy(original))
+        winner=('draw' if g.winner is None else
+                match['a'] if g.winner==match['camp_a'] else
+                match['b'] if g.winner==match['camp_b'] else None)
+        if winner is None:
+            raise ValueError('Résultat du tournoi invalide.')
+        tournament.result(match['id'],winner)
+        self.tournaments[tid]=tournament.as_dict()
+        try:
+            self.save_tournaments()
+        except Exception:
+            self.tournaments[tid]=original
+            raise
+
+    def save(self,g):
+        """Save an unfinished match; erase the checkpoint once completed.
+
+        Finished games remain in RAM until exit to show the final board,
+        captures and winner to connected players and spectators.
+        """
+        with self.lock:
+            self.path.mkdir(parents=True,exist_ok=True)
+            saved_file=self.path/(g.id+'.alfastafl')
+            if g.status=='finished':
+                self._record_finished_tournament(g)
+                try:
+                    saved_file.unlink()
+                except FileNotFoundError:
+                    pass
+                self._sync_game_directory()
+                return
+            payload=json.dumps(g.as_dict(),ensure_ascii=False,indent=2)
+            fd,tmp=tempfile.mkstemp(prefix='.alfastafl-',dir=self.path)
             try:
-                directory_fd=os.open(self.path,os.O_DIRECTORY|os.O_RDONLY)
-                try:os.fsync(directory_fd)
-                finally:os.close(directory_fd)
-            except (OSError,AttributeError):pass
-        finally:
-            if os.path.exists(tmp):os.unlink(tmp)
+                with os.fdopen(fd,'w',encoding='utf-8') as file:
+                    file.write(payload);file.flush();os.fsync(file.fileno())
+                os.replace(tmp,saved_file)
+                self._sync_game_directory()
+            finally:
+                if os.path.exists(tmp):os.unlink(tmp)
     def save_tournaments(self):
         """Durably checkpoint standings and faction histories, atomically."""
         payload=json.dumps(self.tournaments,ensure_ascii=False,indent=2)
@@ -1158,7 +1209,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     st._tick_locked()
                     return self.send({'games':[{'id':g.id,'mode':g.mode,'turn':g.turn,
                            'status':g.status,'reason':g.reason,'moves':len(g.history),
-                           'players':g.players,'clock':g.clock} for g in st.games.values()]
+                           'players':g.players,'clock':g.clock} for g in st.games.values()
+                           if g.status!='finished']
                            if self.admin() else []})
                 if u.path=='/api/spectators':
                     if not self.admin():return self.send({'error':'Forbidden'},403)

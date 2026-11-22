@@ -212,8 +212,11 @@ class ConcurrentTournamentTests(unittest.TestCase):
         reloaded = Store(self.tmp.name)
         self.assertEqual(reloaded.tournaments[tid], tournament,
                          'The final result and standings must survive host restart')
-        self.assertEqual(reloaded.games[final['game']].status, 'finished')
-        self.assertEqual(reloaded.games[final['game']].winner, final['camp_a'])
+        self.assertNotIn(final['game'],reloaded.games,
+                         'A completed final must never be restored as a saved game')
+        self.assertFalse((reloaded.path/(final['game']+'.alfastafl')).exists())
+        self.assertEqual(next(m for m in reloaded.tournaments[tid]['matches']
+                         if m['id']==final['id'])['winner'],final['a'])
 
     def test_two_real_capture_moves_generate_independent_broadcast_scenes(self):
         """Two authorized players capture on independent boards using /api/move."""
