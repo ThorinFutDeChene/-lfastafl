@@ -1,4 +1,21 @@
-# Álfastafl — 0.7.2-dev6 (canal DEV)
+# Álfastafl — 0.7.2 (stable)
+
+La **0.7.2 stable** reprend les modifications et correctifs validés
+jusqu'à **0.7.2-dev6**. Elle succède à la **0.7.1**.
+
+**Nouveautés principales :** inscriptions aux tournois par QR code,
+validations dans la marge de l'hôte, rondes et factions automatiques,
+plateau 2D/3D plein écran sur les téléphones, spectateurs sans autorisation,
+cinématiques de combat de 8 secondes en tournoi, podium animé,
+historique consultable des résultats et suppression sécurisée des
+anciens tournois. Les parties terminées n'occupent plus d'emplacement
+de sauvegarde, contrairement aux parties interrompues.
+
+La gestion des mises à jour distingue le canal **stable** du canal **DEV**.
+Le paquet stable porte la version Debian `0.7.2`
+(tag GitHub `v0.7.2`).
+
+## Détails des préversions intégrées dans cette stable
 
 ## DEV 0.7.2-dev6 — Cinématiques de capture et de combat dans les tournois
 
