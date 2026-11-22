@@ -127,6 +127,71 @@ class Tournament:
         self.history.setdefault(m['a'], []).append({'camp':m['camp_a'], 'round':m['round']})
         self.history.setdefault(m['b'], []).append({'camp':m['camp_b'], 'round':m['round']})
 
+    def known_place(self, player):
+        """A first/second/third medal can be awarded before other games end."""
+        if self.rankings and player in self.rankings:
+            return self.rankings.index(player)+1
+        if not self.registration_open or self.format != 'knockout':
+            return None
+        finals=[m for m in self.matches if m.get('placement')=='final'
+                and m.get('winner') not in (None,'draw')]
+        if finals:
+            m=finals[-1]
+            if player==m['winner']:return 1
+            if player==m['a'] or player==m['b']:return 2
+        bronzes=[m for m in self.matches if m.get('placement')=='bronze'
+                 and m.get('winner') not in (None,'draw')]
+        if bronzes and player==bronzes[-1]['winner']:return 3
+        return None
+
+    def final_ranking(self):
+        """Stable, one-based placement across all tournament formats.
+
+        Points, wins and strength of opponents decide scored formats.
+        Remaining exact ties are drawn once using a fair shuffle; the
+        complete ordering is persisted and cannot change on refresh.
+        """
+        people=list(self.players)
+        secrets.SystemRandom().shuffle(people)
+        if self.format!='knockout':
+            points=self.standings()
+            wins={p:0 for p in people}
+            opponents={p:[] for p in people}
+            for m in self.matches:
+                if m.get('bye'):continue
+                if m.get('winner') in wins:wins[m['winner']]+=1
+                if m['a'] in opponents:opponents[m['a']].append(m['b'])
+                if m['b'] in opponents:opponents[m['b']].append(m['a'])
+            resistance={p:sum(points.get(o,0) for o in opponents[p]) for p in people}
+            people.sort(key=lambda p:(-points[p],-wins[p],-resistance[p]))
+            return people
+        final=[m for m in self.matches if m.get('placement')=='final'
+               and m.get('winner') not in (None,'draw')]
+        if not final:
+            played=[m for m in self.matches if m.get('winner') not in (None,'draw')
+                    and not m.get('bye') and m.get('placement')!='bronze']
+            final=sorted(played,key=lambda m:m['round'])[-1:]
+        ranked=[]
+        if final:
+            m=final[-1]
+            ranked.extend([m['winner'],m['b'] if m['winner']==m['a'] else m['a']])
+        bronze=[m for m in self.matches if m.get('placement')=='bronze'
+                and m.get('winner') not in (None,'draw')]
+        if bronze:
+            m=bronze[-1]
+            ranked.extend([m['winner'],m['b'] if m['winner']==m['a'] else m['a']])
+        # Earlier eliminations follow the round in which the player lost.
+        # A tie within the same elimination round is resolved by fair draw.
+        defeated={p:-1 for p in people}
+        for m in self.matches:
+            if m.get('winner') in (None,'draw') or m.get('bye') or m.get('placement')=='bronze':
+                continue
+            loser=m['b'] if m['winner']==m['a'] else m['a']
+            defeated[loser]=max(defeated[loser],m['round'])
+        others=[p for p in people if p not in ranked]
+        others.sort(key=lambda p:-defeated[p])
+        return ranked+others
+
     def _bye(self,player):
         """Record an exemption, not a fictitious game or camp assignment."""
         m={'id':str(uuid.uuid4()),'round':self.round_no,'a':player,'b':None,
