@@ -7,6 +7,7 @@ from .timecontrol import normalize_settings, new_clock, charge, switch_turn
 from . import tutorial
 
 PORT=8766
+TOURNAMENT_CINEMATIC_SECONDS=8  # Match the standard host-created game preset.
 
 def data_directory():
     base=os.environ.get('XDG_DATA_HOME') or os.path.expanduser('~/.local/share')
@@ -110,6 +111,18 @@ class Store:
                     continue
                 self.games[g.id]=g
             except (ValueError,TypeError,KeyError):continue
+        # DEV6: existing tournaments were created with the generic API
+        # default (zero cinematic seconds). The tournament UI never allowed
+        # the host to intentionally disable those scenes, so recover ongoing
+        # encounters while leaving standalone game preferences unchanged.
+        tournament_game_ids={m.get('game') for t in self.tournaments.values()
+                             for m in t.get('matches',[]) if m.get('game')}
+        for gid in tournament_game_ids:
+            game=self.games.get(gid)
+            if (game is not None and game.status!='finished' and
+                    game.settings.get('capture_cinematic_seconds')==0):
+                game.settings['capture_cinematic_seconds']=TOURNAMENT_CINEMATIC_SECONDS
+                self.save(game)
         # A power loss between persisting the last result and scheduling
         # the next round must not strand the tournament after reboot.
         for tid,t in list(self.tournaments.items()):
@@ -387,6 +400,17 @@ class Store:
             self.save(g)
         return sid
 
+    def create_tournament_game(self,mode='fetlar'):
+        """All tournament rounds must carry the standard capture/escape scenes.
+
+        Unlike the low-level create() API (which remains backward compatible
+        with 0-second cinematic defaults), tournament encounters always have
+        the same 8-second combat animations as the normal host UI.
+        """
+        return self.create(mode,settings={
+            'capture_cinematic_seconds':TOURNAMENT_CINEMATIC_SECONDS,
+        })
+
     def _auto_advance_open_tournament(self, tid):
         """After EVERY match in the round is scored, schedule the next round.
 
@@ -438,7 +462,7 @@ class Store:
         # Persist scheduled rounds before invitations can be used; a completed
         # match's own .alfastafl file is never recreated.
         for match in next_matches:
-            g=self.create()
+            g=self.create_tournament_game()
             match['game']=g.id
         self.tournaments[tid]=t.as_dict()
         self.save_tournaments()
@@ -1729,7 +1753,7 @@ class AppHandler(BaseHTTPRequestHandler):
                             t.final_round=True
                             matches[0]['placement']='final'
                         for match in matches:
-                            g=st.create(d.get('mode','fetlar'))
+                            g=st.create_tournament_game(d.get('mode','fetlar'))
                             match['game']=g.id
                         st.tournaments[t.id]=t.as_dict()
                         st.save_tournaments()
@@ -1749,7 +1773,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     st.save_tournaments()
                     matches=t.next_round()
                     for match in matches:
-                        g=st.create(d.get('mode','fetlar'))
+                        g=st.create_tournament_game(d.get('mode','fetlar'))
                         match['game']=g.id
                     st.tournaments[t.id]=t.as_dict()
                     st.save_tournaments()
