@@ -36,10 +36,12 @@
      name,device_token:spectatorQR?session:proof(name)});
    if(response.status==='waiting_match'){
     message.textContent=spectatorQR?'En attente du lancement des rencontres.':'Aucune rencontre à jouer actuellement. La recherche se poursuit automatiquement.';
+    if(spectatorQR)$('guest-waiting-message').textContent=message.textContent;
    }else if(response.status==='awaiting_host'){
     message.textContent=response.message;
    }else if(response.status==='approved'){
     approved=true;
+    if(spectatorQR)spectatorConnecting=false;
     gameId=response.game;session=response.session;
     requestId='';
     remember('alfastafl.tournament.role.'+tid,response.role);
@@ -57,7 +59,8 @@
    }else{
     throw Error('Réponse de connexion non reconnue.');
    }
-  }catch(error){message.textContent=error.message||String(error);}
+  }catch(error){message.textContent=error.message||String(error);
+   if(spectatorQR)$('guest-waiting-message').textContent=message.textContent;}
   finally{busy=false;action.disabled=false;}
  }
  action.addEventListener('click',enter);
@@ -87,6 +90,9 @@
     spectatorQR=true;
     panel.hidden=true;
     document.body.classList.add('guest-tournament-spectator');
+    spectatorConnecting=true;
+    $('guest-waiting-message').textContent='Connexion à la diffusion en cours…';
+    syncGuestLayout();
     await enter();
    }else if(input.value&&proof(input.value))enter();
    else if(input.value)message.textContent='Vérifiez votre nom puis rejoignez la rencontre.';
