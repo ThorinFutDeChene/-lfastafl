@@ -188,12 +188,9 @@ async function main(){
  async function oneMove(match){
   const dwarf=match.camp_a==='dwarf'?match.a:match.b;
   const actor=actors.get(dwarf),page=actor.page;
-  // On approved guest devices, graphical options live behind the compact
-  // overlay menu. Open, choose the lightweight view, then close it before
-  // clicking the actual legal destination on the board.
-  await page.locator('#guest-menu-toggle').click();
-  await page.locator('#game-board-mode').selectOption('2d');
-  await page.locator('#guest-menu-toggle').click();
+  // Approved players have exactly two persistent view buttons.
+  await page.locator('#guest-view-2d').click();
+  assert.equal(await page.locator('#guest-view-2d').getAttribute('aria-pressed'),'true');
   const state=await api('state?game='+match.game+'&session='+actor.session);
   assert.equal(state.game.turn,'dwarf');
   let from=null,to=null;
