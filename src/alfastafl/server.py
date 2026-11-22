@@ -32,6 +32,14 @@ class Store:
         self._broadcast_sessions={}
         self.spectator_limit=10
         self.spectator_idle_seconds=45
+        self._connection_settings=self.path/'.connection-settings.json'
+        try:
+            settings=json.loads(self._connection_settings.read_text('utf-8'))
+            limit=settings.get('spectator_limit')
+            if type(limit) is int and 0<=limit<=100:
+                self.spectator_limit=limit
+        except (OSError,ValueError,TypeError,AttributeError):
+            pass
         # Ephemeral host preparation / authenticated spectator activity.
         # No permanent LAN setting or browser identifier is written to disk.
         self._lan_activity_until=0.0
@@ -816,6 +824,16 @@ class Store:
         if isinstance(limit,bool) or not isinstance(limit,int) or not 0<=limit<=100:
             raise ValueError('Limite spectateurs : choisissez un entier entre 0 et 100.')
         with self.lock:
+            # The host's selected capacity survives native application restarts.
+            fd,tmp=tempfile.mkstemp(prefix='.alfastafl-connections-',dir=self.path)
+            try:
+                with os.fdopen(fd,'w',encoding='utf-8') as file:
+                    json.dump({'spectator_limit':limit},file)
+                    file.flush()
+                    os.fsync(file.fileno())
+                os.replace(tmp,self._connection_settings)
+            finally:
+                if os.path.exists(tmp):os.unlink(tmp)
             self.spectator_limit=limit
             return self.spectator_stats()
 
