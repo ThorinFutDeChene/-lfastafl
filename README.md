@@ -1,4 +1,27 @@
-# Álfastafl — 0.7.2-dev4 (canal DEV)
+# Álfastafl — 0.7.2-dev5 (canal DEV)
+
+## DEV 0.7.2-dev5 — Historique et suppression des anciens tournois
+
+Depuis **Partie → Tournois**, les tournois sont regroupés entre
+**Tournois à reprendre ou en préparation** et
+**Historique des tournois terminés**. Le bouton
+**Consulter les résultats** affiche les rondes, les factions,
+les vainqueurs, les scores et, lorsqu'il est enregistré, le
+classement final et le podium. Les anciens tournois antérieurs à
+l'inscription par QR restent consultables sans leur plateau sauvegardé.
+
+Chaque tournoi comporte un bouton **Supprimer** avec confirmation
+explicite. La suppression efface durablement sa fiche, ses résultats,
+autorisations et éventuelles sauvegardes de rencontres interrompues.
+Le serveur bloque la suppression si une rencontre est encore active.
+Les parties individuelles et les autres tournois sont préservés.
+
+Les sauvegardes de tournoi sont synchronisées de manière atomique
+avec une protection en cas d'arrêt brutal pendant la suppression.
+
+**Paquet Debian :** `0.7.2~dev5`. La version stable reste inchangée.
+
+## Historique des DEV
 
 ## DEV 0.7.2-dev4 — Tournois avec inscription par QR code
 
