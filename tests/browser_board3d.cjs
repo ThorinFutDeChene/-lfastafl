@@ -1091,15 +1091,14 @@ async function main() {
     assert.equal(created.status(),200);
     const data=await created.json();
     assert(data.host_session);
-    const request=await context.request.post(base+'/api/join',{data:{
+    const joined=await context.request.post(base+'/api/join',{data:{
       game:data.game,invite:data.invites.spectator,name:'Public 3D',
     }});
-    assert.equal(request.status(),200);
-    const approved=await context.request.post(base+'/api/approve',{data:{
-      request:(await request.json()).request,camp:null,
-    }});
-    assert.equal(approved.status(),200);
-    const spectatorSession=(await approved.json()).session;
+    assert.equal(joined.status(),200);
+    const spectatorAdmission=await joined.json();
+    assert.equal(spectatorAdmission.status,'approved');
+    assert.equal(spectatorAdmission.role,'spectator');
+    const spectatorSession=spectatorAdmission.session;
     const watcherContext=await makeContext({}, {guest:true});
     const host=await context.newPage();
     const spectator=await watcherContext.newPage();
