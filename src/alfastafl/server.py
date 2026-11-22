@@ -64,6 +64,24 @@ class Store:
         for ident in self.tournaments:
             self._tournament_invites[ident]={'player':secrets.token_urlsafe(30),
                                                'spectator':secrets.token_urlsafe(30)}
+        # Recover a deletion interrupted by an abrupt host shutdown.
+        # The tournament journal is authoritative: its presence means the
+        # staged checkpoint must be restored; absence means it can be purged.
+        staged_prefix='.tournament-trash-'
+        staged_suffix='.pending'
+        for staged in self.path.glob(staged_prefix+'*'+staged_suffix):
+            gid=staged.name[len(staged_prefix):-len(staged_suffix)]
+            try:
+                if str(uuid.UUID(gid))!=gid:continue
+                retained=any(m.get('game')==gid for t in self.tournaments.values()
+                             for m in t.get('matches',[]))
+                if retained:
+                    os.replace(staged,self.path/(gid+'.alfastafl'))
+                else:
+                    staged.unlink()
+            except (ValueError,OSError):
+                # Do not touch an unexpected or inaccessible local file.
+                pass
         for f in self.path.glob('*.alfastafl'):
             try:
                 d=json.loads(f.read_text('utf-8'))
@@ -696,6 +714,95 @@ class Store:
                     entry['active'] = False
             self.save_tournaments()
             return len(removed)
+
+    def delete_tournament(self, tid):
+        """Delete an old tournament, its paused checkpoints and authorizations.
+
+        A live encounter is never deleted. Archive results live solely in
+        .tournaments.json; completed game checkpoints are already removed.
+        To avoid orphaning or losing save files across a crash, unfinished
+        checkpoints are renamed to hidden tombstones before the atomic journal
+        update. Startup rolls tombstones forward/back using that journal.
+        """
+        with self.lock:
+            if not isinstance(tid,str) or tid not in self.tournaments:
+                raise ValueError('Tournoi inconnu ou déjà supprimé.')
+            record=self.tournaments[tid]
+            game_ids={m.get('game') for m in record.get('matches',[])
+                      if m.get('game')}
+            # Existing non-tournament games and other tournaments are never
+            # affected, even when the request supplies a foreign identifier.
+            for other_id,t in self.tournaments.items():
+                if other_id!=tid and any(m.get('game') in game_ids
+                                         for m in t.get('matches',[])):
+                    raise ValueError('Une rencontre appartient aussi à un autre tournoi.')
+            for gid in game_ids:
+                try:
+                    if str(uuid.UUID(gid))!=gid:
+                        raise ValueError('Identifiant de rencontre invalide.')
+                except (TypeError,AttributeError):
+                    raise ValueError('Identifiant de rencontre invalide.')
+                g=self.games.get(gid)
+                if g is not None and g.status=='active':
+                    raise ValueError('Tournoi en cours : fermez ou sauvegardez les rencontres actives avant suppression.')
+            staged=[]
+            try:
+                for gid in game_ids:
+                    source=self.path/(gid+'.alfastafl')
+                    destination=self.path/('.tournament-trash-'+gid+'.pending')
+                    if destination.exists():
+                        raise ValueError('Une suppression précédente est inachevée.')
+                    if source.is_file():
+                        os.replace(source,destination)
+                        staged.append((source,destination))
+                self._sync_game_directory()
+                del self.tournaments[tid]
+                try:
+                    self.save_tournaments()
+                except Exception:
+                    self.tournaments[tid]=record
+                    raise
+            except Exception:
+                for source,destination in reversed(staged):
+                    if destination.exists():
+                        os.replace(destination,source)
+                self._sync_game_directory()
+                raise
+            # Journal deletion is now durable: revoke all LAN access, local
+            # game state and QR tokens as part of this same guarded action.
+            self._tournament_invites.pop(tid,None)
+            for request in self._registration_requests.values():
+                if request.get('tournament')==tid:
+                    request['status']='rejected'
+                    request['token']=None
+            for request in self.pending.values():
+                if request.get('game') in game_ids:
+                    request['status']='rejected'
+                    request['session']=None
+            for key in [sid for sid,item in self.sessions.items()
+                        if item.get('game') in game_ids or
+                        item.get('broadcast_tournament')==tid]:
+                self.sessions.pop(key,None)
+            self._broadcast_sessions={
+                key:value for key,value in self._broadcast_sessions.items()
+                if key[1] not in game_ids and key[0] in self.sessions
+                and value in self.sessions}
+            for gid in game_ids:
+                self.games.pop(gid,None)
+                self.invites.pop(gid,None)
+                self._anchors.pop(gid,None)
+                self._checkpoints.pop(gid,None)
+                self._cinematics.pop(gid,None)
+                self.repetition_votes.pop(gid,None)
+            for _,destination in staged:
+                try:destination.unlink()
+                except FileNotFoundError:pass
+                except OSError:
+                    # A surviving tombstone cannot restore a deleted
+                    # tournament on restart: the journal no longer lists it.
+                    pass
+            self._sync_game_directory()
+            return {'deleted':tid,'games_removed':len(game_ids)}
 
     def available_camps(self,gid,name=None):
         """Server-authoritative choices for the host's approval dialog.
@@ -1549,7 +1656,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
             if u.path in ('/api/spectators/limit','/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round','/api/tournament/registration/decide',
-                           '/api/tournament/revoke') and not self.admin():raise PermissionError('Host-only action')
+                           '/api/tournament/revoke','/api/tournament/delete') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/spectators/limit':
                 return self.send(st.set_spectator_limit(d.get('limit')))
             if u.path=='/api/create':
@@ -1603,6 +1710,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     st.tournament_invitations(t.id)
                     st.save_tournaments()
                 return self.send({'tournament':st.tournaments[t.id]})
+            if u.path=='/api/tournament/delete':
+                return self.send(st.delete_tournament(d['tournament']))
             if u.path=='/api/tournament/revoke':
                 return self.send({'revoked':st.revoke_tournament_device(
                     d['tournament'],d['name'],d.get('role','player'))})
