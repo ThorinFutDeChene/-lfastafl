@@ -245,7 +245,12 @@ class TournamentByesHTTPTests(unittest.TestCase):
         checkpoint=self.store.tournaments[tid]
         stored=Store(self.tmp.name)
         self.assertEqual(stored.tournaments[tid],checkpoint)
-        self.assertEqual(len(stored.games),len(self.store.games))
+        self.assertEqual(set(stored.games),
+                         {g.id for g in self.store.games.values()
+                          if g.status!='finished'},
+                         'Only unfinished tournament games may be recovered')
+        self.assertFalse((stored.path/(original['game']+'.alfastafl')).exists())
+        self.assertFalse((stored.path/(replay['game']+'.alfastafl')).exists())
 
     def test_odd_round_robin_and_swiss_do_not_launch_games_for_byes(self):
         for kind in ('round_robin','swiss'):
