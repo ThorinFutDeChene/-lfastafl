@@ -16,7 +16,7 @@ server.lan_enabled=True
 server.lan_address='127.0.0.1'
 class Handler(AppHandler):
  def do_POST(self):
-  if self.path=='/__test__/finish':
+  if self.path=='/api/__test__/finish':
    d=self.read_json()
    with self.server.store.lock:
     g=self.server.store.games[d['game']]
