@@ -21,7 +21,8 @@
   const banner=el('tournament-stage-message'),opponentLabel=el('tournament-opponent-label');
   let name=stored(nameKey);
   let secret=name?stored('alfastafl.credential.'+tid+'.player.'+name):'';
-  let registration=sessionStorage.getItem(registrationKey)||'';
+  // Pending registration survives closing a mobile browser tab.
+  let registration=stored(registrationKey)||sessionStorage.getItem(registrationKey)||'';
   let busy=false,displayedMatch='',placing=0,preview=null;
   let lastGameFinishedAt=0,previousRank=null,lastSeenMatch='';
   let lastMatchChange=0,transitionFor='',transitionSince=0;
@@ -115,11 +116,11 @@
     const answer=await api('tournament/register',{tournament:tid,
      invite,name,device_token:secret||null});
     if(answer.status==='approved'&&secret){
-     registration='';sessionStorage.removeItem(registrationKey);
+     registration='';forget(registrationKey);sessionStorage.removeItem(registrationKey);
      await refreshPlayer();
     }else if(answer.status==='pending'&&answer.request){
      registration=answer.request;
-     sessionStorage.setItem(registrationKey,registration);
+     remember(registrationKey,registration);
      showApproval();
     }else{
      throw Error('Réponse d’inscription invalide.');
@@ -138,12 +139,12 @@
     remember(nameKey,name);
     remember('alfastafl.credential.'+tid+'.player.'+name,secret);
     registration='';
-    sessionStorage.removeItem(registrationKey);
+    forget(registrationKey);sessionStorage.removeItem(registrationKey);
     spectatorConnecting=false;
     await refreshPlayer();
    }else if(answer.status==='rejected'){
     registration='';
-    sessionStorage.removeItem(registrationKey);
+    forget(registrationKey);sessionStorage.removeItem(registrationKey);
     showEntry('Inscription refusée par l’organisateur.');
    }else if(answer.status==='waiting')showApproval();
   }
@@ -166,6 +167,9 @@
     opponentText(answer);return;
    }
    if(displayedMatch&&answer.match!==displayedMatch){
+    // Refresh the *old* game first, so its final capture or victory animation
+    // is visible before routing this phone to the next-round waiting board.
+    if(gameId&&game?.status!=='finished')await load();
     if(departingMatch())return;
     if(transitionFor!==answer.match){
      transitionFor=answer.match;transitionSince=Date.now();
@@ -201,6 +205,7 @@
   }
 
   async function showRanking(answer){
+   if(gameId&&game?.status!=='finished')await load();
    if(departingMatch())return;
    const rank=answer.rank;
    lobbyBoard('Classement final : '+rank+'ᵉ place',preview);
@@ -248,7 +253,7 @@
      forget('alfastafl.credential.'+tid+'.player.'+name);
      showEntry('Cette autorisation n’est plus valable. Demandez un nouvel accès.');
     }else if(registration&&reason.includes('expirée')){
-     registration='';sessionStorage.removeItem(registrationKey);
+     registration='';forget(registrationKey);sessionStorage.removeItem(registrationKey);
      showEntry('Connexion interrompue. Renouvelez votre inscription.');
     }else if(registration){
      waiting.textContent=reason;
