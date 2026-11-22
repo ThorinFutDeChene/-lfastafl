@@ -53,6 +53,7 @@ function openHostTutorial(){
  else popup.focus();
 }
 let selected=null,legalDestinations=[],captureDestinations=[],game=null,requestId='',you=null,reviewVotes={},hostSeats={};
+let spectatorConnecting=false;
 let clockReceivedAt=0,serverTimeReceivedAt=0;let gameListUpdatedAt=0;
 let gameBusy=false,boardRevision=0,loadRevision=0,appliedLoadRevision=0,gameDrag=null;
 let cinematicCue=null,seenCinematic='',skippedCinematic='',captureVisualPlaying=false;
@@ -148,7 +149,7 @@ function setGuestMenu(open) {
  $('guest-menu-toggle').setAttribute('aria-expanded', String(visible));
 }
 function syncGuestLayout() {
- const awaiting=Boolean(!isHost&&requestId&&!session);
+ const awaiting=Boolean(!isHost&&(requestId&&!session||spectatorConnecting));
  document.body.classList.toggle('guest-awaiting-approval',awaiting);
  $('guest-waiting').hidden=!awaiting;
  // URL invites or saved strings are not authorization: trust only /api/state.
@@ -801,15 +802,21 @@ if(!isHost&&q.has('invite')&&!q.has('tournament')){
    const role=await api('invite/role?game='+encodeURIComponent(invitedGame)+
     '&invite='+encodeURIComponent(q.get('invite')));
    if(role.role!=='spectator')return;
+   spectatorConnecting=true;
+   $('guest-waiting-message').textContent='Connexion à la diffusion en cours…';
+   syncGuestLayout();
    const result=await api('join',{game:invitedGame,invite:q.get('invite'),
     session:deviceSession(invitedGame)});
    if(result.role!=='spectator'||result.status!=='approved')return;
-   gameId=invitedGame;session=result.session;requestId='';
+   gameId=invitedGame;session=result.session;requestId='';spectatorConnecting=false;
    rememberDevice(gameId,session);
    sessionStorage.setItem('alfastafl.game',gameId);
    sessionStorage.setItem('alfastafl.session',session);
    await load();
-  }catch(error){$('joinmsg').textContent=error.message;}
+  }catch(error){
+   $('guest-waiting-message').textContent=error.message;
+   $('joinmsg').textContent=error.message;
+  }
  })();
 }
 $('name').addEventListener('keydown',event=>{
