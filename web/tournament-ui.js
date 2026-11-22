@@ -196,6 +196,17 @@
    const data=await api('tournaments');
    tournamentsCache=data.tournaments||[];
    if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open))activeId='';
+   if(!activeId){
+    // Native host restarts clear sessionStorage. Restore the most recent
+    // unfinished QR tournament so its rail and authorization QR return.
+    const resumable=tournamentsCache.filter(t=>t.registration_open&&!t.completed);
+    if(resumable.length){
+     activeId=resumable[resumable.length-1].id;
+     sessionStorage.setItem('alfastafl.active-tournament',activeId);
+     ensureLanForSession();
+     globalThis.AlfastaflBroadcast?.start(activeId);
+    }
+   }
    render(tournamentsCache);
    await syncRail();
   }catch(error){status('Lecture des tournois impossible : '+error.message,true);}
@@ -352,7 +363,7 @@
  window.AlfastaflTournaments={
   refresh,active:()=>activeId,syncRail,activate,
  };
- if(activeId)refresh();
+ refresh();
  setInterval(()=>{
   const onAir=globalThis.AlfastaflBroadcast?.currentTournament();
   if(activeId&&(!onAir||onAir===activeId))syncRail().catch(()=>{});
