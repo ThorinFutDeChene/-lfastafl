@@ -1,3 +1,29 @@
+# Álfastafl 0.7.2-dev3 — Suppression automatique des sauvegardes terminées
+
+- **Aucune sauvegarde de partie terminée :** dès qu'une partie est gagnée,
+  abandonnée, perdue au temps, déclarée forfait ou terminée par un nul,
+  son fichier `.alfastafl` est supprimé automatiquement.
+- Une partie **encore en cours ou mise en pause** continue d'être sauvegardée
+  et peut être reprise normalement.
+- **Sauvegardes…** ne présente plus les parties terminées. L'écran des
+  joueurs et spectateurs conserve néanmoins le plateau et le résultat
+  jusqu'à la fermeture de l'application.
+- Au premier démarrage de cette version, les anciens fichiers de parties
+  déjà terminées sont également supprimés.
+- **Tournois :** le résultat, le classement et la répartition des factions
+  sont enregistrés séparément **avant** de supprimer le plateau terminé.
+  La reprise d'un tournoi reste possible après redémarrage, même si la
+  rencontre achevée n'a plus de sauvegarde.
+- La stable 0.7.1 n'est pas modifiée.
+
+## Validation
+
+Tests de fin de partie, victoire, abandon, nul, expiration du temps,
+forfait, récupération des anciens fichiers, persistance des tournois
+et protection contre les erreurs d'écriture.
+
+---
+
 # Álfastafl 0.7.2-dev2 — Connexion mobile et spectateurs directs
 
 ## Joueurs via QR code
