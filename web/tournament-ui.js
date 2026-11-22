@@ -201,23 +201,129 @@
   }catch(error){status('Lecture des tournois impossible : '+error.message,true);}
  }
  async function create(){
-  const players=playersInput.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  if(players.length<2||new Set(players).size!==players.length)
-   throw Error('Il faut au moins deux participants, avec des noms distincts.');
-  if(players.some(x=>x.length>60))throw Error('Un nom ne peut pas dépasser 60 caractères.');
   if(!nameInput.value.trim())throw Error('Le tournoi doit avoir un nom.');
   const rounds=Number(roundsInput.value);
-  if(!Number.isInteger(rounds)||rounds<1||rounds>20)throw Error('Nombre de rondes invalide.');
+  if(!Number.isInteger(rounds)||rounds<1||rounds>20)
+   throw Error('Nombre de rondes invalide.');
   ensureLanForSession();
   const result=await api('tournament/create',{
-   name:nameInput.value.trim(),format:formatInput.value,
-   players,rounds,
+   name:nameInput.value.trim(),format:formatInput.value,rounds,
   });
-  if(!result.tournament?.id)throw Error('Création du tournoi non confirmée.');
-  nameInput.value='';playersInput.value='';
-  status('Tournoi créé. Lancez la première ronde pour effectuer le tirage au sort.');
+  if(!result.tournament?.id||!result.tournament?.registration_open)
+   throw Error('La création du tournoi sans liste de joueurs a échoué.');
+  nameInput.value='';
+  activeId=result.tournament.id;
+  sessionStorage.setItem('alfastafl.active-tournament',activeId);
+  status('Tournoi créé : les joueurs peuvent maintenant scanner le QR.');
+  el('shell-tournament-dialog').close();
   await refresh();
+  globalThis.AlfastaflBroadcast?.start(activeId);
+  ensureLanForSession();
  }
+ async function activate(id){
+  if(!tournamentsCache.some(x=>x.id===id&&x.registration_open))
+   throw Error('Tournoi QR introuvable.');
+  activeId=id;
+  sessionStorage.setItem('alfastafl.active-tournament',activeId);
+  ensureLanForSession();
+  el('shell-tournament-dialog').close();
+  globalThis.AlfastaflBroadcast?.start(activeId);
+  await syncRail();
+  render(tournamentsCache);
+ }
+ const encoded=value=>encodeURIComponent(String(value||''));
+ const qrRoles=['player','spectator'];
+ async function syncRail(address,overrideId){
+  const id=overrideId||activeId;
+  if(!id)return;
+  const t=tournamentsCache.find(x=>x.id===id);
+  if(!t)return;
+  if(railBusy)return;
+  railBusy=true;
+  rail.hidden=false;
+  try{
+   const addr=address||await api('address');
+   const live=Boolean(addr?.lan_enabled);
+   for(const role of qrRoles){
+    const figure=el('shell-'+role+'-code'),img=el('shell-'+role+'-image');
+    const note=el('shell-'+role+'-note');
+    const signature='tournament:'+id+'|'+role+'|'+addr.address+'|'+addr.port;
+    img.hidden=!live;
+    figure.classList.toggle('shell-qr-offline',!live);
+    note.textContent=live?
+     role==='player'?'Scanner pour s’inscrire au tournoi':
+     'Scanner pour regarder sans autorisation':
+     'Réseau local en cours d’ouverture…';
+    if(live&&figure.dataset.signature!==signature){
+     img.src='/api/qr?tournament='+encoded(id)+'&role='+role;
+     figure.dataset.signature=signature;
+    }else if(!live){
+     delete figure.dataset.signature;
+     img.removeAttribute('src');
+    }
+   }
+   el('shell-network-status').textContent=live?
+    'Tournoi · accès direct des spectateurs':'Réseau du tournoi en cours d’ouverture';
+   const data=await api('tournament/registrations?tournament='+encoded(id));
+   el('rail-tournament-name').textContent=data.name;
+   el('rail-tournament-count').textContent=data.players.length+
+    (data.players.length>1?' joueurs inscrits':' joueur inscrit');
+   const pending=el('rail-tournament-requests');
+   const previous=JSON.stringify(Array.from(pending.querySelectorAll('[data-request]'))
+     .map(x=>x.dataset.request));
+   const next=JSON.stringify(data.pending.map(x=>x.id));
+   if(previous!==next){
+    pending.replaceChildren();
+    for(const row of data.pending){
+     const item=div('rail-request');
+     item.dataset.request=row.id;
+     text(item,'strong',row.name);
+     text(item,'small',row.new?'Demande d’inscription':'Nouvel appareil');
+     const actions=div('rail-request-actions');
+     for(const [caption,approve] of [['Valider',true],['Refuser',false]]){
+      const btn=button(caption,async()=>{
+       await api('tournament/registration/decide',{request:row.id,approve});
+       await refresh();
+      },approve?'rail-approve':'rail-reject');
+      actions.append(btn);
+     }
+     item.append(actions);pending.append(item);
+    }
+   }
+   const roster=el('rail-tournament-roster');
+   const key=data.players.join('|');
+   if(roster.dataset.players!==key){
+    roster.replaceChildren();
+    for(const p of data.players)text(roster,'span',p);
+    roster.dataset.players=key;
+   }
+   const draw=el('rail-tournament-draw');
+   draw.hidden=data.round>0||data.completed;
+   draw.disabled=drawBusy||!live||data.players.length<2||data.pending.length>0;
+   const msg=el('rail-tournament-message');
+   if(data.completed){msg.textContent='Tournoi terminé · classement définitif';}
+   else if(data.round){msg.textContent='Ronde '+data.round+' · suivi automatique';}
+   else if(data.pending.length){msg.textContent=data.pending.length+' demande(s) à traiter';}
+   else if(data.players.length<2){msg.textContent='Au moins deux inscriptions à valider';}
+   else{msg.textContent='Prêt : tirer les premières rencontres';}
+  }catch(error){el('rail-tournament-message').textContent=error.message||String(error);}
+  finally{railBusy=false;}
+ }
+ el('rail-tournament-draw').addEventListener('click',async()=>{
+  if(drawBusy||!activeId)return;
+  drawBusy=true;
+  el('rail-tournament-draw').disabled=true;
+  try{
+   ensureLanForSession();
+   const response=await api('tournament/round',{
+    tournament:activeId,mode:el('mode').value,
+   });
+   if(!response.matches?.length)throw Error('Aucune rencontre attribuée.');
+   await refresh();
+   globalThis.AlfastaflBroadcast?.start(activeId);
+  }catch(error){el('rail-tournament-message').textContent=error.message||String(error);}
+  finally{drawBusy=false;await syncRail();}
+ });
  el('tournament-create').addEventListener('click',async()=>{
   const b=el('tournament-create');b.disabled=true;
   try{await create();}
@@ -243,5 +349,9 @@
   syncFormatHelp();
  });
  formatInput.dispatchEvent(new Event('change'));
- window.AlfastaflTournaments={refresh};
+ window.AlfastaflTournaments={
+  refresh,active:()=>activeId,syncRail,activate,
+ };
+ if(activeId)refresh();
+ setInterval(()=>{if(activeId)syncRail().catch(()=>{});},1800);
 })();
