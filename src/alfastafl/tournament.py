@@ -76,9 +76,11 @@ def balanced_camps(a, b, history):
 class Tournament:
     FORMATS=('knockout','round_robin','swiss')
     def __init__(self,name,format,players,rounds=3,id=None,history=None,matches=None,round_no=0,
-                 devices=None,spectator_devices=None):
+                 devices=None,spectator_devices=None,registration_open=False,
+                 completed=False,final_round=False,rankings=None):
         if format not in self.FORMATS:raise ValueError('Invalid tournament format')
-        if len(players)<2 or len(set(players))!=len(players):raise ValueError('Need unique players')
+        if (len(players)<2 and not registration_open) or len(set(players))!=len(players):
+            raise ValueError('Need unique players')
         self.id=id or str(uuid.uuid4());self.name=name;self.format=format;self.players=players
         self.rounds=rounds;self.history=history or {p:[] for p in players}
         self.matches=matches or [];self.round_no=round_no
@@ -86,12 +88,18 @@ class Tournament:
         # serialized or included in tournament API responses.
         self.devices=devices or {}
         self.spectator_devices=spectator_devices or {}
+        self.registration_open=bool(registration_open)
+        self.completed=bool(completed)
+        self.final_round=bool(final_round)
+        self.rankings=list(rankings or [])
 
     def as_dict(self):
         return dict(id=self.id,name=self.name,format=self.format,
                     players=self.players,rounds=self.rounds,history=self.history,
                     matches=self.matches,round_no=self.round_no,
-                    devices=self.devices,spectator_devices=self.spectator_devices)
+                    devices=self.devices,spectator_devices=self.spectator_devices,
+                    registration_open=self.registration_open,completed=self.completed,
+                    final_round=self.final_round,rankings=self.rankings)
 
     @classmethod
     def from_dict(cls,d):return cls(**d)
@@ -125,15 +133,18 @@ class Tournament:
            'camp_a':None,'camp_b':None,'winner':player,'bye':True,'game':None}
         self.matches.append(m)
 
-    def _match(self,a,b,replay_of=None):
+    def _match(self,a,b,replay_of=None,placement=None):
         ca,cb=balanced_camps(a,b,self.history)
         m={'id':str(uuid.uuid4()),'round':self.round_no,'a':a,'b':b,
            'camp_a':ca,'camp_b':cb,'winner':None}
         if replay_of is not None:m['replay_of']=replay_of
+        if placement:m['placement']=placement
         self.matches.append(m)
         return m
 
     def next_round(self):
+        if len(self.players)<2:raise ValueError('Au moins deux inscrits sont nécessaires.')
+        if self.completed:return []
         if any(m.get('winner') is None for m in self.matches):
             raise ValueError('Finish current round')
         if self.format=='swiss' and self.round_no>=self.rounds:return []
@@ -153,7 +164,8 @@ class Tournament:
             drawn=[m for m in previous if m.get('winner')=='draw' and
                    m['id'] not in replaced]
             if drawn:
-                return [self._match(m['a'],m['b'],replay_of=m['id']) for m in drawn]
+                return [self._match(m['a'],m['b'],replay_of=m['id'],
+                                    placement=m.get('placement')) for m in drawn]
             decisive=[m for m in previous if m['id'] not in replaced]
             pool=[m['winner'] for m in decisive if m.get('winner') not in (None,'draw')]
             if len(pool)<2:return []
