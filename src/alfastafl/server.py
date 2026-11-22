@@ -1416,7 +1416,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     role=next((r for r,secret in invites.items()
                                if token and hmac.compare_digest(token,secret)),None)
                     if not role:raise PermissionError('Invitation de tournoi invalide.')
-                    return self.send({'role':role})
+                    return self.send({'role':role,
+                                  'registration_open':bool(st.tournaments[tid].get('registration_open'))})
                 if u.path=='/api/invite/role':
                     gid=q.get('game',[''])[0]
                     token=q.get('invite',[''])[0]
@@ -1470,6 +1471,11 @@ class AppHandler(BaseHTTPRequestHandler):
                 if u.path=='/api/tournaments':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'tournaments':list(st.tournaments.values())})
+                if u.path=='/api/tournament/registrations':
+                    if not self.admin():return self.send({'error':'Forbidden'},403)
+                    return self.send(st.registration_requests(q.get('tournament',[''])[0]))
+                if u.path=='/api/tournament/registration/status':
+                    return self.send(st.registration_status(q.get('request',[''])[0]))
                 if u.path=='/api/tournament/invites':
                     if not self.admin():raise PermissionError('Host-only action')
                     tid=q.get('tournament',[''])[0]
@@ -1533,7 +1539,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
-            if u.path in ('/api/spectators/limit','/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round',
+            if u.path in ('/api/spectators/limit','/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round','/api/tournament/registration/decide',
                            '/api/tournament/revoke') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/spectators/limit':
                 return self.send(st.set_spectator_limit(d.get('limit')))
@@ -1548,6 +1554,14 @@ class AppHandler(BaseHTTPRequestHandler):
             if u.path=='/api/host/seat':
                 return self.send({'session':st.seat_host(d['game'],d.get('camp')),'camp':d.get('camp')})
             if u.path=='/api/join':return self.send(st.join(d['game'],d['invite'],d.get('name','Guest'),d.get('session')))
+            if u.path=='/api/tournament/register':
+                return self.send(st.register_tournament_player(
+                    d['tournament'],d['invite'],d.get('name',''),d.get('device_token')))
+            if u.path=='/api/tournament/player/state':
+                return self.send(st.open_tournament_player_state(
+                    d['tournament'],d['name'],d.get('device_token')))
+            if u.path=='/api/tournament/registration/decide':
+                return self.send(st.decide_registration(d['request'],d.get('approve')))
             if u.path=='/api/tournament/enter':
                 return self.send(st.enter_tournament(
                     d['tournament'],d['invite'],d.get('name',''),
@@ -1570,7 +1584,11 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self.send({'game':st.disconnect_decision(d['game'],d['action'],d.get('camp'))})
             if u.path=='/api/tournament/create':
                 from .tournament import Tournament
-                t=Tournament(d['name'],d['format'],d['players'],int(d.get('rounds',3)))
+                initial_players=d.get('players',[])
+                if not isinstance(initial_players,list):
+                    raise ValueError('La liste des joueurs doit être un tableau.')
+                t=Tournament(d['name'],d['format'],initial_players,
+                             int(d.get('rounds',3)),registration_open=not initial_players)
                 with st.lock:
                     st.tournaments[t.id]=t.as_dict()
                     st.tournament_invitations(t.id)
@@ -1583,29 +1601,41 @@ class AppHandler(BaseHTTPRequestHandler):
                 from .tournament import Tournament
                 with st.lock:
                     t=Tournament.from_dict(st.tournaments[d['tournament']])
-                    # Results are taken ONLY from finished, server-authoritative
-                    # games; a client cannot forge a tournament winner.
+                    if t.registration_open:
+                        if t.round_no:
+                            raise ValueError('Après le tirage initial, les rondes se lancent automatiquement.')
+                        if len(t.players)<2:
+                            raise ValueError('Au moins deux inscriptions validées sont nécessaires.')
+                        matches=t.next_round()
+                        if t.format=='knockout' and len(t.players)==2 and matches:
+                            t.final_round=True
+                            matches[0]['placement']='final'
+                        for match in matches:
+                            g=st.create(d.get('mode','fetlar'))
+                            match['game']=g.id
+                        st.tournaments[t.id]=t.as_dict()
+                        st.save_tournaments()
+                        return self.send({'matches':matches})
+                    # Legacy tournaments retain their already scheduled roster.
+                    # Results are taken only from server-authoritative games.
                     for m in t.matches:
-                        if m.get('winner') is not None:
-                            continue
+                        if m.get('winner') is not None:continue
                         game=st.games.get(m.get('game'))
-                        if game is None or game.status!='finished':
-                            continue
+                        if game is None or game.status!='finished':continue
                         result=('draw' if game.winner is None else
                                 m['a'] if game.winner==m['camp_a'] else
                                 m['b'] if game.winner==m['camp_b'] else None)
-                        if result is None:
-                            raise ValueError('Résultat du tournoi invalide.')
+                        if result is None:raise ValueError('Résultat du tournoi invalide.')
                         t.result(m['id'],result)
                     st.tournaments[t.id]=t.as_dict()
                     st.save_tournaments()
                     matches=t.next_round()
-                    for m in matches:
+                    for match in matches:
                         g=st.create(d.get('mode','fetlar'))
-                        m['game']=g.id
+                        match['game']=g.id
                     st.tournaments[t.id]=t.as_dict()
                     st.save_tournaments()
-                return self.send({'matches':matches})
+                    return self.send({'matches':matches})
             return self.send({'error':'Unknown endpoint'},404)
         except (KeyError,ValueError,PermissionError,IndexError,TypeError) as e:return self.send({'error':str(e)},403 if isinstance(e,PermissionError) else 400)
         except OSError:return self.send({'error':'La suppression a échoué sur le disque ; la partie est conservée.'},500)
