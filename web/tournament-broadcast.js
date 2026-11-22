@@ -74,6 +74,10 @@
  }
  function updateTournamentRail(tid,addr){
   if(!isHost||!isDesktopShell)return;
+  if(globalThis.AlfastaflTournaments?.active()){
+   globalThis.AlfastaflTournaments.syncRail(addr,tid).catch(()=>{});
+   return;
+  }
   const valid=Boolean(addr?.lan_enabled);
   for(const role of ['player','spectator']){
    const img=document.getElementById('shell-'+role+'-image');
@@ -83,7 +87,7 @@
    img.hidden=!valid;card.classList.toggle('shell-qr-offline',!valid);
    note.textContent=valid
     ?role==='player'?'QR du tournoi · jouer sa prochaine rencontre'
-      :'QR du tournoi · demander à regarder les parties'
+       :'QR du tournoi · accès spectateur direct'
     :'Activer le réseau pour partager ce tournoi.';
    const id='tournament:'+tid+'|'+role+'|'+addr.address+'|'+addr.port;
    if(valid&&card.dataset.signature!==id){
@@ -92,7 +96,7 @@
    }else if(!valid)delete card.dataset.signature;
   }
   const label=document.getElementById('shell-network-status');
-  if(label)label.textContent=valid?'Tournoi en réseau · accord de l’hôte requis':'LAN inactif';
+  if(label)label.textContent=valid?'Tournoi en réseau · validation des joueurs uniquement':'LAN inactif';
  }
  async function poll(){
   if(!current||busy)return;
