@@ -1,3 +1,21 @@
+# Álfastafl 0.7.2-dev6 — Cinématiques des tournois
+
+- Corrige l'absence de scènes de combat en tournoi causée par
+  l'initialisation des rencontres avec `capture_cinematic_seconds=0`.
+- Désormais, chaque partie créée dans un tournoi (y compris ses
+  rondes automatiques, revanches et finales) active les scènes de
+  captures, prises multiples, prise du roi et fuite du roi
+  (durée standard : 8 secondes).
+- Les événements sont envoyés aux joueurs et aux spectateurs, dont
+  les panneaux indépendants s'affichent durant les captures.
+- Chronomètres suspendus et déplacements bloqués pendant la scène,
+  conformément aux parties classiques.
+- Mise à niveau automatique des parties de tournoi interrompues
+  depuis les anciennes versions ; les préférences des parties
+  classiques sont conservées.
+
+---
+
 # Álfastafl 0.7.2-dev5 — Consulter et supprimer les anciens tournois
 
 - **Historique des tournois terminés** distinct des événements à reprendre
