@@ -155,13 +155,14 @@ function syncGuestLayout() {
  // URL invites or saved strings are not authorization: trust only /api/state.
  const authorized = !isHost && Boolean(session && game && game.id === gameId &&
   you && ['player', 'spectator'].includes(you.role));
- document.body.classList.toggle('guest-board-only', authorized);
- document.body.dataset.guestRole = authorized ? you.role : '';
+ const lobby=!isHost&&document.body.classList.contains('tournament-open-lobby');
+ document.body.classList.toggle('guest-board-only', authorized||lobby);
+ document.body.dataset.guestRole = authorized ? you.role : lobby ? 'player' : '';
  document.body.dataset.guestTimed = String(authorized && game.clock && game.clock.mode !== 'unlimited');
- $('join').hidden = authorized;
+ $('join').hidden = authorized||lobby;
  $('guest-menu-toggle').hidden = !isDesktopBoard;
- $('guest-view-buttons').hidden = !authorized || you?.role!=='player' || q.has('broadcast-view');
- if(authorized)for(const mode of ['2d','3d'])
+ $('guest-view-buttons').hidden = !(lobby || authorized && you?.role==='player') || q.has('broadcast-view');
+ if(authorized||lobby)for(const mode of ['2d','3d'])
   $('guest-view-'+mode).setAttribute('aria-pressed',String(gameBoardView.mode===mode));
  if (!authorized&&!isDesktopBoard) setGuestMenu(false);
  document.body.dataset.guestTimed=String((authorized||isDesktopBoard)&&
