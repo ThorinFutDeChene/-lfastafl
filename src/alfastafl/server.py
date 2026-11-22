@@ -1132,6 +1132,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 if u.path=='/api/spectators':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send(st.spectator_stats())
+                if u.path=='/api/invite/role':
+                    gid=q.get('game',[''])[0]
+                    token=q.get('invite',[''])[0]
+                    role=next((r for r,secret in st.invites.get(gid,{}).items()
+                               if token and hmac.compare_digest(token,secret)),None)
+                    if not role:raise PermissionError('Invitation invalide.')
+                    return self.send({'role':role})
                 if u.path=='/api/pending':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'pending':[dict(id=k,**v,
