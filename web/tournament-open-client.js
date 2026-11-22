@@ -24,7 +24,7 @@
   let registration=sessionStorage.getItem(registrationKey)||'';
   let busy=false,displayedMatch='',placing=0,preview=null;
   let lastGameFinishedAt=0,previousRank=null,lastSeenMatch='';
-  let lastMatchChange=0;
+  let lastMatchChange=0,transitionFor='',transitionSince=0;
   input.value=name;
   document.body.classList.add('tournament-open-entry');
   el('join').hidden=true;
@@ -165,9 +165,18 @@
    if(displayedMatch===answer.match&&gameId===answer.game&&session===answer.session){
     opponentText(answer);return;
    }
-   if(displayedMatch&&answer.match!==displayedMatch&&departingMatch())return;
+   if(displayedMatch&&answer.match!==displayedMatch){
+    if(departingMatch())return;
+    if(transitionFor!==answer.match){
+     transitionFor=answer.match;transitionSince=Date.now();
+     lobbyBoard('En attente du partenaire de ronde · Nouvelle rencontre',preview);
+     return;
+    }
+    if(Date.now()-transitionSince<2700)return;
+   }
    const changed=displayedMatch!==answer.match;
    displayedMatch=answer.match;
+   transitionFor='';transitionSince=0;
    lastMatchChange=Date.now();
    lastGameFinishedAt=0;
    document.body.classList.remove('tournament-open-lobby','tournament-open-entry');
@@ -193,8 +202,8 @@
 
   async function showRanking(answer){
    if(departingMatch())return;
-   lobbyBoard('Tournoi terminé',preview);
    const rank=answer.rank;
+   lobbyBoard('Classement final : '+rank+'ᵉ place',preview);
    if(rank===previousRank)return;
    previousRank=rank;
    if(rank>0&&rank<=3){
