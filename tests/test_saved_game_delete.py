@@ -69,8 +69,7 @@ class SavedGameDeletionTests(unittest.TestCase):
     def test_io_error_keeps_game_and_session(self):
         game = self.store.create()
         invitation = self.store.invites[game.id]['spectator']
-        request = self.store.request(game.id, invitation, 'Observer')
-        session = self.store.approve(request)
+        session = self.store.join(game.id, invitation, 'Observer')['session']
         self.store.pause(game.id)
         with patch.object(Path, 'unlink', side_effect=PermissionError('read-only')):
             with self.assertRaises(PermissionError):
@@ -161,7 +160,7 @@ class SavedGameHttpTests(unittest.TestCase):
 
     def test_pending_remote_request_gets_rejection_after_deletion(self):
         game = self.store.create()
-        token = self.store.invites[game.id]['spectator']
+        token = self.store.invites[game.id]['player']
         code, created = self.api('join', {'game': game.id, 'invite': token, 'name': 'Guest'})
         self.assertEqual(code, 200)
         self.store.pause(game.id)
