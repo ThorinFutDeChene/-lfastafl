@@ -240,11 +240,12 @@ class HostInvitationAllocationTests(unittest.TestCase):
 
     def test_spectator_still_never_selects_a_camp(self):
         g=self.create('elf')
-        req=self.ask(g,'Observatrice','spectator')
-        self.assertEqual(self.pending_for(req)['available_camps'],[])
-        code,res=self.api('approve',{'request':req})
+        code,res=self.api('join',{'game':g['game'],
+                         'invite':g['invites']['spectator'],'name':'Observatrice'})
         self.assertEqual(code,200)
-        self.assertIsNone(res['camp'])
+        self.assertEqual(res['status'],'approved')
+        self.assertEqual(self.api('pending')[1]['pending'],[])
+        self.assertIsNone(self.store.sessions[res['session']]['camp'])
         self.assertEqual(self.store.sessions[res['session']]['role'],'spectator')
 
 

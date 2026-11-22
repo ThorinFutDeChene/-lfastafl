@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Álfastafl 0.7.2 (DEV)</title>
+  <title>Álfastafl 0.7.2 (DEV2)</title>
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
 </head>
@@ -20,12 +20,12 @@
     <figure id="shell-spectator-code" class="shell-qr-card" data-role="spectator">
       <figcaption>SPECTATEURS</figcaption>
       <img id="shell-spectator-image" alt="QR pour demander à regarder" width="140" height="140" hidden>
-      <p id="shell-spectator-note">L'hôte autorise les connexions.</p>
+      <p id="shell-spectator-note">Accès direct en lecture seule.</p>
     </figure>
     <div id="shell-network-status" aria-live="polite">LAN inactif</div>
   </aside>
   <header>
-    <h1>ᚨ Álfastafl <small>0.7.2 DEV1</small></h1>
+    <h1>ᚨ Álfastafl <small>0.7.2 DEV2</small></h1>
     <p>Le tafl viking-fantasy • réseau local</p>
   </header>
   <section id="host">
@@ -100,13 +100,17 @@
     <div id="pending"></div>
   </section>
   <section id="join">
-    <h2>Rejoindre</h2>
-    <label>Nom <input id="name" maxlength="60" value="Invité"></label>
-    <label>Code d'invitation <input id="invite" placeholder="Code reçu de l'hôte"></label>
-    <label>Identifiant de partie <input id="gid" placeholder="Identifiant reçu"></label>
+    <h2>Rejoindre la partie</h2>
+    <label for="name">Votre pseudo</label>
+    <input id="name" type="text" maxlength="60" autocomplete="nickname" placeholder="Votre pseudo">
+    <div class="invite-technical" hidden>
+      <label>Code d'invitation <input id="invite" placeholder="Code reçu de l'hôte"></label>
+      <label>Identifiant de partie <input id="gid" placeholder="Identifiant reçu"></label>
+    </div>
     <button id="request" type="button">Demander l'accès</button>
-    <p id="joinmsg"></p>
+    <p id="joinmsg" role="status" aria-live="polite"></p>
   </section>
+  <section id="guest-waiting" hidden aria-live="polite"><h2>En attente de validation</h2><p>Votre demande a été transmise au PC hôte.</p><p id="guest-waiting-message">L'organisateur doit autoriser votre connexion.</p></section>
   <section id="tournament-connect" class="tournament-connect" hidden aria-label="Connexion au tournoi">
     <h2>Rejoindre le tournoi</h2>
     <p>Les rencontres sont attribuées par le tournoi. Vous pouvez commencer
@@ -134,13 +138,14 @@
     <div id="broadcast-scenes" class="broadcast-scenes" aria-live="polite"></div>
   </section>
   <section id="game">
+    <div id="guest-view-buttons" role="group" aria-label="Vue du plateau" hidden><button id="guest-view-2d" type="button">2D</button><button id="guest-view-3d" type="button">3D</button></div>
     <button id="guest-menu-toggle" type="button" aria-label="Options du plateau" aria-expanded="false" aria-controls="game-board-view player-controls" hidden>☰</button>
     <button id="host-close-board" class="host-window-close" type="button" aria-label="Fermer cette fenêtre du plateau" title="Retour à la gestion">✕ Fermer</button>
     <button id="host-fullscreen" class="host-fullscreen" type="button" aria-label="Basculer le plein écran" title="Plein écran (F11)">⛶</button>
     <figure id="host-spectator-qr" class="host-spectator-qr" hidden>
       <figcaption>SPECTATEURS</figcaption>
       <img id="host-spectator-qr-image" width="128" height="128" alt="QR code : demander à regarder cette partie">
-      <p>Scanner pour demander l’accès</p>
+      <p>Scanner pour regarder directement</p>
     </figure>
     <div class="row"><h2>Plateau</h2><span id="state">Aucune partie sélectionnée</span></div>
     <div id="clocks" class="clock-panel" aria-live="off">
@@ -249,7 +254,8 @@
   </dialog>
   <dialog id="shell-connections-dialog" class="shell-window shell-wide-window" aria-labelledby="shell-connections-title">
     <div class="shell-window-heading"><h2 id="shell-connections-title">Connexions et autorisations</h2><button class="shell-close" type="button" data-shell-close aria-label="Fermer">×</button></div>
-    <p>Les QR ne permettent que de <strong>demander</strong> l'accès. L'hôte doit autoriser chaque personne.</p>
+    <p>Les joueurs nécessitent une autorisation. Les spectateurs accèdent directement au plateau, sans pouvoir jouer.</p>
+    <div class="spectator-configuration"><label for="spectator-limit">Nombre maximal de spectateurs connectés (PC hôte exclu)</label><input id="spectator-limit" type="number" min="0" max="100" step="1" value="10"><button id="spectator-limit-save" type="button">Appliquer</button><p id="spectator-usage" role="status">0 / 10 spectateurs</p></div>
     <div id="shell-connections-content"></div>
   </dialog>
   <dialog id="shell-tournament-dialog" class="shell-window shell-wide-window" aria-labelledby="shell-tournament-title">

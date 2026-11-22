@@ -12,6 +12,8 @@ document.body.classList.toggle('desktop-host-manager',isDesktopManager);
 document.body.classList.toggle('desktop-board-only',isDesktopBoard);
 document.body.classList.toggle('desktop-tutorial-only',isDesktopTutorial);
 document.body.classList.toggle('broadcast-frame',q.has('broadcast-view'));
+document.body.classList.toggle('guest-qr-entry',!isHost&&q.has('invite'));
+document.body.classList.toggle('guest-broadcast-frame',q.has('broadcast-view'));
 let gameId=isDesktopTutorial?'':q.get('game')||sessionStorage.getItem('alfastafl.game')||'';
 // Retain an approved device session across browser restarts for reconnection.
 function deviceSession(id){try{return localStorage.getItem('alfastafl.device.'+id)||'';}catch(_){return '';}}
@@ -51,6 +53,7 @@ function openHostTutorial(){
  else popup.focus();
 }
 let selected=null,legalDestinations=[],captureDestinations=[],game=null,requestId='',you=null,reviewVotes={},hostSeats={};
+let spectatorConnecting=false;
 let clockReceivedAt=0,serverTimeReceivedAt=0;let gameListUpdatedAt=0;
 let gameBusy=false,boardRevision=0,loadRevision=0,appliedLoadRevision=0,gameDrag=null;
 let cinematicCue=null,seenCinematic='',skippedCinematic='',captureVisualPlaying=false;
@@ -146,6 +149,9 @@ function setGuestMenu(open) {
  $('guest-menu-toggle').setAttribute('aria-expanded', String(visible));
 }
 function syncGuestLayout() {
+ const awaiting=Boolean(!isHost&&(requestId&&!session||spectatorConnecting));
+ document.body.classList.toggle('guest-awaiting-approval',awaiting);
+ $('guest-waiting').hidden=!awaiting;
  // URL invites or saved strings are not authorization: trust only /api/state.
  const authorized = !isHost && Boolean(session && game && game.id === gameId &&
   you && ['player', 'spectator'].includes(you.role));
@@ -153,12 +159,18 @@ function syncGuestLayout() {
  document.body.dataset.guestRole = authorized ? you.role : '';
  document.body.dataset.guestTimed = String(authorized && game.clock && game.clock.mode !== 'unlimited');
  $('join').hidden = authorized;
- $('guest-menu-toggle').hidden = !authorized&&!isDesktopBoard;
+ $('guest-menu-toggle').hidden = !isDesktopBoard;
+ $('guest-view-buttons').hidden = !authorized || you?.role!=='player' || q.has('broadcast-view');
+ if(authorized)for(const mode of ['2d','3d'])
+  $('guest-view-'+mode).setAttribute('aria-pressed',String(gameBoardView.mode===mode));
  if (!authorized&&!isDesktopBoard) setGuestMenu(false);
  document.body.dataset.guestTimed=String((authorized||isDesktopBoard)&&
    game&&game.clock&&game.clock.mode!=='unlimited');
 }
 $('guest-menu-toggle').onclick = () => setGuestMenu(!document.body.classList.contains('guest-menu-open'));
+for(const mode of ['2d','3d'])$('guest-view-'+mode).onclick=()=>{
+ gameBoardView.setMode(mode);syncGuestLayout();
+};
 $('host-close-board').onclick=()=>{
  if(isDesktopBoard)window.close();
 };
@@ -633,9 +645,15 @@ $('create').onclick=async()=>{
 
 };
 $('request').onclick=async()=>{
- try{gameId=$('gid').value;invalidateBoardInteraction();requestId=(await api('join',{
-  game:gameId,invite:$('invite').value,name:$('name').value})).request;
-  $('joinmsg').textContent='Demande envoyee, en attente de validation.';
+ try{
+  const nickname=$('name').value.trim();
+  if(!nickname)throw Error('Indiquez un pseudo.');
+  gameId=$('gid').value;invalidateBoardInteraction();
+  const answer=await api('join',{game:gameId,invite:$('invite').value,name:nickname});
+  if(answer.status!=='pending')throw Error('Réponse de connexion invalide.');
+  requestId=answer.request;
+  $('joinmsg').textContent='Demande envoyée, en attente de validation.';
+  syncGuestLayout();
  }catch(error){$('joinmsg').textContent=error.message;}
 };
 $('draw-offer').onclick=async()=>{
@@ -755,7 +773,7 @@ async function tick(){
   try{
    const reply=await api('request?id='+encodeURIComponent(requestId));
    if(reply.status==='approved'){
-    session=reply.session;requestId='';invalidateBoardInteraction();sessionStorage.setItem('alfastafl.session',session);
+    session=reply.session;requestId='';invalidateBoardInteraction();syncGuestLayout();sessionStorage.setItem('alfastafl.session',session);
     if(reply.tournament&&reply.token&&reply.name&&reply.role){
      // Raw device proof stays in this browser, not the server save. It is
      // scoped to exactly one tournament identity and role.
@@ -767,14 +785,63 @@ async function tick(){
     rememberDevice(gameId,session);
     sessionStorage.setItem('alfastafl.game',gameId);
     $('joinmsg').textContent='Connexion autorisee';await load();
-   }else if(reply.status==='rejected'){$('joinmsg').textContent='Demande refusee';requestId='';}
+   }else if(reply.status==='rejected'){$('joinmsg').textContent='Demande refusée';requestId='';syncGuestLayout();}
   }catch(error){}
  }
  if(!isDesktopBoard&&!isDesktopTutorial)await pending();
  if(gameId&&(session||isHost))await load();
  if(!isDesktopBoard&&!isDesktopTutorial)await listGames();
+ if(isHost&&!isDesktopBoard&&!isDesktopTutorial)await refreshSpectators();
 }
 if(q.has('invite')){$('gid').value=q.get('game')||'';$('invite').value=q.get('invite')||'';}
+if(!isHost&&q.has('invite')&&!q.has('tournament')){
+ (async()=>{
+  const invitedGame=q.get('game')||'';
+  if(!invitedGame)return;
+  try{
+   const role=await api('invite/role?game='+encodeURIComponent(invitedGame)+
+    '&invite='+encodeURIComponent(q.get('invite')));
+   if(role.role!=='spectator')return;
+   spectatorConnecting=true;
+   $('guest-waiting-message').textContent='Connexion à la diffusion en cours…';
+   syncGuestLayout();
+   const result=await api('join',{game:invitedGame,invite:q.get('invite'),
+    session:deviceSession(invitedGame)});
+   if(result.role!=='spectator'||result.status!=='approved')return;
+   gameId=invitedGame;session=result.session;requestId='';spectatorConnecting=false;
+   rememberDevice(gameId,session);
+   sessionStorage.setItem('alfastafl.game',gameId);
+   sessionStorage.setItem('alfastafl.session',session);
+   await load();
+  }catch(error){
+   $('guest-waiting-message').textContent=error.message;
+   $('joinmsg').textContent=error.message;
+  }
+ })();
+}
+$('name').addEventListener('keydown',event=>{
+ if(event.key==='Enter'){event.preventDefault();$('request').click();}
+});
+let spectatorSettingsBusy=false;
+async function refreshSpectators(){
+ if(!isHost||spectatorSettingsBusy)return;
+ try{
+  const result=await api('spectators');
+  if(document.activeElement!==$('spectator-limit'))$('spectator-limit').value=result.limit;
+  $('spectator-usage').textContent=result.connected+' / '+result.limit+' spectateurs';
+ }catch(_){}
+}
+$('spectator-limit-save').onclick=async()=>{
+ if(spectatorSettingsBusy)return;
+ spectatorSettingsBusy=true;
+ try{
+  const v=Number($('spectator-limit').value);
+  if(!Number.isInteger(v)||v<0||v>100)throw Error('Limite comprise entre 0 et 100.');
+  const result=await api('spectators/limit',{limit:v});
+  $('spectator-usage').textContent=result.connected+' / '+result.limit+' spectateurs';
+ }catch(error){$('spectator-usage').textContent=error.message;}
+ finally{spectatorSettingsBusy=false;}
+};
 $('mode').addEventListener('change',()=>{if(!game)syncGameBoard();});
 render();
 setInterval(tick,1800);

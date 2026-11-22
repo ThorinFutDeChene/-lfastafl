@@ -134,9 +134,14 @@ async function main(){
   const link='http://'+hostname+origin.port.replace(/^/,':')+'/?'+
    new URLSearchParams({tournament:tid,invite}).toString();
   await page.goto(link,{waitUntil:'domcontentloaded'});
-  await page.locator('#tournament-entrant-name').fill(name);
-  await page.locator('#tournament-enter').click();
-  await page.waitForFunction(()=>Boolean(requestId&&gameId),null,{timeout:14000});
+  if(role==='spectator'){
+   await page.waitForFunction(()=>Boolean(session&&you?.role==='spectator'&&gameId),
+    null,{timeout:14000});
+  }else{
+   await page.locator('#tournament-entrant-name').fill(name);
+   await page.locator('#tournament-enter').click();
+   await page.waitForFunction(()=>Boolean(requestId&&gameId),null,{timeout:14000});
+  }
   const first=await page.evaluate(()=>({game:gameId,request:requestId}));
   const expected=matches.find(m=>role==='spectator'||[m.a,m.b].includes(name));
   assert.equal(first.game,expected.game,'Selected game for '+name);
@@ -149,21 +154,22 @@ async function main(){
  }
  const s=await device('Public','spectator',invitations.spectator);
  const pending=(await api('pending')).pending.filter(p=>p.status==='waiting');
- assert.equal(pending.length,5);
- assert.equal(new Set(pending.map(p=>p.name)).size,5);
- for(const actor of actors.values())await api('approve',{request:actor.first.request});
+ assert.equal(pending.length,4);
+ assert.equal(new Set(pending.map(p=>p.name)).size,4);
+ for(const actor of actors.values())if(actor.role==='player')
+  await api('approve',{request:actor.first.request});
  for(const actor of actors.values()){
   const {page,name,role}=actor;
   await page.waitForFunction(expected=>Boolean(
-   you&&you.name===expected&&session&&game&&game.status==='active'),name,
-   {timeout:19000});
+   you&&you.name===expected&&session&&game&&game.status==='active'),
+   role==='spectator'?'Spectateur':name,{timeout:19000});
   const value=await page.evaluate(()=>({
    game:gameId,session,name:you?.name,role:you?.role,camp:you?.camp,
    secret:localStorage.getItem('alfastafl.credential.'+
      new URLSearchParams(location.search).get('tournament')+'.'+you?.role+'.'+you?.name)
   }));
   assert.equal(value.role,role);
-  assert(value.secret?.length>36,'Persistent device credential '+name);
+  if(role==='player')assert(value.secret?.length>36,'Persistent device credential '+name);
   actor.session=value.session;actor.camp=value.camp;
  }
  for(const m of matches){
@@ -182,12 +188,9 @@ async function main(){
  async function oneMove(match){
   const dwarf=match.camp_a==='dwarf'?match.a:match.b;
   const actor=actors.get(dwarf),page=actor.page;
-  // On approved guest devices, graphical options live behind the compact
-  // overlay menu. Open, choose the lightweight view, then close it before
-  // clicking the actual legal destination on the board.
-  await page.locator('#guest-menu-toggle').click();
-  await page.locator('#game-board-mode').selectOption('2d');
-  await page.locator('#guest-menu-toggle').click();
+  // Approved players have exactly two persistent view buttons.
+  await page.locator('#guest-view-2d').click();
+  assert.equal(await page.locator('#guest-view-2d').getAttribute('aria-pressed'),'true');
   const state=await api('state?game='+match.game+'&session='+actor.session);
   assert.equal(state.game.turn,'dwarf');
   let from=null,to=null;

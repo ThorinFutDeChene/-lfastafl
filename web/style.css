@@ -966,3 +966,77 @@ body.tutorial-remote .tutorial-remote-main{
  .tutorial-remote-header{flex-wrap:wrap}
  #tutorial-remote-connection{text-align:left;max-width:none}
 }
+
+/* QR mobile: one deliberate player action, then an isolated waiting state. */
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) main {
+ min-height:100dvh;max-width:520px;display:grid;place-content:center;
+}
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) main > header,
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) main > footer,
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) #game,
+body.guest-qr-entry:not(.guest-board-only):not(.guest-awaiting-approval) #guest-waiting {
+ display:none!important;
+}
+body.guest-qr-entry #join {width:min(100%,440px);margin:0 auto;padding:24px}
+body.guest-qr-entry #join label[for="name"] {display:block;margin:12px 0 8px}
+body.guest-qr-entry #name {display:block;width:100%;min-height:52px}
+body.guest-qr-entry #request {display:block;width:100%;min-height:52px;margin-top:20px}
+body.guest-qr-entry .invite-technical {display:none!important}
+body.guest-awaiting-approval {overflow:hidden}
+body.guest-awaiting-approval main {min-height:100dvh;display:grid;place-items:center}
+body.guest-awaiting-approval main > :not(#guest-waiting) {display:none!important}
+body.guest-awaiting-approval #guest-waiting:not([hidden]){
+ display:block;width:min(92vw,440px);text-align:center;padding:32px 22px;
+ border:1px solid #b99d68;border-radius:15px;background:#1f2d26;
+}
+body.guest-awaiting-approval #guest-waiting h2 {color:#ebcf99}
+body.guest-board-only #guest-waiting {display:none!important}
+body.guest-board-only #guest-view-buttons:not([hidden]){
+ display:flex;gap:7px;position:fixed;top:calc(12px + env(safe-area-inset-top,0px));
+ right:calc(12px + env(safe-area-inset-right,0px));z-index:65;
+ background:#111c17dc;border:1px solid #a38b61;border-radius:10px;padding:5px;
+}
+body.guest-board-only #guest-view-buttons button{
+ min-width:54px;min-height:43px;padding:6px 10px;background:#23382c;
+ color:#f4d69d;border:1px solid #718164;
+}
+body.guest-board-only #guest-view-buttons button[aria-pressed="true"] {
+ background:#ddba7b;color:#152119;
+}
+body.guest-board-only #guest-menu-toggle,
+body.guest-board-only #game .board-tools,
+body.guest-board-only #game > .row,
+body.guest-board-only #game > #msg:empty {display:none!important}
+body.guest-board-only.guest-broadcast-frame #guest-view-buttons,
+body.guest-board-only.guest-broadcast-frame #game > #player-controls,
+body.guest-board-only.guest-broadcast-frame #game > #draw-response,
+body.guest-board-only.guest-broadcast-frame #game > #repetition-review,
+body.guest-board-only.guest-broadcast-frame #capture-overlay button {
+ display:none!important;
+}
+body.guest-board-only[data-guest-role="spectator"] #game > #player-controls,
+body.guest-board-only[data-guest-role="spectator"] #game > #draw-response,
+body.guest-board-only[data-guest-role="spectator"] #game > #repetition-review,
+body.guest-board-only[data-guest-role="spectator"] #capture-overlay button {display:none!important}
+body.guest-board-only[data-guest-role="spectator"] .board-stage canvas {
+ touch-action:none;
+}
+.spectator-configuration{
+ display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+ padding:12px;border:1px solid #718164;border-radius:9px;margin-bottom:14px;
+}
+.spectator-configuration label{flex:1 1 250px}
+.spectator-configuration input{width:80px;min-width:80px}
+.spectator-configuration p{width:100%;margin:0;font-weight:bold;color:#eacb94}
+
+/* A tournament invitation uses its tournament-specific form, not the game form. */
+body.guest-qr-entry:has(#tournament-connect:not([hidden])) #join,
+body.guest-tournament-spectator #join,
+body.guest-tournament-spectator #tournament-connect {display:none!important}
+body.guest-qr-entry.guest-tournament-spectator:not(.guest-board-only):not(.guest-awaiting-approval) #game {display:none!important}
+/* A viewer can only watch, never rotate the camera, select, zoom or skip cutscenes. */
+body.guest-board-only[data-guest-role="spectator"] #game-board-3d,
+body.guest-board-only[data-guest-role="spectator"] #board,
+body.guest-board-only[data-guest-role="spectator"] .board-stage canvas {
+ pointer-events:none!important;
+}

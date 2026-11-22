@@ -98,7 +98,7 @@ class TimeHttpTests(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertIsNone(reply['you'])
         code,reply=self.api('join',{'game':gid,'invite':invites['player'],'name':'Another'})
-        self.assertEqual(code,400)
+        self.assertEqual(code,403)
         code,reply=self.api('resume',{'game':gid})
         self.assertEqual(code,200)
         _,state=self.api('state?game='+gid)

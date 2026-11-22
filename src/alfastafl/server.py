@@ -30,6 +30,16 @@ class Store:
         self._tournament_invites={}
         self._pending_secrets={}
         self._broadcast_sessions={}
+        self.spectator_limit=10
+        self.spectator_idle_seconds=45
+        self._connection_settings=self.path/'.connection-settings.json'
+        try:
+            settings=json.loads(self._connection_settings.read_text('utf-8'))
+            limit=settings.get('spectator_limit')
+            if type(limit) is int and 0<=limit<=100:
+                self.spectator_limit=limit
+        except (OSError,ValueError,TypeError,AttributeError):
+            pass
         # Ephemeral host preparation / authenticated spectator activity.
         # No permanent LAN setting or browser identifier is written to disk.
         self._lan_activity_until=0.0
@@ -317,7 +327,21 @@ class Store:
             name = name.strip() if isinstance(name, str) else ''
             if not 1 <= len(name) <= 60:
                 raise ValueError('Nom invalide.')
-            if role == 'player' and name not in t['players']:
+            if role == 'spectator':
+                match = self._scheduled_match(tid, None, role)
+                if match is None:
+                    matches=[m for m in t['matches'] if m.get('game') in self.games]
+                    if not matches:
+                        return {'status':'waiting_match','tournament':tid,
+                                'message':'Le tournoi n’a pas encore de rencontre.'}
+                    match=matches[-1]
+                gid=match['game']
+                previous=device_token if isinstance(device_token,str) else None
+                sid=self._admit_spectator(gid,'Spectateur',tid,previous)
+                return {'status':'approved','game':gid,'session':sid,
+                        'role':'spectator','camp':None,'tournament':tid,
+                        'name':'Spectateur'}
+            if name not in t['players']:
                 raise PermissionError('Ce nom ne figure pas parmi les inscrits.')
             match = self._scheduled_match(tid, name, role)
             if match is None:
@@ -354,6 +378,12 @@ class Store:
                                   owner['role'] == 'spectator' and
                                   owner.get('broadcast_tournament') == tid):
                 raise PermissionError('Diffusion du tournoi non autorisée.')
+            if not admin:
+                now=self.monotonic()
+                if now-owner.get('last_seen',0)>self.spectator_idle_seconds:
+                    if len(self._spectator_sessions())>=self.spectator_limit:
+                        raise PermissionError('Nombre maximal de spectateurs atteint.')
+                owner['last_seen']=now
             # Only successful, authorized live-view polling extends the LAN
             # lease. This protects spectators between tournament rounds.
             self.keep_lan_active()
@@ -387,6 +417,7 @@ class Store:
                             'last_seen': self.monotonic(),
                             'device_fp': owner.get('device_fp'),
                             'broadcast_tournament': tid,
+                            'broadcast_parent':sid,
                         }
                         self._broadcast_sessions[(sid, gid)] = link
                 else:
@@ -612,6 +643,12 @@ class Store:
                     self.save(g)
                 else:
                     self._start_if_ready(g,now)
+            if s['role']=='spectator':
+                if not s.get('broadcast_parent') and (
+                    now-s.get('last_seen',0)>self.spectator_idle_seconds):
+                    if len(self._spectator_sessions())>=self.spectator_limit:
+                        return None
+                s['last_seen']=now
             return s
 
     def cinematic_state(self, gid):
@@ -770,12 +807,79 @@ class Store:
                     self._anchors.pop(g.id,None)
                     self.save(g)
 
+    def _spectator_sessions(self):
+        now=self.monotonic()
+        # Broadcast iframes share a root spectator and consume no extra seat.
+        return [(sid,item) for sid,item in self.sessions.items()
+                if item.get('role')=='spectator' and item.get('active')
+                and not item.get('broadcast_parent')
+                and now-item.get('last_seen',0)<=self.spectator_idle_seconds]
+
+    def spectator_stats(self):
+        with self.lock:
+            return {'connected':len(self._spectator_sessions()),
+                    'limit':self.spectator_limit}
+
+    def set_spectator_limit(self,limit):
+        if isinstance(limit,bool) or not isinstance(limit,int) or not 0<=limit<=100:
+            raise ValueError('Limite spectateurs : choisissez un entier entre 0 et 100.')
+        with self.lock:
+            # The host's selected capacity survives native application restarts.
+            fd,tmp=tempfile.mkstemp(prefix='.alfastafl-connections-',dir=self.path)
+            try:
+                with os.fdopen(fd,'w',encoding='utf-8') as file:
+                    json.dump({'spectator_limit':limit},file)
+                    file.flush()
+                    os.fsync(file.fileno())
+                os.replace(tmp,self._connection_settings)
+            finally:
+                if os.path.exists(tmp):os.unlink(tmp)
+            self.spectator_limit=limit
+            return self.spectator_stats()
+
+    def _admit_spectator(self,gid,name,tid=None,previous=None):
+        with self.lock:
+            if gid not in self.games:
+                raise ValueError('Partie inconnue.')
+            if previous:
+                existing=self.sessions.get(previous)
+                if (existing and existing.get('active') and existing.get('role')=='spectator'
+                    and existing.get('broadcast_tournament')==tid and
+                    not existing.get('broadcast_parent')):
+                    if (self.monotonic()-existing.get('last_seen',0)>self.spectator_idle_seconds
+                        and len(self._spectator_sessions())>=self.spectator_limit):
+                        raise PermissionError('Nombre maximal de spectateurs atteint.')
+                    existing['game']=gid
+                    existing['last_seen']=self.monotonic()
+                    return previous
+            if len(self._spectator_sessions())>=self.spectator_limit:
+                raise PermissionError('Nombre maximal de spectateurs atteint.')
+            sid=secrets.token_urlsafe(30)
+            self.sessions[sid]={
+                'game':gid,'role':'spectator','camp':None,'name':name,
+                'active':True,'seen':False,'connected':True,
+                'last_seen':self.monotonic(),'broadcast_tournament':tid,
+            }
+            return sid
+
+    def join(self,gid,token,name,previous=None):
+        with self.lock:
+            role=next((r for r,secret in self.invites.get(gid,{}).items()
+                       if isinstance(token,str) and hmac.compare_digest(secret,token)),None)
+            if role is None:
+                raise PermissionError('Invitation invalide.')
+            if role=='spectator':
+                sid=self._admit_spectator(gid,'Spectateur',previous=previous)
+                return {'status':'approved','role':'spectator','session':sid,'game':gid}
+            return {'status':'pending','role':'player','request':self.request(gid,token,name)}
+
     def request(self,gid,token,name):
         with self.lock:
             invites=self.invites.get(gid,{})
             role=next((k for k,v in invites.items() if v==token),None)
             if role is None:raise ValueError('Invalid invitation')
-            if not 1<=len(name.strip())<=60:raise ValueError('Invalid name')
+            if role=='spectator':raise PermissionError('Le QR spectateur donne un accès direct.')
+            if not isinstance(name,str) or not 1<=len(name.strip())<=60:raise ValueError('Invalid name')
             if role=='player' and not self.available_camps(gid,name.strip()):
                 raise ValueError('Aucune faction disponible pour ce joueur sur cette partie.')
             request_id=secrets.token_urlsafe(18)
@@ -1056,6 +1160,24 @@ class AppHandler(BaseHTTPRequestHandler):
                            'status':g.status,'reason':g.reason,'moves':len(g.history),
                            'players':g.players,'clock':g.clock} for g in st.games.values()]
                            if self.admin() else []})
+                if u.path=='/api/spectators':
+                    if not self.admin():return self.send({'error':'Forbidden'},403)
+                    return self.send(st.spectator_stats())
+                if u.path=='/api/tournament/invite/role':
+                    tid=q.get('tournament',[''])[0]
+                    token=q.get('invite',[''])[0]
+                    invites=st.tournament_invitations(tid)
+                    role=next((r for r,secret in invites.items()
+                               if token and hmac.compare_digest(token,secret)),None)
+                    if not role:raise PermissionError('Invitation de tournoi invalide.')
+                    return self.send({'role':role})
+                if u.path=='/api/invite/role':
+                    gid=q.get('game',[''])[0]
+                    token=q.get('invite',[''])[0]
+                    role=next((r for r,secret in st.invites.get(gid,{}).items()
+                               if token and hmac.compare_digest(token,secret)),None)
+                    if not role:raise PermissionError('Invitation invalide.')
+                    return self.send({'role':role})
                 if u.path=='/api/pending':
                     if not self.admin():return self.send({'error':'Forbidden'},403)
                     return self.send({'pending':[dict(id=k,**v,
@@ -1165,8 +1287,10 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not isinstance(d,dict):raise ValueError('Requête du tutoriel invalide.')
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
-            if u.path in ('/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round',
+            if u.path in ('/api/spectators/limit','/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round',
                            '/api/tournament/revoke') and not self.admin():raise PermissionError('Host-only action')
+            if u.path=='/api/spectators/limit':
+                return self.send(st.set_spectator_limit(d.get('limit')))
             if u.path=='/api/create':
                 host_camp=d.get('host_camp')
                 if host_camp not in (None,'elf','dwarf'):
@@ -1177,7 +1301,7 @@ class AppHandler(BaseHTTPRequestHandler):
                                   'host_session':host_session})
             if u.path=='/api/host/seat':
                 return self.send({'session':st.seat_host(d['game'],d.get('camp')),'camp':d.get('camp')})
-            if u.path=='/api/join':return self.send({'request':st.request(d['game'],d['invite'],d.get('name','Guest'))})
+            if u.path=='/api/join':return self.send(st.join(d['game'],d['invite'],d.get('name','Guest'),d.get('session')))
             if u.path=='/api/tournament/enter':
                 return self.send(st.enter_tournament(
                     d['tournament'],d['invite'],d.get('name',''),

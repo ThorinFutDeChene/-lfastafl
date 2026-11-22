@@ -1,4 +1,25 @@
-# Álfastafl — 0.7.2-dev1 (canal DEV)
+# Álfastafl — 0.7.2-dev2 (canal DEV)
+
+## DEV 0.7.2-dev2 — QR mobiles simplifiés
+
+Les **joueurs** scannent le QR, saisissent uniquement leur pseudo et
+demandent l'accès. Après validation du PC hôte, l'écran devient un
+plateau plein écran avec deux boutons, **2D** et **3D**.
+
+Les **spectateurs** scannent leur QR et accèdent **immédiatement** au
+plateau, sans pseudo ni autorisation ; la vue est strictement en lecture
+seule, y compris pendant les tournois.
+
+Le menu **Réseau → Connexions et autorisations** permet de régler de
+**0 à 100 spectateurs**, **10 par défaut**. Le compteur **exclut le
+PC hôte et tous les appareils joueurs**, ainsi que les vues internes
+d'un tournoi. Une session spectateur inactive libère sa place après
+45 secondes. Le choix de plafond est persistant.
+
+**Version Debian :** `0.7.2~dev2`. La stable 0.7.1 reste inchangée.
+
+## Historique de la 0.7.2
+
 
 Cette préversion reprend la **stable 0.7.1** avec une simplification
 des menus natifs de l'hôte Ubuntu MATE, **sans modifier les règles du jeu,
