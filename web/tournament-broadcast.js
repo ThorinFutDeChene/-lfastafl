@@ -74,7 +74,7 @@
  }
  function updateTournamentRail(tid,addr){
   if(!isHost||!isDesktopShell)return;
-  if(globalThis.AlfastaflTournaments?.active()){
+  if(globalThis.AlfastaflTournaments?.active()===tid){
    globalThis.AlfastaflTournaments.syncRail(addr,tid).catch(()=>{});
    return;
   }
