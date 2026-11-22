@@ -74,14 +74,13 @@ async function main(){
  await host.evaluate(()=>window.AlfastaflShell.open('tournament'));
  await host.locator('#shell-tournament-dialog[open]').waitFor();
  async function newTournament(name,format,players){
-  await host.locator('#tournament-name').fill(name);
-  await host.locator('#tournament-format').selectOption(format);
-  await host.locator('#tournament-players').fill(players.join('\n'));
-  await host.locator('#tournament-create').click();
+  // Historical pre-registered tournaments still load and display correctly.
+  // New host UI intentionally no longer exposes manual player enrollment.
+  const result=await api('tournament/create',{name,format,players,rounds:3});
+  await host.evaluate(()=>window.AlfastaflTournaments.refresh());
   await host.waitForFunction(expected=>[...document.querySelectorAll(
    '#tournament-list .tournament-title')].some(x=>x.textContent.includes(expected)),name);
-  const ts=(await api('tournaments')).tournaments;
-  return ts.find(t=>t.name===name);
+  return result.tournament;
  }
  async function row(name){
   return host.locator('#tournament-list .tournament-item')
