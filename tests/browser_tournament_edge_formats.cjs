@@ -136,8 +136,8 @@ async function main(){
  assert.equal(replay.round,1);
  assert.match((await group.locator('.tournament-match').allTextContents()).join(' '),
   /Nul.*revanche enregistrée|Revanche/);
- assert.equal(await group.locator('.tournament-match button').count(),2,
-  'Only real games have a board navigation button');
+ assert.equal(await group.locator('.tournament-match button').count(),1,
+  'Only the unfinished replay can open its board: completed saves are deleted');
  console.log('PASS a knockout draw creates and labels a real replay in the SAME round');
 
  await host.locator('#tournament-format-help').click();
