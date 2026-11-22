@@ -1444,7 +1444,7 @@ class Store:
             return event
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version='Alfastafl/0.7.1'
+    server_version='Alfastafl/0.7.2'
     def send(self,body,status=200):
         raw=json.dumps(body,ensure_ascii=False).encode('utf-8')
         self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
