@@ -179,23 +179,30 @@ async function main(){
   assert.equal(await page.locator('#shell-player-image').getAttribute('src'),first);
   assert.equal(await page.locator('#shell-spectator-image').getAttribute('src'),second);
  });
- await check('Both QRs request APPROVAL; network never bypasses host authorization',async()=>{
+ await check('Player requires approval; spectator QR joins directly without a player seat',async()=>{
   const invites=(await state(id)).invites;
-  for(const role of ['player','spectator']){
-   const request=await context.request.post(base+'/api/join',{data:{
-    game:id,invite:invites[role],name:'Demande '+role}});
-   assert.equal(request.status(),200);
-   const req=(await request.json()).request;
-   const pending=(await(await context.request.get(base+'/api/pending')).json()).pending;
-   assert(pending.some(x=>x.id===req&&x.role===role));
-  }
+  const player=await context.request.post(base+'/api/join',{data:{
+   game:id,invite:invites.player,name:'Demande player'}});
+  assert.equal(player.status(),200);
+  const requested=(await player.json()).request;
+  const spectator=await context.request.post(base+'/api/join',{data:{
+   game:id,invite:invites.spectator}});
+  assert.equal(spectator.status(),200);
+  const viewer=(await spectator.json());
+  assert.equal(viewer.status,'approved');
+  assert.equal(viewer.role,'spectator');
+  const pending=(await(await context.request.get(base+'/api/pending')).json()).pending;
+  assert(pending.some(x=>x.id===requested&&x.role==='player'));
+  assert(!pending.some(x=>x.role==='spectator'));
+  const denied=await context.request.post(base+'/api/move',{data:{
+   game:id,session:viewer.session,from:[0,3],to:[1,3]}});
+  assert.equal(denied.status(),403);
   await open('connections');
   await eventual(()=>document.querySelectorAll('#shell-connections-dialog #pending button').length>=3);
   const firstPending=page.locator('#shell-connections-dialog #pending>div').first();
   assert.match(await firstPending.textContent(),/Joueur/);
   const firstChoices=firstPending.locator('button.pending-approve');
-  assert.equal(await firstChoices.count(),2,
-   'When host is observing, the first remote player chooses one of two free camps');
+  assert.equal(await firstChoices.count(),2);
   assert.deepEqual(await firstChoices.evaluateAll(buttons=>
    buttons.map(button=>button.dataset.camp)),['elf','dwarf']);
   await page.locator('#shell-connections-dialog [data-shell-close]').click();
