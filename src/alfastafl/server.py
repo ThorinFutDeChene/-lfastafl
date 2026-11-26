@@ -1473,6 +1473,7 @@ class AppHandler(BaseHTTPRequestHandler):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
         assets=('index.html','app.js','tutorial.js','tutorial-view.html','tutorial-view.js','host-shell.js','tournament-ui.js',
                 'tournament-client.js','tournament-open-client.js','tournament-ceremony.js',
+                'tournament-podium.js',
                 'tournament-broadcast.js','style.css',
                 'board-view.js','board3d.js','figurines3d.js','move3d.js','cinematic3d.js','combat-motion.js','flank-capture.js',
                 'flank-cinematic3d.js','archery3d.js','throne-capture.js',
