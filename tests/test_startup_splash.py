@@ -27,10 +27,9 @@ class StartupSplashTests(unittest.TestCase):
             self.assertEqual(splash_image_path(home,repo,shared),user)
             self.assertEqual(user.read_bytes(),b'approved-original-poster')
 
-    def test_splash_is_a_short_nonblocking_intro(self):
-        self.assertGreaterEqual(SPLASH_MIN_MS,3000)
-        self.assertLessEqual(SPLASH_MIN_MS,5000)
-        self.assertGreater(SPLASH_MAX_MS,SPLASH_MIN_MS)
+    def test_splash_is_visible_for_ten_seconds_with_a_safety_timeout(self):
+        self.assertEqual(SPLASH_MIN_MS,10000)
+        self.assertEqual(SPLASH_MAX_MS,15000)
 
     def test_widget_still_has_its_normal_menu_and_screen(self):
         from alfastafl.desktop import PARTY_MENU_COMMANDS, show_main_window

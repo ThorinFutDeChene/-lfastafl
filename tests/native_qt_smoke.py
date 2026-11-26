@@ -24,6 +24,26 @@ def request(url):
         return None
 
 
+def mapped_window(title_fragment):
+    """Find a genuinely mapped X11 window, not a hidden WebEngine host."""
+    try:
+        tree = subprocess.run(["xwininfo", "-root", "-tree"], text=True,
+                              capture_output=True, timeout=2, check=True)
+        for line in tree.stdout.splitlines():
+            if title_fragment not in line:
+                continue
+            wid = line.strip().split()[0]
+            if not wid.startswith("0x"):
+                continue
+            info = subprocess.run(["xwininfo", "-id", wid], text=True,
+                                  capture_output=True, timeout=2, check=True)
+            if "Map State: IsViewable" in info.stdout:
+                return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return False
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="alfastafl-native-qt-") as tmp:
         root = pathlib.Path(tmp)
@@ -60,8 +80,10 @@ def main():
         did_serve = False
         saw_webengine = False
         saw_window = False
+        poster_first_seen = None
+        poster_last_seen = None
         try:
-            deadline = time.monotonic() + 25
+            deadline = time.monotonic() + 35
             while time.monotonic() < deadline:
                 if proc.poll() is not None:
                     output = proc.communicate(timeout=2)[0]
@@ -81,23 +103,23 @@ def main():
                         )
                     except (TypeError, ValueError):
                         pass
-                if not saw_window:
-                    try:
-                        win = subprocess.run(
-                            ["xwininfo", "-root", "-tree"],
-                            text=True, capture_output=True, timeout=2, check=True,
-                        )
-                        saw_window = "Álfastafl" in win.stdout or "Alfastafl" in win.stdout
-                    except (OSError, subprocess.SubprocessError):
-                        pass
-                if did_serve and saw_window and saw_webengine:
-                    # A genuine visible Qt window + a loaded WebEngine page,
-                    # not merely the headless local HTTP server.
+                now = time.monotonic()
+                if mapped_window("Alfastafl startup poster"):
+                    if poster_first_seen is None:
+                        poster_first_seen = now
+                    poster_last_seen = now
+                saw_window = mapped_window("Plateau et menus")
+                if saw_window:
+                    assert poster_first_seen is not None, "Main window skipped the poster"
+                    # Polling and process scheduling reduce the observed interval.
+                    assert now - poster_first_seen >= 8.5, "Main window exposed too early"
+                if did_serve and saw_window and saw_webengine and not mapped_window("Alfastafl startup poster"):
+                    assert poster_last_seen - poster_first_seen >= 8.0, "Poster disappeared prematurely"
                     time.sleep(1)
                     assert proc.poll() is None, "Qt crashed after page load"
                     print("ALFASTAFL_NATIVE_QT_STARTUP_OK", flush=True)
                     return
-                time.sleep(0.35)
+                time.sleep(0.25)
             raise AssertionError(
                 "Native Qt did not open a usable window and WebEngine page "
                 f"(server={did_serve}, window={saw_window}, "

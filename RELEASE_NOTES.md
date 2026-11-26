@@ -1,3 +1,13 @@
+# Álfastafl 0.7.3-dev3 — Affiche de lancement 10 secondes
+
+- Affiche officielle plein écran : **10 secondes minimum**, jusqu’à 15 secondes si nécessaire.
+- Fenêtre principale masquée pendant l’introduction ; clics sur l’affiche sans fermeture anticipée.
+- Image d’origine et proportions conservées ; paquet complémentaire `alfastafl-affiche` requis si aucune copie personnelle n’est installée.
+- Recette native Xvfb : contrôle de la présence effective de l’affiche et du délai avant apparition de la fenêtre principale.
+- Stable 0.7.2 inchangée.
+
+---
+
 # Álfastafl 0.7.3-dev2 — Archers elfes et affiche de lancement
 
 - Sculpture elfe **existante** : jambes en appui, bras d’arc tendu,

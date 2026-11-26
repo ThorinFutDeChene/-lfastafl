@@ -1,4 +1,20 @@
-# Álfastafl — 0.7.3-dev2 (canal DEV)
+# Álfastafl — 0.7.3-dev3 (canal DEV)
+
+## DEV 0.7.3-dev3 — Affiche de lancement prolongée
+
+L’affiche officielle reste visible en plein écran pendant **10 secondes minimum**.
+La fenêtre principale est maintenue masquée jusqu’à la fin de cette durée ;
+le clic sur l’affiche ne la ferme plus prématurément. Le chargement du jeu se
+poursuit en arrière-plan, avec une sécurité de 15 secondes. L’image d’origine
+est conservée, sans recadrage. Le paquet complémentaire `alfastafl-affiche`
+(ou une copie personnelle de `affiche.png`) reste nécessaire : sans image,
+le jeu démarre normalement et signale l’absence de la ressource.
+
+**Version Debian :** `0.7.3~dev3`. La stable 0.7.2 reste inchangée.
+
+---
+
+# Historique — 0.7.3-dev2 (canal DEV)
 
 ## DEV 0.7.3-dev2 — Nouvelle posture des archers elfes et affiche d’ouverture
 

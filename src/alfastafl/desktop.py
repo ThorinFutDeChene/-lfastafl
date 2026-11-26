@@ -2,10 +2,13 @@
 import threading
 import time
 import os
+import math
+import sys
 from pathlib import Path
 
-SPLASH_MIN_MS = 3500  # The complete poster remains on screen for at least 3.5 s.
-SPLASH_MAX_MS = 12000  # Never leave the organizer stuck behind a failed page.
+SPLASH_MIN_MS = 10000  # Ten full seconds, even when the game loads immediately.
+SPLASH_MAX_MS = 15000  # Safety timeout if the local game page fails to load.
+SPLASH_TITLE = 'Alfastafl startup poster'
 
 
 def splash_image_path(data_home=None, project_root=None, shared_root=None):
@@ -30,6 +33,7 @@ def show_startup_splash(app):
     """Fullscreen image with letterboxing: never crop the title or sculptures."""
     picture = splash_image_path()
     if picture is None:
+        print('Álfastafl: affiche de lancement absente ; installer alfastafl-affiche ou placer affiche.png dans le dossier de données.', file=sys.stderr)
         return None
     # Import separately: headless/unit-test Qt stubs do not expose painting API.
     try:
@@ -39,6 +43,7 @@ def show_startup_splash(app):
         art = QPixmap(str(picture))
         screen = app.primaryScreen()
         if art.isNull() or screen is None:
+            print(f'Álfastafl: affiche de lancement illisible : {picture}', file=sys.stderr)
             return None
         screen_size = screen.geometry().size()
         canvas = QPixmap(screen_size)
@@ -49,10 +54,18 @@ def show_startup_splash(app):
         painter.drawPixmap((canvas.width() - scaled.width()) // 2,
                            (canvas.height() - scaled.height()) // 2, scaled)
         painter.end()
-        splash = QSplashScreen(canvas,
+        class OpeningPoster(QSplashScreen):
+            # QSplashScreen normally dismisses itself on a mouse click.
+            # This intro must remain visible for the whole minimum duration.
+            def mousePressEvent(self, event):
+                event.accept()
+
+        splash = OpeningPoster(canvas,
             Qt.WindowType.SplashScreen | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint)
+        splash.setWindowTitle(SPLASH_TITLE)
         splash.showFullScreen()
+        splash.raise_()
         app.processEvents()
         return splash
     except (ImportError, AttributeError, TypeError):
@@ -117,8 +130,6 @@ def main():
         raise SystemExit('PyQt6 et QtWebEngine requis : apt install python3-pyqt6 python3-pyqt6.qtwebengine') from exc
     from .updater_ui import UpdateController
     from .lan import FirewallLease, LanError, detect_network
-    import sys
-
     app = QApplication(sys.argv)
     splash = show_startup_splash(app)
     splash_started = time.monotonic()
@@ -169,22 +180,32 @@ def main():
 
     view = DisplayWebView(win)
     win.setCentralWidget(view)
-    # Never expose an uninitialized game window in place of the opening art.
+    # The main native window stays hidden until the full poster has been
+    # visible for ten seconds. A separate fullscreen window cannot cover it.
+    def splash_remaining_ms(duration):
+        return max(0, math.ceil(duration - (time.monotonic() - splash_started) * 1000))
+
     def finish_splash():
         if not splash or splash_finished[0]:
             return
+        remaining = splash_remaining_ms(SPLASH_MIN_MS)
+        if remaining:
+            # A coarse Qt timer may fire early: enforce the monotonic deadline.
+            QTimer.singleShot(remaining, finish_splash)
+            return
         splash_finished[0] = True
-        splash.finish(win)
+        show_main_window(win)
+        splash.close()
 
     def splash_maybe_finish():
         if not splash or splash_finished[0] or not splash_page_ready[0]:
             return
-        elapsed = int((time.monotonic() - splash_started) * 1000)
-        QTimer.singleShot(max(0, SPLASH_MIN_MS - elapsed), finish_splash)
+        QTimer.singleShot(splash_remaining_ms(SPLASH_MIN_MS), finish_splash)
 
-    def on_main_page_loaded(_success):
-        splash_page_ready[0] = True
-        splash_maybe_finish()
+    def on_main_page_loaded(success):
+        if success:
+            splash_page_ready[0] = True
+            splash_maybe_finish()
 
     if splash:
         view.loadFinished.connect(on_main_page_loaded)
@@ -410,12 +431,14 @@ def main():
         server[0].server_close()
 
     app.aboutToQuit.connect(shutdown)
-    show_main_window(win)
     if splash:
-        # The native full-screen splash covers the host while QtWebEngine boots.
+        # WebEngine can load while its parent is hidden. If it cannot, the
+        # safety timer still reveals the main window, never before the intro.
         splash.raise_()
-        QTimer.singleShot(SPLASH_MIN_MS, splash_maybe_finish)
-        QTimer.singleShot(SPLASH_MAX_MS, finish_splash)
+        QTimer.singleShot(splash_remaining_ms(SPLASH_MIN_MS), splash_maybe_finish)
+        QTimer.singleShot(splash_remaining_ms(SPLASH_MAX_MS), finish_splash)
+    else:
+        show_main_window(win)
     # No LAN listener until game creation, selected save or tutorial use.
     sys.exit(app.exec())
 
