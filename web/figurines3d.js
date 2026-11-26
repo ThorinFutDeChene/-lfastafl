@@ -221,9 +221,9 @@ function sculptor(kind, articulated = false) {
       const arm = joints.get('left-arm');
       const nock = new THREE.Object3D();
       nock.name = 'combat-bow-nock';
-      nock.position.set(-0.318 * horizontal - arm.position.x,
-        (0.813 - bounds.min.y) * vertical - arm.position.y,
-        0.12 * horizontal - arm.position.z);
+      nock.position.set(0.085 * horizontal - arm.position.x,
+        (0.955 - bounds.min.y) * vertical - arm.position.y,
+        0.20 * horizontal - arm.position.z);
       arm.add(nock);
     }
     group.updateMatrixWorld(true);
@@ -318,8 +318,14 @@ function elf(articulated = false) {
   b.base(0.29);
   for (const side of [-1, 1]) {
     b.part(side < 0 ? 'left-leg' : 'right-leg');
-    b.ellipsoid('body', [side * 0.079, 0.117, 0.047], [0.065, 0.048, 0.115]);
-    b.rod('body', [side * 0.079, 0.14, 0], [side * 0.071, 0.48, -0.015], 0.039, 0.052);
+    // Keep the original stone boots and two-part legs, but stagger the
+    // feet for an archer's braced, dynamic stance (back foot / forward foot).
+    const footZ = side < 0 ? -0.135 : 0.145;
+    const footX = side < 0 ? -0.120 : 0.125;
+    const kneeZ = side < 0 ? -0.075 : 0.098;
+    b.ellipsoid('body', [footX, 0.117, footZ], [0.065, 0.048, 0.115]);
+    b.rod('body', [footX, 0.145, footZ], [side * 0.105, 0.325, kneeZ], 0.039, 0.046);
+    b.rod('body', [side * 0.105, 0.325, kneeZ], [side * 0.071, 0.48, -0.015], 0.046, 0.052);
   }
   b.part('body');
   // Long stone-carved tunic and cape give a very different outline to the dwarf.
@@ -339,28 +345,37 @@ function elf(articulated = false) {
     b.ellipsoid('body', [side * 0.159, 0.879, 0], [0.065, 0.071, 0.065]);
     b.ellipsoid('ornament', [side * 0.16, 0.90, 0], [0.074, 0.024, 0.068]);
   }
+  // Same carved elf and same bow: only the archer's pose changes.
+  // The left arm is extended in the direction of fire; the right hand draws
+  // the string back towards the cheek (like the approved Álfastafl poster).
   b.part('left-arm');
-  b.rod('body', [-0.175, 0.86, 0], [-0.254, 0.735, 0.045], 0.042, 0.037);
-  b.rod('body', [-0.254, 0.735, 0.045], [-0.325, 0.775, 0.125], 0.037, 0.028);
-  b.ellipsoid('body', [-0.325, 0.775, 0.125], [0.035, 0.043, 0.031]);
+  b.rod('body', [-0.175, 0.86, 0], [-0.335, 0.815, 0.10], 0.042, 0.037);
+  b.rod('body', [-0.335, 0.815, 0.10], [-0.455, 0.83, 0.20], 0.037, 0.028);
+  b.ellipsoid('body', [-0.455, 0.83, 0.20], [0.035, 0.043, 0.031]);
   b.part('right-arm');
-  b.rod('body', [0.17, 0.865, 0], [0.237, 0.72, 0.033], 0.042, 0.035);
-  b.rod('body', [0.237, 0.72, 0.033], [0.11, 0.77, 0.149], 0.035, 0.025);
-  b.ellipsoid('body', [0.11, 0.77, 0.149], [0.036, 0.031, 0.027]);
+  b.rod('body', [0.17, 0.865, 0], [0.325, 0.88, 0.02], 0.042, 0.035);
+  b.rod('body', [0.325, 0.88, 0.02], [0.085, 0.955, 0.20], 0.035, 0.025);
+  b.ellipsoid('body', [0.085, 0.955, 0.20], [0.036, 0.031, 0.027]);
 
   b.part('left-arm');
-  // Existing stone-carved bow and bowstring, held by the left hand.
-  // In cutscenes a separate animated arrow nocks at the REAL bowstring;
-  // keeping this static cross-chest arrow would leave a ghost after release.
-  const bow = new THREE.QuadraticBezierCurve3(vector([-0.318, 0.43, 0.12]),
-    vector([-0.53, 0.82, 0.12]), vector([-0.318, 1.195, 0.12]));
+  // Preserve the original stone bow and string, now held out from the body.
+  // The braced string meets the right hand at the true drawn nocking point.
+  // The combat animation uses this same point via combat-bow-nock.
+  const bowTop = [-0.465, 1.205, 0.20];
+  const bowBottom = [-0.465, 0.445, 0.20];
+  const bowNock = [0.085, 0.955, 0.20];
+  const bow = new THREE.QuadraticBezierCurve3(vector(bowBottom),
+    vector([-0.665, 0.825, 0.20]), vector(bowTop));
   b.add('ornament', new THREE.TubeGeometry(bow, 16, 0.018, 6, false));
-  b.rod('recess', [-0.318, 0.43, 0.12], [-0.318, 1.195, 0.12], 0.0055, 0.0055, 5);
+  b.rod('recess', bowTop, bowNock, 0.0055, 0.0055, 5);
+  b.rod('recess', bowBottom, bowNock, 0.0055, 0.0055, 5);
   b.part('right-arm');
   if (!articulated) {
-    b.rod('ornament', [-0.34, 0.777, 0.147], [0.228, 0.76, 0.147], 0.008, 0.008, 5);
-    b.relief('body', [[0.017, 0], [-0.017, 0.018], [-0.009, 0], [-0.017, -0.018]],
-      0.012, [0.24, 0.76, 0.147], 0.002);
+    // A resting arrow, with its tail against the drawn hand; during combat
+    // the procedural arrow takes its place without leaving a ghost shaft.
+    b.rod('ornament', bowNock, [-0.615, 0.852, 0.20], 0.008, 0.008, 5);
+    b.relief('body', [[-0.02, 0], [0.02, 0.018], [0.013, 0], [0.02, -0.018]],
+      0.012, [-0.62, 0.852, 0.20], 0.002);
   }
   b.part('body');
   b.cylinder('recess', [0.12, 0.73, -0.13], 0.058, 0.045, 0.34, [0, 0, -0.19]);
