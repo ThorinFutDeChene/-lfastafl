@@ -13,13 +13,18 @@ class StartupSplashTests(unittest.TestCase):
             repo=Path(folder)/'source'
             bundled=repo/'web'/'assets'/'affiche.png'
             user=home/'alfastafl'/'affiche.png'
-            self.assertIsNone(splash_image_path(home,repo))
+            shared=Path(folder)/'system'
+            self.assertIsNone(splash_image_path(home,repo,shared))
+            system=shared/'affiche.png'
+            system.parent.mkdir(parents=True)
+            system.write_bytes(b'official-poster')
+            self.assertEqual(splash_image_path(home,repo,shared),system)
             bundled.parent.mkdir(parents=True)
             bundled.write_bytes(b'packaged-art')
-            self.assertEqual(splash_image_path(home,repo),bundled)
+            self.assertEqual(splash_image_path(home,repo,shared),bundled)
             user.parent.mkdir(parents=True)
             user.write_bytes(b'approved-original-poster')
-            self.assertEqual(splash_image_path(home,repo),user)
+            self.assertEqual(splash_image_path(home,repo,shared),user)
             self.assertEqual(user.read_bytes(),b'approved-original-poster')
 
     def test_splash_is_a_short_nonblocking_intro(self):
