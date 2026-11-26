@@ -271,7 +271,7 @@
   try{
    const data=await api('tournaments');
    tournamentsCache=data.tournaments||[];
-   if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open&&!isArchived(t))){
+   if(activeId&&!tournamentsCache.some(t=>t.id===activeId&&t.registration_open&&(!isArchived(t)||(t.completed&&!t.ceremony_dismissed)))){
     if(globalThis.AlfastaflBroadcast?.currentTournament()===activeId)
      globalThis.AlfastaflBroadcast.stop();
     activeId='';
@@ -281,7 +281,7 @@
    if(!activeId){
     // Native host restarts clear sessionStorage. Restore the most recent
     // unfinished QR tournament so its rail and authorization QR return.
-    const resumable=tournamentsCache.filter(t=>t.registration_open&&!isArchived(t));
+    const resumable=tournamentsCache.filter(t=>t.registration_open&&(!isArchived(t)||(t.completed&&!t.ceremony_dismissed)));
     if(resumable.length){
      activeId=resumable[resumable.length-1].id;
      sessionStorage.setItem('alfastafl.active-tournament',activeId);

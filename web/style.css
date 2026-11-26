@@ -1245,3 +1245,19 @@ body.desktop-shell .tournament-detail .tournament-standings span{
 body.desktop-shell .tournament-detail .tournament-podium-results p{
  margin:7px 0;color:#f0d6a6;font-weight:700;
 }
+
+/* Closing cinematic, visible until the host confirms it. */
+#tournament-final-podium{position:fixed;inset:0;z-index:1400;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 35%,#51402c,#0b1912 75%);color:#ffe4b1}
+#tournament-final-podium .podium-gl{position:absolute;inset:0}
+#tournament-final-podium .podium-gl canvas{width:100%;height:100%;display:block}
+#tournament-final-podium .podium-heading{position:absolute;top:3%;left:0;right:0;text-align:center;z-index:2;text-shadow:0 3px 15px #000}
+#tournament-final-podium .podium-heading h2{font-size:clamp(1.4rem,5vw,4rem);margin:0}
+#tournament-final-podium .podium-heading p{font-size:clamp(.8rem,2vw,1.6rem);letter-spacing:.14em}
+#tournament-final-podium .podium-names{position:absolute;z-index:2;bottom:10%;left:2%;right:2%;display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;align-items:end;text-align:center}
+#tournament-final-podium .podium-names>div{padding:13px 7px;border:1px solid #d4b579;border-radius:12px;background:#07160edc;min-width:0;animation:podium-entry 1.6s both}
+#tournament-final-podium .podium-names strong{display:block;font-size:clamp(.9rem,3.4vw,2.6rem);overflow-wrap:anywhere}
+#tournament-final-podium .podium-names span{display:block;font-size:clamp(.65rem,1.6vw,1rem)}
+#tournament-final-podium .podium-dismiss{position:absolute;z-index:5;right:15px;bottom:15px}
+#tournament-final-podium .podium-dismiss[hidden]{display:none!important}
+#tournament-final-podium[data-organizer="true"]{cursor:pointer}
+@keyframes podium-entry{from{opacity:0;translate:0 40px;filter:blur(10px)}to{opacity:1;translate:0 0;filter:none}}

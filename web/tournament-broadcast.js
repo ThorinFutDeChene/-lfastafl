@@ -108,6 +108,17 @@
    if(current!==state)return;
    heading.textContent=data.name;
    round.textContent='Ronde '+data.round;
+   if(data.completed&&data.rankings?.length){
+    if(data.ceremony_dismissed){
+     AlfastaflTournamentPodium.close();
+     pairing.textContent='Tournoi terminé · '+data.rankings.slice(0,3).join(' · ');
+    }else AlfastaflTournamentPodium.show({id:state.id,name:data.name,
+      rankings:data.rankings,organizer:isHost&&isDesktopShell,
+      onDismiss:()=>api('tournament/ceremony/dismiss',{tournament:state.id})});
+    main.removeAttribute('src');activeGame=null;updateScenes([]);
+    return;
+   }
+   AlfastaflTournamentPodium.close();
    const matches=data.matches||[];
    const visible=matches.filter(m=>m.game);
    if(!visible.length){
@@ -138,6 +149,7 @@
  }
  function currentTournament(){return current?.id||null;}
  function stop(){
+  AlfastaflTournamentPodium.close();
   current=null;
   if(interval){clearInterval(interval);interval=null;}
   activeGame=null;lastSwitch=0;
