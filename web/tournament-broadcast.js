@@ -112,6 +112,12 @@
     if(data.ceremony_dismissed){
      AlfastaflTournamentPodium.close();
      pairing.textContent='Tournoi terminé · '+data.rankings.slice(0,3).join(' · ');
+     if(isHost&&isDesktopShell){
+      // Return organizer to normal management after confirmation.
+      stop();
+      globalThis.AlfastaflTournaments?.refresh?.();
+      return;
+     }
     }else AlfastaflTournamentPodium.show({id:state.id,name:data.name,
       rankings:data.rankings,organizer:isHost&&isDesktopShell,
       onDismiss:()=>api('tournament/ceremony/dismiss',{tournament:state.id})});
