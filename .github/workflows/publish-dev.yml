@@ -90,6 +90,11 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
         run: node tests/browser_tournament_four_clients.cjs
+      - name: Verify shared final 3D podium and host-only dismissal
+        timeout-minutes: 5
+        env:
+          NODE_PATH: ${{ runner.temp }}/alfastafl-ui/node_modules
+        run: node tests/browser_tournament_history.cjs
       - name: Verify shared QR tutorial under Firefox
         timeout-minutes: 7
         env:
