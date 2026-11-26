@@ -96,7 +96,21 @@ async function main(){
   const spectatorContext=await browser.newContext({viewport:{width:390,height:844}});
   const spectator=await spectatorContext.newPage();
   spectator.on('pageerror',e=>errors.push('spectator: '+e.message));
-  await spectator.goto(base+'/?tournament='+tid+'&invite='+encodeURIComponent(spectatorInvite),
+  // A real QR opens the host's LAN IP, not loopback. Route an independent
+  // hostname to the test server so client-side isHost stays false.
+  const spectatorHostname='spectateur-qr.test';
+  await spectatorContext.route('**/*',async route=>{
+   const req=route.request(),url=new URL(req.url());
+   if(url.hostname!==spectatorHostname)return route.abort();
+   const options={method:req.method(),headers:req.headers()};
+   if(req.postDataBuffer())options.data=req.postDataBuffer();
+   try{
+    const response=await spectatorContext.request.fetch(base+url.pathname+url.search,options);
+    await route.fulfill({response});
+   }catch(_){await route.abort().catch(()=>{});}
+  });
+  await spectator.goto('http://'+spectatorHostname+':'+new URL(base).port+
+   '/?tournament='+tid+'&invite='+encodeURIComponent(spectatorInvite),
    {waitUntil:'domcontentloaded'});
   await spectator.waitForFunction(()=>window.AlfastaflBroadcast?.currentTournament());
   await page.goto(base+'/?desktop=shell',{waitUntil:'domcontentloaded'});
