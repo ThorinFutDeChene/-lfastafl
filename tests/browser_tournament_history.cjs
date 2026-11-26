@@ -91,6 +91,33 @@ async function main(){
   const completed=(await api('tournaments')).tournaments.find(t=>t.id===tid);
   assert.equal(completed.completed,true);
   assert.deepEqual(completed.rankings.sort(),['Chloé','David']);
+  // The full-screen cinematic must be shared before anyone can dismiss it.
+  const spectatorInvite=(await api('tournament/invites?tournament='+tid)).invites.spectator;
+  const spectatorContext=await browser.newContext({viewport:{width:390,height:844}});
+  const spectator=await spectatorContext.newPage();
+  spectator.on('pageerror',e=>errors.push('spectator: '+e.message));
+  await spectator.goto(base+'/?tournament='+tid+'&invite='+encodeURIComponent(spectatorInvite),
+   {waitUntil:'domcontentloaded'});
+  await spectator.waitForFunction(()=>window.AlfastaflBroadcast?.currentTournament());
+  await page.goto(base+'/?desktop=shell',{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>window.AlfastaflBroadcast?.start);
+  await page.evaluate(id=>window.AlfastaflBroadcast.start(id),tid);
+  for(const viewer of [page,spectator]){
+   await viewer.locator('#tournament-final-podium').waitFor({state:'visible'});
+   assert.equal(await viewer.locator('#tournament-final-podium .podium-names strong').count(),3);
+   await viewer.locator('#tournament-final-podium .podium-gl canvas').waitFor({state:'visible'});
+  }
+  assert.equal(await spectator.locator('#tournament-final-podium .podium-dismiss').isVisible(),false);
+  assert.equal(await page.locator('#tournament-final-podium .podium-dismiss').isVisible(),true);
+  await spectator.locator('#tournament-final-podium').click({position:{x:14,y:220}});
+  assert.equal((await api('tournaments')).tournaments.find(t=>t.id===tid).ceremony_dismissed,false);
+  await page.locator('#tournament-final-podium .podium-dismiss').click();
+  await page.waitForFunction(()=>!document.getElementById('tournament-final-podium'));
+  await spectator.waitForFunction(()=>!document.getElementById('tournament-final-podium'));
+  assert.equal((await api('tournaments')).tournaments.find(t=>t.id===tid).ceremony_dismissed,true);
+  await spectatorContext.close();
+  console.log('PASS cinematic 3D podium on host and spectators; only host may dismiss.');
+
   await page.goto(base+'/?desktop=shell',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>Boolean(window.AlfastaflTournaments));
   await page.evaluate(()=>window.AlfastaflShell.open('tournament'));

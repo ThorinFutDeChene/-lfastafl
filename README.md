@@ -1,4 +1,20 @@
-# Álfastafl — 0.7.2-dev6 (canal DEV)
+# Álfastafl — 0.7.3-dev1 (canal DEV)
+
+## DEV 0.7.3-dev1 — Cérémonie finale du tournoi en 3D
+
+Le podium de fin de tournoi est présenté simultanément sur le PC hôte
+et sur les appareils spectateurs : coupe d’or au centre, médaille d’argent
+à gauche, médaille de bronze à droite, avec les pseudos officiels.
+
+La caméra et les récompenses sont animées ; la scène reste affichée jusqu’au
+clic du PC organisateur. Les spectateurs ne disposent pas de cette commande.
+Le classement et la clôture sont enregistrés pour résister au redémarrage.
+
+**Version Debian :** `0.7.3~dev1`. La stable 0.7.2 est inchangée.
+
+---
+
+# Historique — 0.7.2-dev6 (canal DEV)
 
 ## DEV 0.7.2-dev6 — Cinématiques de capture et de combat dans les tournois
 

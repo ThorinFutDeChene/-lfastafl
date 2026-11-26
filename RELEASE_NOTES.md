@@ -1,3 +1,14 @@
+# Álfastafl 0.7.3-dev1 — Podium cinématographique 3D
+
+- Podium 3D diffusé au PC hôte et à tous les spectateurs lorsque le classement est définitif.
+- Coupe d’or au centre, argent à gauche et bronze à droite ; noms réels issus du serveur.
+- Clôture uniquement par clic sur le PC organisateur, persistée après redémarrage.
+- Aucun podium alternatif simplifié pour terminaux anciens.
+- Recette prévue : animation 3D, diffusion spectateurs, maintien de l’écran
+  et clôture exclusivement depuis le poste hôte.
+
+---
+
 # Álfastafl 0.7.2-dev6 — Cinématiques des tournois
 
 - Corrige l'absence de scènes de combat en tournoi causée par

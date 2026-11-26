@@ -726,7 +726,21 @@ class Store:
                     'session': link,
                 })
             return {'id': tid, 'name': tournament['name'],
-                    'round': tournament['round_no'], 'matches': matches}
+                    'round': tournament['round_no'], 'matches': matches,
+                    'completed':bool(tournament.get('completed')),
+                    'rankings':list(tournament.get('rankings',[])) if tournament.get('completed') else [],
+                    'ceremony_dismissed':bool(tournament.get('ceremony_dismissed'))}
+
+    def dismiss_tournament_ceremony(self,tid):
+        """Close the final podium for every viewer. Only a host HTTP route calls this."""
+        with self.lock:
+            tournament=self.tournaments.get(tid)
+            if not tournament or not tournament.get('completed') or not tournament.get('rankings'):
+                raise ValueError('Ce tournoi ne dispose pas encore d’un podium final.')
+            if not tournament.get('ceremony_dismissed'):
+                tournament['ceremony_dismissed']=True
+                self.save_tournaments()
+            return {'dismissed':True,'tournament':tid}
 
     def revoke_tournament_device(self, tid, name, role):
         with self.lock:
@@ -1459,6 +1473,7 @@ class AppHandler(BaseHTTPRequestHandler):
         root=pathlib.Path(__file__).resolve().parents[2]/'web'
         assets=('index.html','app.js','tutorial.js','tutorial-view.html','tutorial-view.js','host-shell.js','tournament-ui.js',
                 'tournament-client.js','tournament-open-client.js','tournament-ceremony.js',
+                'tournament-podium.js',
                 'tournament-broadcast.js','style.css',
                 'board-view.js','board3d.js','figurines3d.js','move3d.js','cinematic3d.js','combat-motion.js','flank-capture.js',
                 'flank-cinematic3d.js','archery3d.js','throne-capture.js',
@@ -1680,7 +1695,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 return self.send({'tutorial':tutorial.play_move(
                     d.get('mode','fetlar'),d.get('lesson'),d.get('from'),d.get('to'))})
             if u.path in ('/api/spectators/limit','/api/create','/api/approve','/api/reject','/api/resume','/api/pause','/api/delete','/api/host/seat','/api/disconnect/decide','/api/tournament/create','/api/tournament/round','/api/tournament/registration/decide',
-                           '/api/tournament/revoke','/api/tournament/delete') and not self.admin():raise PermissionError('Host-only action')
+                           '/api/tournament/revoke','/api/tournament/delete',
+                           '/api/tournament/ceremony/dismiss') and not self.admin():raise PermissionError('Host-only action')
             if u.path=='/api/spectators/limit':
                 return self.send(st.set_spectator_limit(d.get('limit')))
             if u.path=='/api/create':
@@ -1734,6 +1750,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     st.tournament_invitations(t.id)
                     st.save_tournaments()
                 return self.send({'tournament':st.tournaments[t.id]})
+            if u.path=='/api/tournament/ceremony/dismiss':
+                return self.send(st.dismiss_tournament_ceremony(d['tournament']))
             if u.path=='/api/tournament/delete':
                 return self.send(st.delete_tournament(d['tournament']))
             if u.path=='/api/tournament/revoke':

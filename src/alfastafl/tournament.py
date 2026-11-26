@@ -77,7 +77,7 @@ class Tournament:
     FORMATS=('knockout','round_robin','swiss')
     def __init__(self,name,format,players,rounds=3,id=None,history=None,matches=None,round_no=0,
                  devices=None,spectator_devices=None,registration_open=False,
-                 completed=False,final_round=False,rankings=None):
+                 completed=False,final_round=False,rankings=None,ceremony_dismissed=False):
         if format not in self.FORMATS:raise ValueError('Invalid tournament format')
         if (len(players)<2 and not registration_open) or len(set(players))!=len(players):
             raise ValueError('Need unique players')
@@ -92,6 +92,8 @@ class Tournament:
         self.completed=bool(completed)
         self.final_round=bool(final_round)
         self.rankings=list(rankings or [])
+        # The public closing scene remains visible until the organizer closes it.
+        self.ceremony_dismissed=bool(ceremony_dismissed)
 
     def as_dict(self):
         return dict(id=self.id,name=self.name,format=self.format,
@@ -99,7 +101,8 @@ class Tournament:
                     matches=self.matches,round_no=self.round_no,
                     devices=self.devices,spectator_devices=self.spectator_devices,
                     registration_open=self.registration_open,completed=self.completed,
-                    final_round=self.final_round,rankings=self.rankings)
+                    final_round=self.final_round,rankings=self.rankings,
+                    ceremony_dismissed=self.ceremony_dismissed)
 
     @classmethod
     def from_dict(cls,d):return cls(**d)
