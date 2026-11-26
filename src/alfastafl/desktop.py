@@ -183,7 +183,8 @@ def main():
         splash_page_ready[0] = True
         splash_maybe_finish()
 
-    view.loadFinished.connect(on_main_page_loaded)
+    if splash:
+        view.loadFinished.connect(on_main_page_loaded)
     view.setUrl(QUrl(f'http://127.0.0.1:{PORT}/?desktop=shell'))
     # Keep the Qt updater controller's toolbar API, but put all actions
     # in the native menu bar: the screen belongs to the plateau + QR rail.
