@@ -1,3 +1,19 @@
+# Álfastafl 0.7.3-dev2 — Archers elfes et affiche de lancement
+
+- Sculpture elfe **existante** : jambes en appui, bras d’arc tendu,
+  main droite sur la corde près du visage ; pierre ivoire et socle conservés.
+- **Nain de bronze et roi elfe inchangés** : ni armes, ni couronne, ni poses modifiées.
+- Point d’encochage 3D recalé sur la corde pour les scènes de combat.
+- Sur Ubuntu, une **affiche de lancement plein écran** apparaît au démarrage,
+  pendant **3,5 secondes minimum**, sans recadrage, jusqu’au chargement
+  de l’interface (12 secondes maximum).
+- Affiche validée disponible séparément sous la forme d’un paquet de
+  ressources `alfastafl-affiche` (PNG original 1536×1024, non modifié),
+  installable une seule fois ; elle résiste aux mises à jour du jeu.
+- Les connexions LAN, menus, tournois et QR restent inchangés.
+
+---
+
 # Álfastafl 0.7.3-dev1 — Podium cinématographique 3D
 
 - Podium 3D diffusé au PC hôte et à tous les spectateurs lorsque le classement est définitif.

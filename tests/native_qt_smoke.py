@@ -42,6 +42,16 @@ def main():
             LIBGL_ALWAYS_SOFTWARE="1",
             PYTHONPATH=str(pathlib.Path(__file__).resolve().parents[1] / "src"),
         )
+        # Exercise the actual Qt fullscreen poster in addition to native
+        # WebEngine startup. Generate a local image only for CI, not the product.
+        from PIL import Image, ImageDraw
+        poster = root / "data" / "alfastafl" / "affiche.png"
+        poster.parent.mkdir(parents=True, exist_ok=True)
+        artwork = Image.new("RGB", (960, 640), "#26352c")
+        paint = ImageDraw.Draw(artwork)
+        paint.rectangle((70, 70, 890, 570), outline="#d8b879", width=12)
+        paint.text((290, 260), "ALFASTAFL - TEST", fill="#f4d9a1")
+        artwork.save(poster)
         proc = subprocess.Popen(
             ["/usr/bin/python3", "-m", "alfastafl.desktop"],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

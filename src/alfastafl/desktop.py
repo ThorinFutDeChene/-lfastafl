@@ -1,6 +1,63 @@
 """Qt6 native host: open and retire a scoped LAN lease for live sessions."""
 import threading
 import time
+import os
+from pathlib import Path
+
+SPLASH_MIN_MS = 3500  # The complete poster remains on screen for at least 3.5 s.
+SPLASH_MAX_MS = 12000  # Never leave the organizer stuck behind a failed page.
+
+
+def splash_image_path(data_home=None, project_root=None, shared_root=None):
+    """Prefer a persistent, full-resolution poster over a packaged copy.
+
+    The user-specific copy survives Debian upgrades and is never overwritten.
+    Both paths are absolute and loaded locally; no cloud access is needed.
+    """
+    data_root = Path(data_home) if data_home is not None else Path(
+        os.environ.get('XDG_DATA_HOME') or Path.home() / '.local' / 'share')
+    package_root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[2]
+    shared = Path(shared_root) if shared_root is not None else Path('/usr/share/alfastafl')
+    for picture in (data_root / 'alfastafl' / 'affiche.png',
+                    package_root / 'web' / 'assets' / 'affiche.png',
+                    shared / 'affiche.png'):
+        if picture.is_file():
+            return picture
+    return None
+
+
+def show_startup_splash(app):
+    """Fullscreen image with letterboxing: never crop the title or sculptures."""
+    picture = splash_image_path()
+    if picture is None:
+        return None
+    # Import separately: headless/unit-test Qt stubs do not expose painting API.
+    try:
+        from PyQt6.QtWidgets import QSplashScreen
+        from PyQt6.QtGui import QPixmap, QPainter, QColor
+        from PyQt6.QtCore import Qt
+        art = QPixmap(str(picture))
+        screen = app.primaryScreen()
+        if art.isNull() or screen is None:
+            return None
+        screen_size = screen.geometry().size()
+        canvas = QPixmap(screen_size)
+        canvas.fill(QColor('#0b1511'))
+        painter = QPainter(canvas)
+        scaled = art.scaled(screen_size, Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation)
+        painter.drawPixmap((canvas.width() - scaled.width()) // 2,
+                           (canvas.height() - scaled.height()) // 2, scaled)
+        painter.end()
+        splash = QSplashScreen(canvas,
+            Qt.WindowType.SplashScreen | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint)
+        splash.showFullScreen()
+        app.processEvents()
+        return splash
+    except (ImportError, AttributeError, TypeError):
+        return None
+
 
 from .server import run, Store, PORT
 from .relauncher import schedule_restart
@@ -63,6 +120,10 @@ def main():
     import sys
 
     app = QApplication(sys.argv)
+    splash = show_startup_splash(app)
+    splash_started = time.monotonic()
+    splash_page_ready = [False]
+    splash_finished = [False]
     store = Store()
     # A local-only web service is immediately accessible even without Wi-Fi,
     # a polkit agent, or an authorized firewall change.
@@ -108,6 +169,25 @@ def main():
 
     view = DisplayWebView(win)
     win.setCentralWidget(view)
+    # Never expose an uninitialized game window in place of the opening art.
+    def finish_splash():
+        if not splash or splash_finished[0]:
+            return
+        splash_finished[0] = True
+        splash.finish(win)
+
+    def splash_maybe_finish():
+        if not splash or splash_finished[0] or not splash_page_ready[0]:
+            return
+        elapsed = int((time.monotonic() - splash_started) * 1000)
+        QTimer.singleShot(max(0, SPLASH_MIN_MS - elapsed), finish_splash)
+
+    def on_main_page_loaded(_success):
+        splash_page_ready[0] = True
+        splash_maybe_finish()
+
+    if splash:
+        view.loadFinished.connect(on_main_page_loaded)
     view.setUrl(QUrl(f'http://127.0.0.1:{PORT}/?desktop=shell'))
     # Keep the Qt updater controller's toolbar API, but put all actions
     # in the native menu bar: the screen belongs to the plateau + QR rail.
@@ -331,6 +411,11 @@ def main():
 
     app.aboutToQuit.connect(shutdown)
     show_main_window(win)
+    if splash:
+        # The native full-screen splash covers the host while QtWebEngine boots.
+        splash.raise_()
+        QTimer.singleShot(SPLASH_MIN_MS, splash_maybe_finish)
+        QTimer.singleShot(SPLASH_MAX_MS, finish_splash)
     # No LAN listener until game creation, selected save or tutorial use.
     sys.exit(app.exec())
 
