@@ -8,7 +8,7 @@ SPLASH_MIN_MS = 3500  # The complete poster remains on screen for at least 3.5 s
 SPLASH_MAX_MS = 12000  # Never leave the organizer stuck behind a failed page.
 
 
-def splash_image_path(data_home=None, project_root=None):
+def splash_image_path(data_home=None, project_root=None, shared_root=None):
     """Prefer a persistent, full-resolution poster over a packaged copy.
 
     The user-specific copy survives Debian upgrades and is never overwritten.
@@ -17,8 +17,10 @@ def splash_image_path(data_home=None, project_root=None):
     data_root = Path(data_home) if data_home is not None else Path(
         os.environ.get('XDG_DATA_HOME') or Path.home() / '.local' / 'share')
     package_root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[2]
+    shared = Path(shared_root) if shared_root is not None else Path('/usr/share/alfastafl')
     for picture in (data_root / 'alfastafl' / 'affiche.png',
-                    package_root / 'web' / 'assets' / 'affiche.png'):
+                    package_root / 'web' / 'assets' / 'affiche.png',
+                    shared / 'affiche.png'):
         if picture.is_file():
             return picture
     return None
@@ -48,7 +50,8 @@ def show_startup_splash(app):
                            (canvas.height() - scaled.height()) // 2, scaled)
         painter.end()
         splash = QSplashScreen(canvas,
-            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+            Qt.WindowType.SplashScreen | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint)
         splash.showFullScreen()
         app.processEvents()
         return splash
