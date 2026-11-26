@@ -1,4 +1,38 @@
-# Álfastafl — 0.7.3-dev1 (canal DEV)
+# Álfastafl — 0.7.3-dev2 (canal DEV)
+
+## DEV 0.7.3-dev2 — Nouvelle posture des archers elfes et affiche d’ouverture
+
+Les sculptures existantes sont conservées : les **elfes restent en pierre
+ivoire**, les **nains en bronze** et le **roi reste elfe**.
+
+**Seule la posture des elfes archers change** : les jambes sont décalées
+pour stabiliser le tir, le bras gauche maintient l’arc tendu et la main
+droite ramène la corde au niveau du visage. La nouvelle position
+d’encochage est utilisée par les animations 3D : aucune régression
+sur les prises, les flèches ou les mouvements du roi n’est voulue.
+
+Au lancement **natif Ubuntu**, une affiche d’ouverture est montrée
+**sur tout l’écran pendant au moins 3,5 secondes**. L’interface du jeu
+est révélée lorsqu’elle est chargée, avec une sécurité après 12 secondes.
+L’affiche n’est jamais recadrée : bandes sombres sur les écrans 16:9
+pour conserver intégralement le titre et les figurines. Les clients
+connectés par QR ne voient pas cet écran d’ouverture.
+
+### Installer l’affiche officielle
+
+L’image validée (1536 × 1024 pixels) est disponible dans le paquet
+complémentaire `alfastafl-affiche` version 1.0.0.
+**Il s’installe une seule fois** et est conservé après mise à jour de
+l’application. L’image peut également être placée dans :
+`~/.local/share/alfastafl/affiche.png` (sans privilèges administrateur).
+L’application recherche cette copie personnelle en priorité, puis la
+copie embarquée éventuelle et enfin `/usr/share/alfastafl/affiche.png`.
+
+**Version Debian :** `0.7.3~dev2`. La stable 0.7.2 reste inchangée.
+
+---
+
+# Historique — 0.7.3-dev1 (canal DEV)
 
 ## DEV 0.7.3-dev1 — Cérémonie finale du tournoi en 3D
 
