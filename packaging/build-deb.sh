@@ -15,6 +15,8 @@ else
     PACKAGE_DESCRIPTION='Alfastafl Viking-fantasy tafl local-network game'
     PACKAGE_DETAIL=' Open-source 11x11 tafl game with LAN play and persistent saves.'
 fi
+# The approved original poster is part of the main package, not an optional download.
+(cd "$ROOT" && printf '%s  %s\n' '07bd456f33d6005657aa1bfa89e028bae10d2baca66271aaf2da389a89fd4c69' 'web/assets/affiche.png' | sha256sum -c -)
 FILE_VERSION=$(printf '%s' "$VERSION" | tr '~' '_')
 OUTPUT=${1:-"$ROOT/../alfastafl_${FILE_VERSION}_all.deb"}
 BUILD=$(mktemp -d)

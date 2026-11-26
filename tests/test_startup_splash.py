@@ -1,5 +1,6 @@
 """Native Qt splash: full poster, persistent asset preference and no menu regression."""
 import tempfile
+import hashlib
 import unittest
 from pathlib import Path
 
@@ -7,6 +8,17 @@ from alfastafl.desktop import splash_image_path, SPLASH_MIN_MS, SPLASH_MAX_MS
 
 
 class StartupSplashTests(unittest.TestCase):
+    def test_official_original_poster_is_bundled(self):
+        root = Path(__file__).resolve().parents[1]
+        poster = root / 'web' / 'assets' / 'affiche.png'
+        self.assertTrue(poster.is_file(), 'Official poster missing from package sources')
+        self.assertEqual(hashlib.sha256(poster.read_bytes()).hexdigest(),
+                         '07bd456f33d6005657aa1bfa89e028bae10d2baca66271aaf2da389a89fd4c69')
+        from PIL import Image
+        with Image.open(poster) as art:
+            self.assertEqual(art.size, (1536, 1024))
+            art.verify()
+
     def test_uses_persistent_art_instead_of_pkg_and_preserves_original(self):
         with tempfile.TemporaryDirectory() as folder:
             home=Path(folder)/'userdata'

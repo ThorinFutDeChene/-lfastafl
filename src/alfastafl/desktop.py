@@ -33,7 +33,7 @@ def show_startup_splash(app):
     """Fullscreen image with letterboxing: never crop the title or sculptures."""
     picture = splash_image_path()
     if picture is None:
-        print('Álfastafl: affiche de lancement absente ; installer alfastafl-affiche ou placer affiche.png dans le dossier de données.', file=sys.stderr)
+        print('Álfastafl: affiche de lancement absente ; vérifier l’installation du paquet alfastafl.', file=sys.stderr)
         return None
     # Import separately: headless/unit-test Qt stubs do not expose painting API.
     try:

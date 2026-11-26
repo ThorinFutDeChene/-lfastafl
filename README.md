@@ -1,4 +1,18 @@
-# Álfastafl — 0.7.3-dev3 (canal DEV)
+# Álfastafl — 0.7.3-dev4 (canal DEV)
+
+## DEV 0.7.3-dev4 — Affiche officielle intégrée au jeu
+
+Le PNG officiel de 1536 × 1024 pixels est inclus **sans modification** dans
+le paquet principal `alfastafl`. L’affiche s’installe automatiquement à
+chaque installation ou mise à jour : aucun paquet complémentaire n’est requis.
+Le plein écran de lancement reste visible au moins 10 secondes, sans
+recadrage. Une copie personnelle déjà installée conserve sa priorité.
+
+**Version Debian :** `0.7.3~dev4`. La stable 0.7.2 reste inchangée.
+
+---
+
+# Historique — 0.7.3-dev3 (canal DEV)
 
 ## DEV 0.7.3-dev3 — Affiche de lancement prolongée
 

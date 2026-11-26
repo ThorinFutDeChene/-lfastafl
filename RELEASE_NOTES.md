@@ -1,3 +1,13 @@
+# Álfastafl 0.7.3-dev4 — Affiche officielle intégrée au paquet principal
+
+- PNG original 1536 × 1024 intégré sans retouche ni réencodage.
+- Installation automatique de l’affiche avec `alfastafl`, sans paquet complémentaire.
+- Affichage plein écran pendant 10 secondes minimum, sans recadrage ni fermeture prématurée.
+- Vérification de l’intégrité de l’image lors de la construction du paquet et dans les tests.
+- Stable 0.7.2 inchangée.
+
+---
+
 # Álfastafl 0.7.3-dev3 — Affiche de lancement 10 secondes
 
 - Affiche officielle plein écran : **10 secondes minimum**, jusqu’à 15 secondes si nécessaire.
