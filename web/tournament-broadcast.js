@@ -13,7 +13,7 @@
  const pairing=document.getElementById('broadcast-pairing');
  const stopButton=document.getElementById('broadcast-stop');
  const nextButton=document.getElementById('broadcast-next');
- let current=null,interval=null,busy=false,lastSwitch=0,activeGame=null;
+ let current=null,interval=null,busyState=null,lastSwitch=0,activeGame=null;
  const overlays=new Map();
  const PERIOD_MS=12000,MAX_SIMULTANEOUS_SCENES=6;
  const encoded=v=>encodeURIComponent(v||'');
@@ -99,8 +99,8 @@
   if(label)label.textContent=valid?'Tournoi en réseau · validation des joueurs uniquement':'LAN inactif';
  }
  async function poll(){
-  if(!current||busy)return;
-  const state=current;busy=true;
+  if(!current||busyState===current)return;
+  const state=current;busyState=state;
   try{
    const params=new URLSearchParams({tournament:state.id});
    if(!isHost)params.set('session',state.session);
@@ -151,10 +151,13 @@
   }catch(error){
    if(current!==state)return;
    pairing.textContent='Diffusion indisponible : '+(error.message||String(error));
-  }finally{busy=false;}
+   if(!isHost&&error.status===403&&error.message.includes('non autorisée'))
+    globalThis.AlfastaflTournamentConnection?.recoverSpectator();
+  }finally{if(busyState===state)busyState=null;}
  }
  function currentTournament(){return current?.id||null;}
- function stop(){
+ function stop(restoreBoard=true){
+  const hadBroadcast=Boolean(current);
   AlfastaflTournamentPodium.close();
   current=null;
   if(interval){clearInterval(interval);interval=null;}
@@ -163,15 +166,21 @@
   document.body.classList.remove('tournament-broadcast');
   main.removeAttribute('src');
   for(const game of Array.from(overlays.keys()))removeScene(game);
+  if(hadBroadcast&&restoreBoard&&!isDesktopManager&&!isDesktopTutorial){
+   gameBoardView.setActive(true);
+   syncGameBoard();
+  }
  }
  function start(id){
   if(!id||q.has('broadcast-view'))return false;
   const proof=isHost?'host':session;
   if(current?.id===id&&current.session===proof)return true;
-  stop();
+  stop(false);
   current={id,session:proof};
   root.hidden=false;
   document.body.classList.add('tournament-broadcast');
+  clearCinematic();
+  gameBoardView.setActive(false);
   stopButton.hidden=!(isHost&&isDesktopShell);
   nextButton.hidden=!(isHost&&isDesktopShell);
   heading.textContent='Tournoi';

@@ -1,3 +1,15 @@
+# Álfastafl 0.7.3-dev4 — Fiabilité réseau et diffusion des tournois
+
+- Reprise automatique de la lecture des QR de tournoi après une panne réseau, sans contourner l’autorisation ni la limite de spectateurs.
+- Reconnexion automatique des spectateurs et conservation des autorisations joueurs lors d’une interruption temporaire.
+- Requêtes de consultation bornées à 10 secondes, sans empilement des cycles périodiques ni nouvelle soumission automatique des coups.
+- Les réponses tardives d’une ancienne diffusion ne bloquent pas la nouvelle ; le plateau 3D parent masqué n’est plus rendu pendant la diffusion.
+- Une cinématique en attente de chargement 3D ne démarre plus après son expiration ou son annulation ; les scènes et leur durée serveur restent inchangées.
+- Tests de requête retardée, pertes réseau simulées à la connexion du spectateur et reprise du podium.
+- Intégration de l’affiche reportée ; démarrage et ressources inchangés. Stable 0.7.2 inchangée.
+
+---
+
 # Álfastafl 0.7.3-dev3 — Affiche de lancement 10 secondes
 
 - Affiche officielle plein écran : **10 secondes minimum**, jusqu’à 15 secondes si nécessaire.

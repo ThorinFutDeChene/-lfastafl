@@ -240,27 +240,31 @@
    }
   }
 
+  function handleRefreshError(error){
+   const reason=error.message||String(error);
+   if(secret&&error.status===403&&reason.includes('non autorisé')){
+    secret='';
+    forget('alfastafl.credential.'+tid+'.player.'+name);
+    showEntry('Cette autorisation n’est plus valable. Demandez un nouvel accès.');
+   }else if(registration&&error.status&&error.status<500&&reason.includes('expirée')){
+    registration='';forget(registrationKey);sessionStorage.removeItem(registrationKey);
+    showEntry('Connexion interrompue. Renouvelez votre inscription.');
+   }else if(registration){
+    showApproval();
+    waiting.textContent='Connexion interrompue. Reconnexion automatique…';
+   }else if(!gameId){
+    lobbyBoard('Connexion interrompue. Reconnexion automatique…',preview);
+   }
+  }
+
   async function tick(){
    if(busy)return;
    busy=true;
    try{
     if(registration)await refreshRegistration();
     else if(secret)await refreshPlayer();
-   }catch(error){
-    const reason=error.message||String(error);
-    if(reason.includes('autorisé')||reason.includes('inconnu')){
-     secret='';
-     forget('alfastafl.credential.'+tid+'.player.'+name);
-     showEntry('Cette autorisation n’est plus valable. Demandez un nouvel accès.');
-    }else if(registration&&reason.includes('expirée')){
-     registration='';forget(registrationKey);sessionStorage.removeItem(registrationKey);
-     showEntry('Connexion interrompue. Renouvelez votre inscription.');
-    }else if(registration){
-     waiting.textContent=reason;
-    }else if(!gameId){
-     banner.textContent='En attente de connexion · '+reason;
-    }
-   }finally{busy=false;}
+   }catch(error){handleRefreshError(error);}
+   finally{busy=false;}
   }
 
   action.onclick=requestSignup;
@@ -269,10 +273,14 @@
   }};
   if(registration){showApproval();}
   else if(secret){
+   busy=true;
    try{await refreshPlayer();}
-   catch(_){showEntry('Autorisation à vérifier : confirmez votre pseudo.');}
+   catch(error){handleRefreshError(error);}
+   finally{busy=false;}
   }else showEntry();
   setInterval(tick,1900);
+  globalThis.addEventListener?.('online',tick);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
  }
 
  window.AlfastaflOpenTournamentClient={start};

@@ -30,7 +30,7 @@ async function show({id,name,rankings,organizer,onDismiss}){
  if(organizer){
   let submitting=false;
   const finish=async()=>{if(submitting)return;submitting=true;dismiss.disabled=true;
-   try{await onDismiss();close();}
+   try{await onDismiss();if(active?.close===cleanup)close();}
    catch(error){dismiss.title=String(error);dismiss.disabled=false;submitting=false;}};
   root.addEventListener('click',finish);
  }

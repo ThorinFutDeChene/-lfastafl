@@ -139,6 +139,7 @@ async function makeHarness() {
   const timers = new Map();
   let firstEvent;
   let stateReads = 0;
+  let heldState = null;
   const response = (body, status = 200) => {
     const snapshot = clone(body);
     return {ok: status >= 200 && status < 300, status, json: async () => clone(snapshot)};
@@ -152,8 +153,10 @@ async function makeHarness() {
         assert.equal(url.searchParams.get('session'), session);
         if (url.pathname === '/api/state') {
           stateReads++;
-          return response({game: serverGame, you: {role: 'player', camp: 'dwarf'},
+          const result = response({game: serverGame, you: {role: 'player', camp: 'dwarf'},
             review_votes: {}, server_now: 1000});
+          if (heldState) await heldState.promise;
+          return result;
         }
         const square = [Number(url.searchParams.get('row')), Number(url.searchParams.get('col'))];
         if (square[0] === 2 && square[1] === 2) {
@@ -212,6 +215,8 @@ async function makeHarness() {
     document, moves, unexpected, evaluate,
     get stateReads() { return stateReads; },
     poll: () => timers.get(1800)(),
+    holdState: () => {heldState = deferred();},
+    releaseState: () => {const pending=heldState;heldState=null;pending.resolve();},
     opponentMove: () => advance(serverGame, [7, 7], [7, 6]),
     release: outcome => {
       if (outcome === 'success') pendingMove.resolve(response({event: firstEvent}));
@@ -271,3 +276,16 @@ for (const outcome of ['success', 'http-error', 'network-error']) {
     assert.deepEqual(app.unexpected, []);
   });
 }
+
+test('A stalled periodic state request never overlaps another poll', {timeout:3000}, async()=>{
+  const app=await makeHarness();
+  app.holdState();
+  const pending=app.poll();
+  const reads=app.stateReads;
+  await app.poll();await app.poll();
+  assert.equal(app.stateReads,reads,'No duplicate polling during a network stall');
+  app.releaseState();await pending;
+  await app.poll();
+  assert.equal(app.stateReads,reads+1,'Polling resumes when the response arrives');
+  assert.deepEqual(app.unexpected,[]);
+});

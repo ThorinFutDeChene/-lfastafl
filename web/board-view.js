@@ -33,6 +33,7 @@
       this.disposed = false;
       this.failed = false;
       this.rendererGeneration = 0;
+      this.captureGeneration = 0;
       this.root.boardView = this;
       this.selector.value = '3d';
       this.selector.addEventListener('change', () => this.setMode(this.selector.value));
@@ -171,12 +172,22 @@
 
     async playCapture(event, options) {
       if (!this.active || this.mode !== '3d' || this.disposed) return false;
+      const generation = ++this.captureGeneration;
+      const started = performance.now();
       if (!this.renderer) await this.ensureRenderer();
-      if (this.disposed || !this.active || this.mode !== '3d' || !this.renderer) return false;
+      if (generation !== this.captureGeneration || this.disposed || !this.active ||
+          this.mode !== '3d' || !this.renderer) return false;
+      const remaining = Number(options?.remaining);
+      if (Number.isFinite(remaining)) {
+        const liveRemaining = remaining - (performance.now() - started) / 1000;
+        if (liveRemaining <= 0) return false;
+        options = {...options, remaining: liveRemaining};
+      }
       return this.renderer.playCapture(event, options);
     }
 
     cancelCapture() {
+      this.captureGeneration++;
       this.renderer?.cancelCapture();
     }
 
@@ -186,6 +197,7 @@
       this.selector.value = mode;
       this.failed = false;
       if (mode === '2d') {
+        this.cancelCapture();
         this.showFlat();
         this.message('Vue 2D · souris, tactile et clavier. Les flèches parcourent les cases ; Entrée sélectionne.');
       } else {
@@ -194,6 +206,7 @@
     }
 
     setActive(active) {
+      if (!active && this.active) this.cancelCapture();
       this.active = Boolean(active);
       this.syncActivity();
       if (this.active && this.mode === '3d') this.ensureRenderer();
@@ -206,6 +219,7 @@
     dispose() {
       if (this.disposed) return;
       this.disposed = true;
+      this.captureGeneration++;
       this.rendererGeneration++;
       document.removeEventListener('visibilitychange', this.visibilityChanged);
       this.host.removeEventListener('board-input-error', this.inputError);

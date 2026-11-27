@@ -87,12 +87,26 @@ redrawSoundControls();
 document.addEventListener('alfastafl-tutorial-move',()=>soundscape.effect('move'));
 let gameKeyboardSquare=[0,0];
 if(!isHost)$('host').hidden=true;
+// Bound read-only polls, not arbitrary mutations: a failed move response must
+// never cause a client to submit the same move a second time.
 async function api(path,data){
  const opts=data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{};
- const response=await fetch('/api/'+path,opts);
- const result=await response.json();
- if(!response.ok)throw Error(result.error||response.status);
- return result;
+ const bounded=!data||path==='tournament/player/state';
+ const controller=bounded&&typeof AbortController==='function'?new AbortController():null;
+ const timer=controller?setTimeout(()=>controller.abort(),10000):null;
+ if(controller)opts.signal=controller.signal;
+ try{
+  const response=await fetch('/api/'+path,opts);
+  const result=await response.json();
+  if(!response.ok){
+   const error=Error(result.error||response.status);
+   error.status=response.status;throw error;
+  }
+  return result;
+ }catch(error){
+  if(controller?.signal.aborted)throw Error('Le serveur ne répond pas. Réessayez.');
+  throw error;
+ }finally{if(timer!==null)clearTimeout(timer);}
 }
 // The first requested activity opens one temporary LAN lease through Qt.
 // A failed firewall authorization never prevents local play or loading a save.
@@ -353,6 +367,8 @@ const gameBoardView=new AlfastaflBoardView({
  }
 });
 function syncGameBoard(){
+ // The broadcast frames own the visible rendering surfaces.
+ if(document.body.classList.contains('tournament-broadcast'))return;
  if(isDesktopManager||isDesktopTutorial){
   gameBoardView.setActive(false);
   return;
@@ -487,13 +503,15 @@ async function load(){
   clockReceivedAt=performance.now();serverTimeReceivedAt=state.server_now||Date.now()/1000;
   if(before!==positionKey()||!myTurn())invalidateBoardInteraction();
   render();
-  if(newestMove&&!cue&&!isDesktopManager&&!isDesktopTutorial){
+  const presentBoard=!isDesktopManager&&!isDesktopTutorial&&
+   !document.body.classList.contains('tournament-broadcast');
+  if(newestMove&&!cue&&presentBoard){
    soundscape.effect('move');
    // A hidden/2D client still receives the authoritative board immediately.
    // The interpolated motion is entirely local and never delays a turn.
    gameBoardView.playMove(newestMove).catch(()=>{});
   }
-  if(cue&&cueKey!==seenCinematic&&!isDesktopManager&&!isDesktopTutorial) {
+  if(cue&&cueKey!==seenCinematic&&presentBoard) {
    seenCinematic=cueKey;
    if(skippedCinematic!==cueKey) {
     captureVisualPlaying=true;
@@ -511,7 +529,9 @@ async function load(){
       else{soundscape.effect('strike');soundscape.effect('shatter',.1);}
      }
     }).catch(()=>{
-     captureVisualPlaying=false;renderCaptureOverlay();
+     if(captureKey(cinematicCue)===cueKey){
+      captureVisualPlaying=false;renderCaptureOverlay();
+     }
     });
    }
   }else renderCaptureOverlay();
@@ -765,7 +785,11 @@ async function pending(){
   }
  }catch(error){}
 }
+let tickRunning=false;
 async function tick(){
+ if(tickRunning)return;
+ tickRunning=true;
+ try{
  if(isHost&&!isDesktopBoard&&!isDesktopTutorial){try{const n=await api('address');$('lan-status').textContent=n.lan_enabled?
   `Serveur réseau actif : http://${n.address}:${n.port}/`:
   'Mode local · le LAN s’ouvre automatiquement à la création ou reprise d’une partie.';
@@ -793,6 +817,7 @@ async function tick(){
  if(gameId&&(session||isHost))await load();
  if(!isDesktopBoard&&!isDesktopTutorial)await listGames();
  if(isHost&&!isDesktopBoard&&!isDesktopTutorial)await refreshSpectators();
+ }finally{tickRunning=false;}
 }
 if(q.has('invite')){$('gid').value=q.get('game')||'';$('invite').value=q.get('invite')||'';}
 if(!isHost&&q.has('invite')&&!q.has('tournament')){
@@ -846,5 +871,7 @@ $('spectator-limit-save').onclick=async()=>{
 $('mode').addEventListener('change',()=>{if(!game)syncGameBoard();});
 render();
 setInterval(tick,1800);
+globalThis.addEventListener?.('online',tick);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
 setInterval(()=>{renderClocks();renderConnection();},250);
 tick();

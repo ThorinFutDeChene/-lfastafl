@@ -99,9 +99,20 @@ async function main(){
   // A real QR opens the host's LAN IP, not loopback. Route an independent
   // hostname to the test server so client-side isHost stays false.
   const spectatorHostname='spectateur-qr.test';
+  let failedRole=false,failedEnter=false,failedBroadcast=false;
   await spectatorContext.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
    if(url.hostname!==spectatorHostname)return route.abort();
+   // Simulated transient failures before the requests reach the server.
+   if(url.pathname==='/api/tournament/invite/role'&&!failedRole){
+    failedRole=true;return route.abort('failed');
+   }
+   if(url.pathname==='/api/tournament/enter'&&!failedEnter){
+    failedEnter=true;return route.abort('failed');
+   }
+   if(url.pathname==='/api/tournament/broadcast'&&!failedBroadcast){
+    failedBroadcast=true;return route.abort('failed');
+   }
    const options={method:req.method(),headers:req.headers()};
    if(req.postDataBuffer())options.data=req.postDataBuffer();
    try{
@@ -112,7 +123,10 @@ async function main(){
   await spectator.goto('http://'+spectatorHostname+':'+new URL(base).port+
    '/?tournament='+tid+'&invite='+encodeURIComponent(spectatorInvite),
    {waitUntil:'domcontentloaded'});
-  await spectator.waitForFunction(()=>window.AlfastaflBroadcast?.currentTournament());
+  await spectator.waitForFunction(id=>window.AlfastaflBroadcast?.currentTournament()===id,tid,{timeout:45000});
+  assert.equal(failedRole,true);assert.equal(failedEnter,true);
+  assert.equal(await spectator.evaluate(()=>gameBoardView.active),false,
+   'A broadcast does not render its hidden parent board');
   await page.goto(base+'/?desktop=shell',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.AlfastaflBroadcast?.start);
   await page.evaluate(id=>window.AlfastaflBroadcast.start(id),tid);
@@ -121,6 +135,8 @@ async function main(){
    assert.equal(await viewer.locator('#tournament-final-podium .podium-names strong').count(),3);
    await viewer.locator('#tournament-final-podium .podium-gl canvas').waitFor({state:'visible'});
   }
+  assert.equal(failedBroadcast,true,'The spectator recovered after a failed broadcast request');
+  assert.equal(await page.evaluate(()=>gameBoardView.active),false);
   assert.equal(await spectator.locator('#tournament-final-podium .podium-dismiss').isVisible(),false);
   assert.equal(await page.locator('#tournament-final-podium .podium-dismiss').isVisible(),true);
   await spectator.locator('#tournament-final-podium').click({position:{x:14,y:220}});
